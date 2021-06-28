@@ -46,6 +46,7 @@ public class StandardQueryOptimizerPipeline implements QueryOptimizerPipeline {
 	public Iterable<QueryOptimizer> getOptimizers() {
 		return Arrays.asList(
 				new BindingAssigner(),
+				new BindingSetAssignmentInliner(),
 				new ConstantOptimizer(strategy),
 				new RegexAsStringFunctionOptimizer(tripleSource.getValueFactory()),
 				new CompareOptimizer(),
@@ -56,7 +57,8 @@ public class StandardQueryOptimizerPipeline implements QueryOptimizerPipeline {
 				new QueryJoinOptimizer(evaluationStatistics),
 				new IterativeEvaluationOptimizer(),
 				new FilterOptimizer(),
-				new OrderLimitOptimizer());
+				new OrderLimitOptimizer(),
+				new ParentReferenceCleaner());
 	}
 
 }

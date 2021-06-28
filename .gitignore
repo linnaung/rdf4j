@@ -7,6 +7,7 @@
 **/.settings
 bin
 **/bin
+**/.factorypath
 
 # Eclipse Plug-In Settings
 .pmd
@@ -34,6 +35,7 @@ dependency-reduced-pom.xml
 **/nb-configuration.xml
 **/nbactions*.xml
 *.jfr
+compliance/repository/overlays
 **/webapp/META-INF/context.xml
 /core/sail/elasticsearch-store/tempElasticsearchDownload/*
 tempElasticsearchDownload

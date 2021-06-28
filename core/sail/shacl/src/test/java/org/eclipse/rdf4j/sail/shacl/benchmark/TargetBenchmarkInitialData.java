@@ -60,8 +60,7 @@ public class TargetBenchmarkInitialData {
 	@Param({ "1", "1000", "100000" })
 	public int existingTargets = 10;
 
-	@Param({ "shaclDatatypePredicateObjectTarget.ttl", "shaclDatatypeSparqlTarget.ttl",
-			"shaclDatatypeTargetFilter.ttl" })
+	@Param({ "shaclDatatypeSparqlTarget.ttl", "shaclDatatypeTargetFilter.ttl" })
 	public String shape;
 
 	public int NUMBER_OF_TRANSACTIONS = 10;
@@ -76,6 +75,7 @@ public class TargetBenchmarkInitialData {
 	public void trialSetup() throws InterruptedException {
 		Logger root = (Logger) LoggerFactory.getLogger(ShaclSailConnection.class.getName());
 		root.setLevel(ch.qos.logback.classic.Level.INFO);
+		System.setProperty("org.eclipse.rdf4j.sail.shacl.experimentalSparqlValidation", "true");
 
 		transactions = new ArrayList<>(NUMBER_OF_TRANSACTIONS);
 

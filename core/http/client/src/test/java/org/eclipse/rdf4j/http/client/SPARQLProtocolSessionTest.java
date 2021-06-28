@@ -9,6 +9,7 @@ package org.eclipse.rdf4j.http.client;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
+import static com.github.tomakehurst.wiremock.client.WireMock.configureFor;
 import static com.github.tomakehurst.wiremock.client.WireMock.containing;
 import static com.github.tomakehurst.wiremock.client.WireMock.post;
 import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
@@ -42,12 +43,13 @@ import org.eclipse.rdf4j.query.resultio.TupleQueryResultFormat;
 import org.eclipse.rdf4j.query.resultio.sparqljson.SPARQLStarResultsJSONWriter;
 import org.eclipse.rdf4j.query.resultio.sparqlxml.SPARQLStarResultsXMLWriter;
 import org.eclipse.rdf4j.rio.RDFFormat;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import com.github.tomakehurst.wiremock.WireMockServer;
 
 /**
  * Unit tests for {@link SPARQLProtocolSession}
@@ -56,15 +58,26 @@ import com.github.tomakehurst.wiremock.junit.WireMockRule;
  */
 public class SPARQLProtocolSessionTest {
 
-	@ClassRule
-	public static WireMockRule wireMockRule = new WireMockRule(wireMockConfig().dynamicPort());
+	public static WireMockServer wireMockServer;
+
+	@BeforeAll
+	public static void setPort() {
+		wireMockServer = new WireMockServer(wireMockConfig().dynamicPort());
+		wireMockServer.start();
+		configureFor(wireMockServer.port());
+	}
+
+	@AfterAll
+	public static void closeMockPort() {
+		wireMockServer.stop();
+	}
 
 	SPARQLProtocolSession sparqlSession;
 
 	String testHeader = "X-testing-header";
 	String testValue = "foobar";
 
-	String serverURL = "http://localhost:" + wireMockRule.port() + "/rdf4j-server";
+	String serverURL = "http://localhost:" + wireMockServer.port() + "/rdf4j-server";
 	String repositoryID = "test";
 
 	SPARQLProtocolSession createProtocolSession() {
@@ -78,7 +91,7 @@ public class SPARQLProtocolSessionTest {
 		return session;
 	}
 
-	@Before
+	@BeforeEach
 	public void setUp() throws Exception {
 		sparqlSession = createProtocolSession();
 	}
@@ -112,8 +125,27 @@ public class SPARQLProtocolSessionTest {
 		SPARQLStarResultsXMLWriter handler = Mockito.spy(new SPARQLStarResultsXMLWriter(out));
 		sparqlSession.sendTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o}", null, null, true, -1, handler);
 
-		// SPARQL* XML sink should accept SPARQL/XML data and pass directly to OutputStream
+		// SPARQL-star XML sink should accept SPARQL/XML data and pass directly to OutputStream
 		verify(handler, never()).startQueryResult(anyList());
+
+		// check that the OutputStream received content in XML format
+		assertThat(out.toString()).startsWith("<");
+	}
+
+	@Test
+	public void testTupleQuery_Passthrough_ConfiguredFalse() throws Exception {
+		stubFor(post(urlEqualTo("/rdf4j-server/repositories/test"))
+				.willReturn(aResponse().withStatus(200)
+						.withHeader("Content-Type", TupleQueryResultFormat.SPARQL.getDefaultMIMEType())
+						.withBodyFile("repository-list.xml")));
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		SPARQLStarResultsXMLWriter handler = Mockito.spy(new SPARQLStarResultsXMLWriter(out));
+		sparqlSession.setPassThroughEnabled(false);
+		sparqlSession.sendTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o}", null, null, true, -1, handler);
+
+		// If not passed through, the QueryResultWriter methods should have been invoked
+		verify(handler, times(1)).startQueryResult(anyList());
 
 		// check that the OutputStream received content in XML format
 		assertThat(out.toString()).startsWith("<");

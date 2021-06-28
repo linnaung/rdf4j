@@ -2,12 +2,11 @@ package org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents;
 
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
@@ -16,7 +15,7 @@ import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.sail.shacl.ConnectionsGroup;
 import org.eclipse.rdf4j.sail.shacl.RdfsSubClassOfReasoner;
 import org.eclipse.rdf4j.sail.shacl.SourceConstraintComponent;
-import org.eclipse.rdf4j.sail.shacl.ast.HelperTool;
+import org.eclipse.rdf4j.sail.shacl.ast.ShaclAstLists;
 import org.eclipse.rdf4j.sail.shacl.ast.SparqlFragment;
 import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
 import org.eclipse.rdf4j.sail.shacl.ast.paths.Path;
@@ -41,7 +40,7 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 	public DashHasValueInConstraintComponent(Resource hasValueIn, RepositoryConnection connection) {
 		super(hasValueIn);
 		this.hasValueIn = Collections
-				.unmodifiableSet(new LinkedHashSet<>(HelperTool.toList(connection, hasValueIn, Value.class)));
+				.unmodifiableSet(new LinkedHashSet<>(ShaclAstLists.toList(connection, hasValueIn, Value.class)));
 	}
 
 	public DashHasValueInConstraintComponent(DashHasValueInConstraintComponent dashHasValueInConstraintComponent) {
@@ -50,13 +49,12 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
-		if (exported.contains(getId())) {
-			return;
-		}
-		exported.add(getId());
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, DASH.hasValueIn, getId());
-		HelperTool.listToRdf(hasValueIn, getId(), model);
+
+		if (!model.contains(getId(), null, null)) {
+			ShaclAstLists.listToRdf(hasValueIn, getId(), model);
+		}
 	}
 
 	@Override
@@ -72,6 +70,7 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 	@Override
 	public PlanNode generateTransactionalValidationPlan(ConnectionsGroup connectionsGroup, boolean logValidationPlans,
 			PlanNodeProvider overrideTargetNode, Scope scope) {
+		StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider = new StatementMatcher.StableRandomVariableProvider();
 
 		EffectiveTarget target = getTargetChain().getEffectiveTarget("_target", scope,
 				connectionsGroup.getRdfsSubClassOfReasoner());
@@ -83,25 +82,27 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 
 			if (overrideTargetNode != null) {
 				addedTargets = overrideTargetNode.getPlanNode();
-				addedTargets = target.extend(addedTargets, connectionsGroup, scope, EffectiveTarget.Extend.right,
-						false);
 
+				addedTargets = target.extend(addedTargets, connectionsGroup, scope, EffectiveTarget.Extend.right,
+						false, null);
 			} else {
-				addedTargets = target.getPlanNode(connectionsGroup, scope, true);
+				addedTargets = target.getPlanNode(connectionsGroup, scope, true, null);
 				PlanNode addedByPath = path.getAdded(connectionsGroup, null);
 
-				addedByPath = target.getTargetFilter(connectionsGroup, new Unique(new TrimToTarget(addedByPath)));
-				addedByPath = target.extend(addedByPath, connectionsGroup, scope, EffectiveTarget.Extend.left, false);
+				addedByPath = target.getTargetFilter(connectionsGroup,
+						new Unique(new TrimToTarget(addedByPath), false));
+				addedByPath = target.extend(addedByPath, connectionsGroup, scope, EffectiveTarget.Extend.left, false,
+						null);
 
 				addedTargets = new UnionNode(addedByPath, addedTargets);
-				addedTargets = new Unique(addedTargets);
+				addedTargets = new Unique(addedTargets, false);
 			}
 
 			PlanNode joined = new BulkedExternalLeftOuterJoin(
 					addedTargets,
 					connectionsGroup.getBaseConnection(),
 					path.getTargetQueryFragment(new StatementMatcher.Variable("a"), new StatementMatcher.Variable("c"),
-							connectionsGroup.getRdfsSubClassOfReasoner()),
+							connectionsGroup.getRdfsSubClassOfReasoner(), stableRandomVariableProvider),
 					false,
 					null,
 					(b) -> new ValidationTuple(b.getValue("a"), b.getValue("c"), scope, true)
@@ -111,7 +112,7 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 				return group.stream().map(ValidationTuple::getValue).noneMatch(hasValueIn::contains);
 			});
 
-			return new Unique(new TrimToTarget(invalidTargets));
+			return new Unique(new TrimToTarget(invalidTargets), false);
 
 		} else if (scope == Scope.nodeShape) {
 
@@ -120,9 +121,9 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 			if (overrideTargetNode != null) {
 				addedTargets = overrideTargetNode.getPlanNode();
 				addedTargets = target.extend(addedTargets, connectionsGroup, scope, EffectiveTarget.Extend.right,
-						false);
+						false, null);
 			} else {
-				addedTargets = target.getPlanNode(connectionsGroup, scope, false);
+				addedTargets = target.getPlanNode(connectionsGroup, scope, false, null);
 			}
 
 			PlanNode falseNode = new ValueInFilter(addedTargets, hasValueIn)
@@ -141,49 +142,46 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 		if (scope == Scope.propertyShape) {
 			PlanNode allTargetsPlan = getTargetChain()
 					.getEffectiveTarget("target_", Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner())
-					.getPlanNode(connectionsGroup, Scope.nodeShape, true);
+					.getPlanNode(connectionsGroup, Scope.nodeShape, true, null);
 
-			return new Unique(new ShiftToPropertyShape(allTargetsPlan));
+			return new Unique(new ShiftToPropertyShape(allTargetsPlan), true);
 		}
-		return new EmptyNode();
-	}
-
-	@Override
-	public Stream<StatementMatcher> getStatementMatchers_rsx_targetShape(StatementMatcher.Variable subject,
-			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
-
-		if (getTargetChain().getPath().isPresent()) {
-			Path path = getTargetChain().getPath().get();
-			return path.getStatementMatcher(subject, object, rdfsSubClassOfReasoner);
-
-//			return hasValueIn
-//					.stream()
-//					.flatMap(value -> path.getStatementPatterns(subject, object, rdfsSubClassOfReasoner));
-		}
-
-		throw new IllegalStateException("Dunno what to do here!");
+		return EmptyNode.getInstance();
 	}
 
 	@Override
 	public SparqlFragment buildSparqlValidNodes_rsx_targetShape(StatementMatcher.Variable subject,
 			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
+
+		List<StatementMatcher> statementMatchers = Collections.emptyList();
+
+		if (getTargetChain().getPath().isPresent()) {
+			Path path = getTargetChain().getPath().get();
+
+			statementMatchers = hasValueIn.stream()
+					.flatMap(v -> path.getStatementMatcher(subject, new StatementMatcher.Variable(v),
+							rdfsSubClassOfReasoner))
+					.collect(Collectors.toList());
+		}
+
 		if (scope == Scope.propertyShape) {
 			Path path = getTargetChain().getPath().get();
 
 			String sparql = hasValueIn
 					.stream()
 					.map(value -> {
-//						Var objectVar = new Var("hasValueIn_" + UUID.randomUUID().toString().replace("-", ""));
 
 						if (value.isIRI()) {
 							return "BIND(<" + value + "> as ?" + object.getName() + ")\n"
-									+ path.getTargetQueryFragment(subject, object, rdfsSubClassOfReasoner);
+									+ path.getTargetQueryFragment(subject, object, rdfsSubClassOfReasoner,
+											stableRandomVariableProvider);
 						}
 						if (value.isLiteral()) {
 							return "BIND(" + value.toString() + " as ?" + object.getName() + ")\n"
-									+ path.getTargetQueryFragment(subject, object, rdfsSubClassOfReasoner);
+									+ path.getTargetQueryFragment(subject, object, rdfsSubClassOfReasoner,
+											stableRandomVariableProvider);
 						}
 
 						throw new UnsupportedOperationException(
@@ -193,7 +191,7 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 							Collectors.joining("} UNION {\n" + VALUES_INJECTION_POINT + "\n",
 									"{\n" + VALUES_INJECTION_POINT + "\n",
 									"}"));
-			return SparqlFragment.bgp(sparql);
+			return SparqlFragment.bgp(sparql, statementMatchers);
 
 		} else {
 
@@ -210,7 +208,7 @@ public class DashHasValueInConstraintComponent extends AbstractConstraintCompone
 					})
 					.reduce((a, b) -> a + " || " + b)
 					.orElseThrow(() -> new IllegalStateException("hasValueIn was empty"));
-			return SparqlFragment.filterCondition(sparql);
+			return SparqlFragment.filterCondition(sparql, statementMatchers);
 
 		}
 	}

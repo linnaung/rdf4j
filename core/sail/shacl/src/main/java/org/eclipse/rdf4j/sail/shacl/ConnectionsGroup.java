@@ -18,14 +18,15 @@ import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.BufferedSplitter;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
+import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnBufferedPlanNode;
+import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnorderedSelect;
 
 /**
  *
- * @deprecated since 3.0. This feature is for internal use only: its existence, signature or behavior may change without
- *             warning from one release to the next.
+ * @apiNote since 3.0. This feature is for internal use only: its existence, signature or behavior may change without
+ *          warning from one release to the next.
  *
  */
-@Deprecated
 @InternalUseOnly
 public class ConnectionsGroup implements Closeable {
 
@@ -40,16 +41,17 @@ public class ConnectionsGroup implements Closeable {
 	private final Stats stats;
 
 	private final RdfsSubClassOfReasonerProvider rdfsSubClassOfReasonerProvider;
+	private final boolean experimentalSparqlValidation;
 
 	private final ConcurrentLinkedQueue<SailConnection> connectionsToClose = new ConcurrentLinkedQueue<>();
 
 	// used to cache Select plan nodes so that we don't query a store for the same data during the same validation step.
-	private final Map<PlanNode, BufferedSplitter> selectNodeCache = new HashMap<>();
+	private final Map<PlanNode, BufferedSplitter> nodeCache = new HashMap<>();
 
 	ConnectionsGroup(SailConnection baseConnection,
 			SailConnection previousStateConnection, Sail addedStatements, Sail removedStatements,
 			Stats stats, RdfsSubClassOfReasonerProvider rdfsSubClassOfReasonerProvider,
-			ShaclSailConnection.Settings transactionSettings) {
+			ShaclSailConnection.Settings transactionSettings, boolean experimentalSparqlValidation) {
 		this.baseConnection = baseConnection;
 		this.previousStateConnection = previousStateConnection;
 		this.addedStatements = addedStatements;
@@ -57,6 +59,7 @@ public class ConnectionsGroup implements Closeable {
 		this.stats = stats;
 		this.rdfsSubClassOfReasonerProvider = rdfsSubClassOfReasonerProvider;
 		this.transactionSettings = transactionSettings;
+		this.experimentalSparqlValidation = experimentalSparqlValidation;
 	}
 
 	public SailConnection getPreviousStateConnection() {
@@ -86,13 +89,17 @@ public class ConnectionsGroup implements Closeable {
 		return baseConnection;
 	}
 
-	synchronized public PlanNode getCachedNodeFor(PlanNode select) {
+	synchronized public PlanNode getCachedNodeFor(PlanNode planNode) {
 
 		if (!transactionSettings.isCacheSelectNodes()) {
-			return select;
+			return planNode;
 		}
 
-		BufferedSplitter bufferedSplitter = selectNodeCache.computeIfAbsent(select, BufferedSplitter::new);
+		if (planNode instanceof UnorderedSelect || planNode instanceof UnBufferedPlanNode) {
+			return planNode;
+		}
+
+		BufferedSplitter bufferedSplitter = nodeCache.computeIfAbsent(planNode, BufferedSplitter::new);
 
 		return bufferedSplitter.getPlanNode();
 	}
@@ -107,6 +114,10 @@ public class ConnectionsGroup implements Closeable {
 
 	public ShaclSailConnection.Settings getTransactionSettings() {
 		return transactionSettings;
+	}
+
+	public boolean isExperimentalSparqlValidation() {
+		return experimentalSparqlValidation;
 	}
 
 	interface RdfsSubClassOfReasonerProvider {

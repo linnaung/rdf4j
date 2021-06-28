@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.eclipse.rdf4j.model.util.Values.bnode;
 import static org.eclipse.rdf4j.model.util.Values.iri;
 import static org.eclipse.rdf4j.model.util.Values.literal;
+import static org.eclipse.rdf4j.model.util.Values.namespace;
 import static org.eclipse.rdf4j.model.util.Values.triple;
 import static org.junit.Assert.fail;
 import static org.mockito.Mockito.mock;
@@ -29,10 +30,12 @@ import javax.xml.datatype.DatatypeFactory;
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
+import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.impl.TreeModel;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
@@ -116,6 +119,36 @@ public class ValuesTest {
 	}
 
 	@Test
+	public void testIriFromPrefixedName() {
+		Model m = new TreeModel();
+		m.setNamespace(RDF.NS);
+		m.setNamespace(namespace("ex", "http://example.org/"));
+
+		IRI test = iri(m.getNamespaces(), "ex:test");
+		assertThat(test.getLocalName()).isEqualTo("test");
+		assertThat(test.getNamespace()).isEqualTo("http://example.org/");
+	}
+
+	@Test
+	public void testIriFromPrefixedName_invalid1() {
+		Model m = new TreeModel();
+		m.setNamespace(RDF.NS);
+		m.setNamespace(namespace("ex", "http://example.org/"));
+
+		assertThatThrownBy(() -> iri(m.getNamespaces(), "extest")).isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("Invalid prefixed name: 'extest'");
+	}
+
+	@Test
+	public void testIriFromPrefixedName_invalid2() {
+		Model m = new TreeModel();
+		m.setNamespace(RDF.NS);
+
+		assertThatThrownBy(() -> iri(m.getNamespaces(), "ex:test")).isInstanceOf(IllegalArgumentException.class)
+				.hasMessage("Prefix 'ex' not identified in supplied namespaces");
+	}
+
+	@Test
 	public void testBNode() {
 		BNode bnode = bnode();
 		assertThat(bnode).isNotNull();
@@ -176,6 +209,43 @@ public class ValuesTest {
 	}
 
 	@Test
+	public void testLanguageTaggedLiteral() {
+		String lexValue = "a literal";
+		String languageTag = "en";
+		Literal literal = literal(lexValue, languageTag);
+
+		assertThat(literal.getLabel()).isEqualTo(lexValue);
+		assertThat(literal.getLanguage()).isNotEmpty().contains(languageTag);
+		assertThat(literal.getDatatype()).isEqualTo(RDF.LANGSTRING);
+	}
+
+	@Test
+	public void testLanguageTaggedLiteral_InjectedValueFactory() {
+		String lexValue = "a literal";
+		String languageTag = "en";
+		literal(vf, lexValue, languageTag);
+		verify(vf).createLiteral(lexValue, languageTag);
+	}
+
+	@Test
+	public void testLanguageTaggedLiteralNull1() {
+		String lexicalValue = null;
+		String languageTag = "en";
+		assertThatThrownBy(() -> literal(lexicalValue, languageTag))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("lexicalValue may not be null");
+	}
+
+	@Test
+	public void testLanguageTaggedLiteralNull2() {
+		String lexicalValue = "a literal";
+		String languageTag = null;
+		assertThatThrownBy(() -> literal(lexicalValue, languageTag))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessageContaining("languageTag may not be null");
+	}
+
+	@Test
 	public void testValidTypedLiteral() {
 		String lexValue = "42";
 		Literal literal = literal(lexValue, XSD.INT);
@@ -209,7 +279,8 @@ public class ValuesTest {
 	@Test
 	public void testTypedLiteralNull2() {
 		String lexValue = "42";
-		assertThatThrownBy(() -> literal(lexValue, null))
+		IRI datatype = null;
+		assertThatThrownBy(() -> literal(lexValue, datatype))
 				.isInstanceOf(NullPointerException.class)
 				.hasMessageContaining("datatype may not be null");
 	}
@@ -573,4 +644,5 @@ public class ValuesTest {
 		assertThat(l).isNotNull();
 		assertThat(l.getDatatype()).isEqualTo(XSD.STRING);
 	}
+
 }

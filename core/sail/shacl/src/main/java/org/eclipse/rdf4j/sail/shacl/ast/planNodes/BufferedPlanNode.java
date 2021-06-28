@@ -8,6 +8,7 @@
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.ArrayDeque;
+import java.util.Objects;
 import java.util.Queue;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -30,7 +31,7 @@ public class BufferedPlanNode<T extends MultiStreamPlanNode & PlanNode> implemen
 
 	BufferedPlanNode(T parent, String name) {
 		this.parent = parent;
-		this.name = name;
+		this.name = Objects.requireNonNull(name);
 	}
 
 	@Override
@@ -54,12 +55,16 @@ public class BufferedPlanNode<T extends MultiStreamPlanNode & PlanNode> implemen
 			}
 
 			private void calculateNext() {
+
 				while (buffer.isEmpty()) {
 					boolean success = parent.incrementIterator();
 					if (!success) {
 						break;
 					}
 				}
+
+				assert !buffer.isEmpty() || !parent.incrementIterator() && buffer.isEmpty();
+
 			}
 
 			@Override
@@ -69,14 +74,19 @@ public class BufferedPlanNode<T extends MultiStreamPlanNode & PlanNode> implemen
 				if (GlobalValidationExecutionLogging.loggingEnabled) {
 					validationExecutionLogger.log(depth(),
 							parent.getClass().getSimpleName() + ":Buffered:" + name + ".next()", tuple, parent,
-							getId());
+							getId(), null);
 				}
 				return tuple;
 			}
 
 			@Override
 			public void remove() throws SailException {
+				throw new UnsupportedOperationException();
+			}
 
+			@Override
+			public String toString() {
+				return "BufferedPlanNode-Iterator::" + parent.toString();
 			}
 
 		};
@@ -116,7 +126,7 @@ public class BufferedPlanNode<T extends MultiStreamPlanNode & PlanNode> implemen
 
 	@Override
 	public String toString() {
-		return "BufferedPlanNode";
+		return "BufferedPlanNode::" + parent.toString();
 	}
 
 	@Override
@@ -135,5 +145,22 @@ public class BufferedPlanNode<T extends MultiStreamPlanNode & PlanNode> implemen
 	@Override
 	public boolean requiresSorted() {
 		return parent.requiresSorted();
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		BufferedPlanNode<?> that = (BufferedPlanNode<?>) o;
+		return parent.equals(that.parent) && name.equals(that.name);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(parent, name);
 	}
 }

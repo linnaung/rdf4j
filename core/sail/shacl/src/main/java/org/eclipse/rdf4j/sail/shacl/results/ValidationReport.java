@@ -58,11 +58,13 @@ public class ValidationReport {
 		model.add(getId(), RDF.TYPE, SHACL.VALIDATION_REPORT);
 		model.add(getId(), RDF4J.TRUNCATED, BooleanLiteral.valueOf(truncated));
 
-		HashSet<Resource> resources = new HashSet<>();
+		model.setNamespace(SHACL.NS);
+
+		HashSet<Resource> rdfListDedupe = new HashSet<>();
 
 		for (ValidationResult result : validationResult) {
 			model.add(getId(), SHACL.RESULT, result.getId());
-			result.asModel(model, resources);
+			result.asModel(model, rdfListDedupe);
 		}
 
 		return model;

@@ -8,6 +8,9 @@
 package org.eclipse.rdf4j.query.parser.sparql;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.eclipse.rdf4j.model.util.Statements.statement;
+import static org.eclipse.rdf4j.model.util.Values.iri;
+import static org.eclipse.rdf4j.model.util.Values.literal;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
@@ -26,8 +29,10 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.vocabulary.DCAT;
 import org.eclipse.rdf4j.model.vocabulary.DCTERMS;
 import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.OWL;
@@ -879,6 +884,7 @@ public abstract class ComplexSPARQLQueryTest {
 		conn.add(new StringReader("@prefix : <urn:> . :a :p :b . :b :p :a ."), "", RDFFormat.TURTLE);
 
 		TupleQuery query = conn.prepareTupleQuery(QueryLanguage.SPARQL, queryStr);
+
 		try (TupleQueryResult result = query.evaluate();) {
 			assertNotNull(result);
 
@@ -1142,6 +1148,33 @@ public abstract class ComplexSPARQLQueryTest {
 			}
 			assertEquals(2, count);
 		}
+	}
+
+	/**
+	 * See https://github.com/eclipse/rdf4j/issues/3072
+	 * 
+	 */
+	@Test
+	public void testValuesAfterOptional() throws Exception {
+		String data = "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> . \n"
+				+ "@prefix :     <urn:ex:> . \n"
+				+ ":r1 a rdfs:Resource . \n"
+				+ ":r2 a rdfs:Resource ; rdfs:label \"a label\" . \n";
+
+		String query = ""
+				+ "prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> \n"
+				+ "prefix :     <urn:ex:> \n"
+				+ "\n"
+				+ "select ?resource ?label where { \n"
+				+ "  ?resource a rdfs:Resource . \n"
+				+ "  optional { ?resource rdfs:label ?label } \n"
+				+ "  values ?label { undef } \n"
+				+ "}";
+
+		conn.add(new StringReader(data), RDFFormat.TURTLE);
+
+		List<BindingSet> result = QueryResults.asList(conn.prepareTupleQuery(query).evaluate());
+		assertThat(result).hasSize(2);
 	}
 
 	/**
@@ -2025,6 +2058,32 @@ public abstract class ComplexSPARQLQueryTest {
 	}
 
 	@Test
+	/**
+	 * @see https://github.com/eclipse/rdf4j/issues/2727
+	 */
+	public void testNestedInversePropertyPathWithZeroLength() throws Exception {
+		String insert = "insert data {\n"
+				+ "    <urn:1> <urn:prop> <urn:object> .\n"
+				+ "    <urn:2> <urn:prop> <urn:mid:1> .\n"
+				+ "    <urn:mid:1> <urn:prop> <urn:object> .\n"
+				+ "    <urn:3> <urn:prop> <urn:mid:2> .\n"
+				+ "    <urn:mid:2> <urn:prop> <urn:mid:3> .\n"
+				+ "    <urn:mid:3> <urn:prop> <urn:object> .\n"
+				+ "}";
+
+		String query = "select * where { \n"
+				+ "    <urn:object> (^<urn:prop>)? ?o .\n"
+				+ "}";
+
+		conn.prepareUpdate(insert).execute();
+
+		TupleQuery tq = conn.prepareTupleQuery(query);
+
+		List<BindingSet> result = QueryResults.asList(tq.evaluate());
+		assertThat(result).hasSize(4);
+	}
+
+	@Test
 	public void testSES2147PropertyPathsWithIdenticalSubsPreds() throws Exception {
 
 		StringBuilder data = new StringBuilder();
@@ -2481,6 +2540,19 @@ public abstract class ComplexSPARQLQueryTest {
 		assertThat(result).hasSize(2);
 	}
 
+	@Test
+	public void testValuesCartesianProduct() {
+		final String queryString = ""
+				+ "select ?x ?y where { "
+				+ "  values ?x { undef 67 } "
+				+ "  values ?y { undef 42 } "
+				+ "}";
+		final TupleQuery tupleQuery = conn.prepareTupleQuery(queryString);
+
+		List<BindingSet> bindingSets = QueryResults.asList(tupleQuery.evaluate());
+		assertThat(bindingSets).hasSize(4);
+	}
+
 	/**
 	 * See https://github.com/eclipse/rdf4j/issues/1267
 	 */
@@ -2511,6 +2583,89 @@ public abstract class ComplexSPARQLQueryTest {
 			assertEquals("13.815", result.next().getValue("sec").stringValue());
 			assertFalse(result.hasNext());
 		}
+	}
+
+	@Test
+	public void testConstructModifiers() throws Exception {
+		loadTestData("/testdata-query/dataset-construct-modifiers.ttl");
+		String qry = "PREFIX foaf: <http://xmlns.com/foaf/0.1/> \n"
+				+ "PREFIX site: <http://example.org/stats#> \n"
+				+ "CONSTRUCT { \n"
+				+ "  ?iri foaf:name ?name . \n"
+				+ "  ?iri foaf:nick ?nick . \n"
+				+ "} \n"
+				+ "WHERE { \n"
+				+ "  ?iri foaf:name ?name ; \n"
+				+ "    site:hits ?hits ; \n"
+				+ "    foaf:nick ?nick . \n"
+				+ "} \n"
+				+ "ORDER BY desc(?hits) \n"
+				+ "LIMIT 3";
+		Statement correctResult[] = {
+				statement(iri("urn:1"), iri("http://xmlns.com/foaf/0.1/name"), literal("Alice"), null),
+				statement(iri("urn:1"), iri("http://xmlns.com/foaf/0.1/nick"), literal("Al"), null),
+
+				statement(iri("urn:3"), iri("http://xmlns.com/foaf/0.1/name"), literal("Eve"), null),
+				statement(iri("urn:3"), iri("http://xmlns.com/foaf/0.1/nick"), literal("Ev"), null),
+
+				statement(iri("urn:2"), iri("http://xmlns.com/foaf/0.1/name"), literal("Bob"), null),
+				statement(iri("urn:2"), iri("http://xmlns.com/foaf/0.1/nick"), literal("Bo"), null),
+		};
+		GraphQuery gq = conn.prepareGraphQuery(qry);
+		try (GraphQueryResult result = gq.evaluate()) {
+			assertNotNull(result);
+			assertTrue(result.hasNext());
+			int resultNo = 0;
+			while (result.hasNext()) {
+				Statement st = result.next();
+				assertThat(resultNo).isLessThan(correctResult.length);
+				assertEquals(correctResult[resultNo], st);
+				resultNo++;
+			}
+			assertEquals(correctResult.length, resultNo);
+		}
+	}
+
+	/**
+	 * @see https://github.com/eclipse/rdf4j/issues/3011
+	 */
+	@Test
+	public void testConstruct_CyclicPathWithJoin() {
+		IRI test = iri("urn:test"), a = iri("urn:a"), b = iri("urn:b"), c = iri("urn:c");
+		conn.add(test, RDF.TYPE, DCAT.CATALOG);
+
+		String query = "PREFIX dcat: <http://www.w3.org/ns/dcat#>\n"
+				+ "\n"
+				+ "CONSTRUCT {\n"
+				+ "<urn:a> <urn:b> ?x .\n"
+				+ "  ?x <urn:c> ?x .\n"
+				+ "}\n"
+				+ "WHERE {\n"
+				+ "  ?x a dcat:Catalog .\n"
+				+ "}";
+
+		Model result = QueryResults.asModel(conn.prepareGraphQuery(query).evaluate());
+
+		assertThat(result.contains(a, b, test)).isTrue();
+		assertThat(result.contains(test, c, test)).isTrue();
+	}
+
+	@Test
+	public void testSelectBindOnly() throws Exception {
+		String query = "select ?b1 ?b2 ?b3\n"
+				+ "where {\n"
+				+ "  bind(1 as ?b1)\n"
+				+ "}";
+
+		List<BindingSet> result = QueryResults.asList(conn.prepareTupleQuery(query).evaluate());
+
+		assertThat(result.size()).isEqualTo(1);
+		BindingSet solution = result.get(0);
+
+		assertThat(solution.getValue("b1")).isEqualTo(literal("1", XSD.INTEGER));
+		assertThat(solution.getValue("b2")).isNull();
+		assertThat(solution.getValue("b3")).isNull();
+
 	}
 
 	private boolean containsSolution(List<BindingSet> result, Binding... solution) {

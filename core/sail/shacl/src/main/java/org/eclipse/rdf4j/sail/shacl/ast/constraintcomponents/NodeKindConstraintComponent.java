@@ -27,20 +27,20 @@ public class NodeKindConstraintComponent extends SimpleAbstractConstraintCompone
 					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.IRI_OR_LITERAL + "> ) ) ||\n" +
 					"\t\t(isLiteral(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.LITERAL + ">, " +
 					"<" + SHACL.BLANK_NODE_OR_LITERAL + ">, <" + SHACL.IRI_OR_LITERAL + "> ) ) ||\n" +
-					"\t\t(isBlank(?" + varName + " && <" + nodeKind.iri + "> IN ( <" + SHACL.BLANK_NODE + ">, <"
-					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.BLANK_NODE_OR_LITERAL + "> ) ))";
+					"\t\t(isBlank(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.BLANK_NODE + ">, <"
+					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.BLANK_NODE_OR_LITERAL + "> ) )";
 		} else {
 			return "!((isIRI(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.IRI + ">, <"
 					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.IRI_OR_LITERAL + "> ) ) ||\n" +
 					"\t\t(isLiteral(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.LITERAL + ">, " +
 					"<" + SHACL.BLANK_NODE_OR_LITERAL + ">, <" + SHACL.IRI_OR_LITERAL + "> ) ) ||\n" +
-					"\t\t(isBlank(?" + varName + " && <" + nodeKind.iri + "> IN ( <" + SHACL.BLANK_NODE + ">, <"
-					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.BLANK_NODE_OR_LITERAL + "> ) )))";
+					"\t\t(isBlank(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.BLANK_NODE + ">, <"
+					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.BLANK_NODE_OR_LITERAL + "> ) ))";
 		}
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.NODE_KIND_PROP, nodeKind.iri);
 	}
 

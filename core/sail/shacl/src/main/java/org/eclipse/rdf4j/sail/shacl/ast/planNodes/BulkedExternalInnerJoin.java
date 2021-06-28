@@ -9,6 +9,7 @@
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.ArrayDeque;
+import java.util.Objects;
 import java.util.function.Function;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -112,7 +113,7 @@ public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 								left.removeLast();
 							}
 						} else {
-							int compare = rightPeek.compareTarget(leftPeek);
+							int compare = rightPeek.compareActiveTarget(leftPeek);
 
 							if (compare < 0) {
 								if (right.isEmpty()) {
@@ -143,22 +144,18 @@ public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				calculateNext();
 				return !joined.isEmpty();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				calculateNext();
 				return joined.removeFirst();
 
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -177,6 +174,8 @@ public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 				.append("\n");
 		stringBuilder.append(leftNode.getId() + " -> " + getId() + " [label=\"left\"]").append("\n");
 
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
 		if (connection instanceof MemoryStoreConnection) {
 			stringBuilder.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> "
 					+ getId() + " [label=\"right\"]").append("\n");
@@ -211,5 +210,28 @@ public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 	public void receiveLogger(ValidationExecutionLogger validationExecutionLogger) {
 		this.validationExecutionLogger = validationExecutionLogger;
 		leftNode.receiveLogger(validationExecutionLogger);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		if (!super.equals(o)) {
+			return false;
+		}
+		BulkedExternalInnerJoin that = (BulkedExternalInnerJoin) o;
+		return skipBasedOnPreviousConnection == that.skipBasedOnPreviousConnection && connection.equals(that.connection)
+				&& leftNode.equals(that.leftNode)
+				&& Objects.equals(previousStateConnection, that.previousStateConnection) && query.equals(that.query);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(super.hashCode(), connection, leftNode, skipBasedOnPreviousConnection,
+				previousStateConnection, query);
 	}
 }

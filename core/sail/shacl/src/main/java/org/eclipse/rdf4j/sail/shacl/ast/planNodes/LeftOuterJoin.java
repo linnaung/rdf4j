@@ -8,6 +8,8 @@
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Objects;
+
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.sail.SailException;
@@ -69,7 +71,7 @@ public class LeftOuterJoin implements PlanNode {
 							nextRight = null;
 						} else {
 
-							int compareTo = nextLeft.compareTarget(nextRight);
+							int compareTo = nextLeft.compareActiveTarget(nextRight);
 
 							if (compareTo < 0) {
 								if (prevLeft != nextLeft) {
@@ -86,7 +88,6 @@ public class LeftOuterJoin implements PlanNode {
 									nextRight = rightIterator.next();
 								} else {
 									nextRight = null;
-									break;
 								}
 							}
 
@@ -115,23 +116,19 @@ public class LeftOuterJoin implements PlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				calculateNext();
 				return next != null;
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				calculateNext();
 				ValidationTuple temp = next;
 				next = null;
 				return temp;
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -181,5 +178,22 @@ public class LeftOuterJoin implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return true;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		LeftOuterJoin that = (LeftOuterJoin) o;
+		return left.equals(that.left) && right.equals(that.right);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(left, right);
 	}
 }

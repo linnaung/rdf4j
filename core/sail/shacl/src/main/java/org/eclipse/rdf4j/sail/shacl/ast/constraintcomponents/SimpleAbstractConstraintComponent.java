@@ -2,8 +2,8 @@ package org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -13,7 +13,9 @@ import org.eclipse.rdf4j.sail.shacl.SourceConstraintComponent;
 import org.eclipse.rdf4j.sail.shacl.ast.ShaclUnsupportedException;
 import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
 import org.eclipse.rdf4j.sail.shacl.ast.ValidationApproach;
+import org.eclipse.rdf4j.sail.shacl.ast.ValidationQuery;
 import org.eclipse.rdf4j.sail.shacl.ast.paths.Path;
+import org.eclipse.rdf4j.sail.shacl.ast.planNodes.AllTargetsPlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.BufferedPlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.BulkedExternalInnerJoin;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.EmptyNode;
@@ -21,7 +23,6 @@ import org.eclipse.rdf4j.sail.shacl.ast.planNodes.FilterPlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.InnerJoin;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNodeProvider;
-import org.eclipse.rdf4j.sail.shacl.ast.planNodes.Select;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.ShiftToPropertyShape;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnBufferedPlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnionNode;
@@ -69,80 +70,79 @@ public abstract class SimpleAbstractConstraintComponent extends AbstractConstrai
 		return generateTransactionalValidationPlan(
 				connectionsGroup,
 				overrideTargetNode,
-				getFilterAttacher(),
 				scope
 		);
 
 	}
 
 	@Override
-	public PlanNode generateSparqlValidationPlan(ConnectionsGroup connectionsGroup,
+	public ValidationQuery generateSparqlValidationQuery(ConnectionsGroup connectionsGroup,
 			boolean logValidationPlans, boolean negatePlan, boolean negateChildren, Scope scope) {
 
+		StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider = new StatementMatcher.StableRandomVariableProvider();
+
 		String targetVarPrefix = "target_";
-		StatementMatcher.Variable value = new StatementMatcher.Variable("value");
 
-		ComplexQueryFragment complexQueryFragment = getComplexQueryFragment(targetVarPrefix, value, negatePlan,
-				connectionsGroup);
-
-		String query = complexQueryFragment.getQuery();
-		StatementMatcher.Variable targetVar = complexQueryFragment.getTargetVar();
-
-		return new Select(connectionsGroup.getBaseConnection(), query, null, b -> {
-
-			List<String> collect = b.getBindingNames()
-					.stream()
-					.filter(s -> s.startsWith(targetVarPrefix))
-					.sorted()
-					.collect(Collectors.toList());
-
-			ValidationTuple validationTuple = new ValidationTuple(b, collect, scope, true);
-
-//			if (targetChain.getPath().isPresent()) {
-//				validationTuple.setPath(targetChain.getPath().get());
-//				validationTuple.setValue(b.getValue(value.getName()));
-//			} else {
-//				validationTuple.setValue(b.getValue(targetVar.getName()));
-//			}
-
-			return validationTuple;
-
-		});
-
-	}
-
-	private ComplexQueryFragment getComplexQueryFragment(String targetVarPrefix, StatementMatcher.Variable value,
-			boolean negated,
-			ConnectionsGroup connectionsGroup) {
-
-		EffectiveTarget effectiveTarget = targetChain.getEffectiveTarget(targetVarPrefix, Scope.propertyShape,
+		EffectiveTarget effectiveTarget = targetChain.getEffectiveTarget(targetVarPrefix, scope,
 				connectionsGroup.getRdfsSubClassOfReasoner());
 		String query = effectiveTarget.getQuery(false);
 
-		StatementMatcher.Variable targetVar = effectiveTarget.getTargetVar();
+		StatementMatcher.Variable value;
 
-		Optional<String> pathQuery = targetChain.getPath()
-				.map(p -> p.getTargetQueryFragment(effectiveTarget.getTargetVar(), value,
-						connectionsGroup.getRdfsSubClassOfReasoner()));
+		if (scope == Scope.nodeShape) {
 
-		if (pathQuery.isPresent()) {
-			query += "\n" + pathQuery.get();
-			query += "\n FILTER(" + getSparqlFilterExpression(value.getName(), negated) + ")";
+			value = null;
+
+			query += getSparqlFilter(negatePlan, effectiveTarget.getTargetVar());
+
 		} else {
-			query += "\n FILTER(" + getSparqlFilterExpression(targetVar.getName(), negated) + ")";
+			value = new StatementMatcher.Variable("value");
+
+			String pathQuery = targetChain.getPath()
+					.map(p -> p.getTargetQueryFragment(effectiveTarget.getTargetVar(), value,
+							connectionsGroup.getRdfsSubClassOfReasoner(), stableRandomVariableProvider))
+					.orElseThrow(IllegalStateException::new);
+
+			query += pathQuery;
+			query += getSparqlFilter(negatePlan, value);
 		}
 
-		return new ComplexQueryFragment(query, targetVarPrefix, targetVar, value);
+		List<StatementMatcher.Variable> allTargetVariables = effectiveTarget.getAllTargetVariables();
+
+		return new ValidationQuery(query, allTargetVariables, value, scope, getConstraintComponent(), null, null);
 
 	}
 
+	private String getSparqlFilter(boolean negatePlan, StatementMatcher.Variable variable) {
+		// We use BIND and COALESCE because the filter expression could cause an error and the SHACL spec implicitly
+		// says that values that cause errors are in violation of the constraint.
+
+		assert !negatePlan : "This code has not been tested with negated plans! Should be still coalesce to true?";
+
+		String tempVar = "?" + UUID.randomUUID().toString().replace("-", "");
+
+		return String.join("\n", "",
+				"BIND((" + getSparqlFilterExpression(variable.getName(), negatePlan) + ") as " + tempVar + ")",
+				"FILTER(COALESCE(" + tempVar + ", true))"
+		);
+	}
+
+	/**
+	 * Simple constraints need only implement this method to support SPARQL based validation. The returned filter body
+	 * should evaluate to true for values that fail validation, unless negated==true. If the filter condition throws an
+	 * error (a SPARQL runtime error, not Java error) then the error will be caught and coalesced to `true`.
+	 *
+	 * @param varName
+	 * @param negated
+	 * @return a string that is the body of a SPARQL filter
+	 */
 	abstract String getSparqlFilterExpression(String varName, boolean negated);
 
-	PlanNode generateTransactionalValidationPlan(ConnectionsGroup connectionsGroup, PlanNodeProvider overrideTargetNode,
-			Function<PlanNode, FilterPlanNode> filterAttacher,
-			Scope scope) {
+	private PlanNode generateTransactionalValidationPlan(ConnectionsGroup connectionsGroup,
+			PlanNodeProvider overrideTargetNode, Scope scope) {
 
 		boolean negatePlan = false;
+		StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider = new StatementMatcher.StableRandomVariableProvider();
 
 		EffectiveTarget effectiveTarget = targetChain.getEffectiveTarget("target_", scope,
 				connectionsGroup.getRdfsSubClassOfReasoner());
@@ -153,60 +153,69 @@ public abstract class SimpleAbstractConstraintComponent extends AbstractConstrai
 			PlanNode planNode;
 
 			if (scope == Scope.nodeShape) {
-				planNode = overrideTargetNode.getPlanNode();
-				planNode = effectiveTarget.extend(planNode, connectionsGroup, scope, EffectiveTarget.Extend.right,
-						false);
+				PlanNode overrideTargetPlanNode = overrideTargetNode.getPlanNode();
+
+				if (overrideTargetPlanNode instanceof AllTargetsPlanNode) {
+					PlanNode allTargets = effectiveTarget.getAllTargets(connectionsGroup, scope);
+					allTargets = getFilterAttacherWithNegation(negatePlan, allTargets);
+
+					return new Unique(allTargets, true);
+				} else {
+					return effectiveTarget.extend(overrideTargetPlanNode, connectionsGroup, scope,
+							EffectiveTarget.Extend.right,
+							false,
+							p -> getFilterAttacherWithNegation(negatePlan, p)
+					);
+
+				}
 
 			} else {
-				PlanNode temp = overrideTargetNode.getPlanNode();
+				PlanNode overrideTargetPlanNode = overrideTargetNode.getPlanNode();
 
-				temp = effectiveTarget.extend(temp, connectionsGroup, scope, EffectiveTarget.Extend.right, false);
+				if (overrideTargetPlanNode instanceof AllTargetsPlanNode) {
 
-				planNode = new BulkedExternalInnerJoin(temp,
-						connectionsGroup.getBaseConnection(),
-						path.get()
-								.getTargetQueryFragment(new StatementMatcher.Variable("a"),
-										new StatementMatcher.Variable("c"),
-										connectionsGroup.getRdfsSubClassOfReasoner()),
-						false, null,
-						(b) -> new ValidationTuple(b.getValue("a"), b.getValue("c"), scope, true));
+					// We are cheating a bit here by retrieving all the targets and values at the same time by
+					// pretending to be in node shape scope and then shifting the results back to property shape scope
+					PlanNode allTargets = targetChain
+							.getEffectiveTarget("target_", Scope.nodeShape,
+									connectionsGroup.getRdfsSubClassOfReasoner())
+							.getAllTargets(connectionsGroup, Scope.nodeShape);
+					allTargets = new ShiftToPropertyShape(allTargets);
+
+					allTargets = getFilterAttacherWithNegation(negatePlan, allTargets);
+
+					return new Unique(allTargets, true);
+
+				} else {
+
+					overrideTargetPlanNode = effectiveTarget.extend(overrideTargetPlanNode, connectionsGroup, scope,
+							EffectiveTarget.Extend.right, false, null);
+
+					planNode = new BulkedExternalInnerJoin(overrideTargetPlanNode,
+							connectionsGroup.getBaseConnection(),
+							path.get()
+									.getTargetQueryFragment(new StatementMatcher.Variable("a"),
+											new StatementMatcher.Variable("c"),
+											connectionsGroup.getRdfsSubClassOfReasoner(), stableRandomVariableProvider),
+							false, null,
+							(b) -> new ValidationTuple(b.getValue("a"), b.getValue("c"), scope, true));
+				}
 			}
 
-			if (negatePlan) {
-				return filterAttacher.apply(planNode).getTrueNode(UnBufferedPlanNode.class);
-			} else {
-
-				return filterAttacher.apply(planNode).getFalseNode(UnBufferedPlanNode.class);
-			}
+			return getFilterAttacherWithNegation(negatePlan, planNode);
 
 		}
 
 		if (scope == Scope.nodeShape) {
-
-			PlanNode targets = effectiveTarget.getPlanNode(connectionsGroup, scope, false);
-
-			if (negatePlan) {
-				return filterAttacher.apply(targets).getTrueNode(UnBufferedPlanNode.class);
-			} else {
-				return filterAttacher.apply(targets).getFalseNode(UnBufferedPlanNode.class);
-			}
-
+			return effectiveTarget.getPlanNode(connectionsGroup, scope, false,
+					p -> getFilterAttacherWithNegation(negatePlan, p));
 		}
 
-		PlanNode invalidValuesDirectOnPath;
-
-		if (negatePlan) {
-			invalidValuesDirectOnPath = path.get()
-					.getAdded(connectionsGroup,
-							planNode -> filterAttacher.apply(planNode).getTrueNode(UnBufferedPlanNode.class));
-		} else {
-			invalidValuesDirectOnPath = path.get()
-					.getAdded(connectionsGroup,
-							planNode -> filterAttacher.apply(planNode).getFalseNode(UnBufferedPlanNode.class));
-		}
+		PlanNode invalidValuesDirectOnPath = path.get()
+				.getAdded(connectionsGroup, planNode -> getFilterAttacherWithNegation(negatePlan, planNode));
 
 		InnerJoin innerJoin = new InnerJoin(
-				effectiveTarget.getPlanNode(connectionsGroup, scope, false),
+				effectiveTarget.getPlanNode(connectionsGroup, scope, false, null),
 				invalidValuesDirectOnPath);
 
 		if (connectionsGroup.getStats().isBaseSailEmpty()) {
@@ -221,35 +230,45 @@ public abstract class SimpleAbstractConstraintComponent extends AbstractConstrai
 			PlanNode typeFilterPlan = effectiveTarget.getTargetFilter(connectionsGroup, discardedRight);
 
 			typeFilterPlan = effectiveTarget.extend(typeFilterPlan, connectionsGroup, scope,
-					EffectiveTarget.Extend.left, true);
+					EffectiveTarget.Extend.left, true, null);
 
 			top = new UnionNode(top, typeFilterPlan);
 
 			PlanNode bulkedExternalInnerJoin = new BulkedExternalInnerJoin(
-					effectiveTarget.getPlanNode(connectionsGroup, scope, false),
+					effectiveTarget.getPlanNode(connectionsGroup, scope, false, null),
 					connectionsGroup.getBaseConnection(),
 					path.get()
 							.getTargetQueryFragment(new StatementMatcher.Variable("a"),
 									new StatementMatcher.Variable("c"),
-									connectionsGroup.getRdfsSubClassOfReasoner()),
+									connectionsGroup.getRdfsSubClassOfReasoner(), stableRandomVariableProvider),
 					true,
 					connectionsGroup.getPreviousStateConnection(),
 					b -> new ValidationTuple(b.getValue("a"), b.getValue("c"), scope, true));
 
 			top = new UnionNode(top, bulkedExternalInnerJoin);
 
-			if (negatePlan) {
-				return filterAttacher.apply(top).getTrueNode(UnBufferedPlanNode.class);
-			} else {
-				return filterAttacher.apply(top).getFalseNode(UnBufferedPlanNode.class);
-			}
+			return getFilterAttacherWithNegation(negatePlan, top);
 
 		}
 	}
 
+	private PlanNode getFilterAttacherWithNegation(boolean negatePlan, PlanNode allTargets) {
+		if (negatePlan) {
+			allTargets = getFilterAttacher().apply(allTargets).getTrueNode(UnBufferedPlanNode.class);
+		} else {
+			allTargets = getFilterAttacher().apply(allTargets).getFalseNode(UnBufferedPlanNode.class);
+		}
+		return allTargets;
+	}
+
 	@Override
-	public ValidationApproach getPreferedValidationApproach() {
+	public ValidationApproach getPreferredValidationApproach(ConnectionsGroup connectionsGroup) {
 		return ValidationApproach.Transactional;
+	}
+
+	@Override
+	public ValidationApproach getOptimalBulkValidationApproach() {
+		return ValidationApproach.SPARQL;
 	}
 
 	@Override
@@ -276,11 +295,11 @@ public abstract class SimpleAbstractConstraintComponent extends AbstractConstrai
 		if (scope == Scope.propertyShape) {
 			PlanNode allTargetsPlan = getTargetChain()
 					.getEffectiveTarget("target_", Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner())
-					.getPlanNode(connectionsGroup, Scope.nodeShape, true);
+					.getPlanNode(connectionsGroup, Scope.nodeShape, true, null);
 
-			return new Unique(new ShiftToPropertyShape(allTargetsPlan));
+			return new Unique(new ShiftToPropertyShape(allTargetsPlan), true);
 		}
-		return new EmptyNode();
+		return EmptyNode.getInstance();
 	}
 
 }

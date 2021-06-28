@@ -31,14 +31,19 @@ public class OneOrMorePath extends Path {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.ONE_OR_MORE_PATH, oneOrMorePath.getId());
-		oneOrMorePath.toModel(oneOrMorePath.getId(), null, model, exported);
+		oneOrMorePath.toModel(oneOrMorePath.getId(), null, model, cycleDetection);
 	}
 
 	@Override
 	public PlanNode getAdded(ConnectionsGroup connectionsGroup, PlanNodeWrapper planNodeWrapper) {
 		throw new ShaclUnsupportedException();
+	}
+
+	@Override
+	public boolean isSupported() {
+		return false;
 	}
 
 	@Override
@@ -50,7 +55,8 @@ public class OneOrMorePath extends Path {
 
 	@Override
 	public String getTargetQueryFragment(StatementMatcher.Variable subject, StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 		throw new ShaclUnsupportedException();
 	}
 }

@@ -7,12 +7,14 @@
  *******************************************************************************/
 package org.eclipse.rdf4j.model;
 
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.ConcurrentModificationException;
 import java.util.Iterator;
@@ -22,25 +24,21 @@ import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.util.Models;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.TestInstance;
+import org.junit.jupiter.api.TestInstance.Lifecycle;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Abstract test suite for implementations of the {@link Model} interface
  *
  * @author Peter Ansell
  */
+@TestInstance(Lifecycle.PER_CLASS)
+@Timeout(value = 1000, unit = MILLISECONDS)
 public abstract class ModelTest {
-
-	@Rule
-	public Timeout timeout = Timeout.millis(10000);
-
-	@Rule
-	public ExpectedException thrown = ExpectedException.none();
 
 	protected Literal literal1;
 
@@ -246,7 +244,7 @@ public abstract class ModelTest {
 	/**
 	 * @throws java.lang.Exception
 	 */
-	@Before
+	@BeforeEach
 	public void setUp() throws Exception {
 		uri1 = vf.createIRI("urn:test:uri:1");
 		uri2 = vf.createIRI("urn:test:uri:2");
@@ -262,12 +260,12 @@ public abstract class ModelTest {
 	/**
 	 * @throws java.lang.Exception
 	 */
-	@After
+	@AfterEach
 	public void tearDown() throws Exception {
 	}
 
 	@Test
-	public final void testGetStatements_SingleLiteral() {
+	public void testGetStatements_SingleLiteral() {
 		Model model = getNewModelObjectSingleLiteral();
 
 		Iterator<Statement> selection = model.getStatements(null, null, literal1).iterator();
@@ -278,7 +276,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testGetStatements_IteratorModification() {
+	public void testGetStatements_IteratorModification() {
 		Model model = getNewEmptyModel();
 		model.add(uri1, RDFS.LABEL, uri2);
 		model.add(uri1, RDFS.LABEL, uri3);
@@ -297,7 +295,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testGetStatements_ConcurrentModificationOfModel() {
+	public void testGetStatements_ConcurrentModificationOfModel() {
 		Model model = getNewEmptyModel();
 		model.add(uri1, RDFS.LABEL, uri2);
 		model.add(uri1, RDFS.LABEL, uri3);
@@ -319,7 +317,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testGetStatements_AddToEmptyModel() {
+	public void testGetStatements_AddToEmptyModel() {
 		Model model = getNewEmptyModel();
 		Iterator<Statement> selection = model.getStatements(null, null, null).iterator();
 		assertThat(selection.hasNext()).isFalse();
@@ -335,7 +333,7 @@ public abstract class ModelTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.Model#filter(Resource, IRI, Value, Resource...)}.
 	 */
 	@Test
-	public final void testFilterSingleLiteral() {
+	public void testFilterSingleLiteral() {
 		Model model = getNewModelObjectSingleLiteral();
 		Model filter1 = model.filter(null, null, literal1);
 		assertFalse(filter1.isEmpty());
@@ -344,7 +342,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testFilter_AddToEmptyFilteredModel() {
+	public void testFilter_AddToEmptyFilteredModel() {
 		Model model = getNewEmptyModel();
 		Model filter = model.filter(null, null, null);
 		assertTrue(filter.isEmpty());
@@ -355,7 +353,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testFilter_RemoveFromFilter() {
+	public void testFilter_RemoveFromFilter() {
 		Model model = getNewEmptyModel();
 		model.add(uri1, RDFS.LABEL, literal1, uri1);
 		Model filter = model.filter(uri1, RDFS.LABEL, literal1, uri1);
@@ -367,7 +365,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testFilter_AddToNonEmptyFilteredModel() {
+	public void testFilter_AddToNonEmptyFilteredModel() {
 		Model model = getNewModelObjectSingleLiteral();
 		Model filter = model.filter(null, null, literal1);
 		assertFalse(filter.isEmpty());
@@ -377,7 +375,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testFilter_AddToEmptyOriginalModel() {
+	public void testFilter_AddToEmptyOriginalModel() {
 		Model model = getNewEmptyModel();
 		Model filter = model.filter(null, null, null);
 		assertTrue(filter.isEmpty());
@@ -388,7 +386,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testFilter_RemoveFromOriginal() {
+	public void testFilter_RemoveFromOriginal() {
 		Model model = getNewEmptyModel();
 		model.add(uri1, RDFS.LABEL, literal1, uri1);
 		Model filter = model.filter(uri1, RDFS.LABEL, literal1, uri1);
@@ -400,7 +398,7 @@ public abstract class ModelTest {
 	}
 
 	@Test
-	public final void testFilter_AddToOriginalModel() {
+	public void testFilter_AddToOriginalModel() {
 		Model model = getNewModelObjectSingleLiteral();
 		Model filter = model.filter(null, null, literal1);
 		assertFalse(filter.isEmpty());
@@ -415,7 +413,7 @@ public abstract class ModelTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.Model#contains(Resource, IRI, Value, Resource...)} .
 	 */
 	@Test
-	public final void testContainsSingleLiteral() {
+	public void testContainsSingleLiteral() {
 		Model model = getNewModelObjectSingleLiteral();
 		assertTrue(model.contains(null, null, literal1));
 		assertTrue(model.contains(null, null, literal1, (Resource) null));
@@ -425,7 +423,7 @@ public abstract class ModelTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.Model#subjects()}.
 	 */
 	@Test
-	public final void testSubjects() {
+	public void testSubjects() {
 		Model m = getNewModelObjectDoubleLiteral();
 
 		final int modelSizeBefore = m.size();
@@ -446,7 +444,7 @@ public abstract class ModelTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.Model#predicates()}.
 	 */
 	@Test
-	public final void testPredicates() {
+	public void testPredicates() {
 		Model m = getNewModelObjectDoubleLiteral();
 
 		final int modelSizeBefore = m.size();
@@ -467,7 +465,7 @@ public abstract class ModelTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.Model#objects()}.
 	 */
 	@Test
-	public final void testObjects() {
+	public void testObjects() {
 		Model m = getNewModelObjectDoubleLiteral();
 
 		final int modelSizeBefore = m.size();
@@ -488,7 +486,7 @@ public abstract class ModelTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.Model#contexts()}.
 	 */
 	@Test
-	public final void testContexts() {
+	public void testContexts() {
 		Model m = getNewModelTwoContexts();
 
 		final int modelSizeBefore = m.size();

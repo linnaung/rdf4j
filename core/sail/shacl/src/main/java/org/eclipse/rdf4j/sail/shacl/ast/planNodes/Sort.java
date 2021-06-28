@@ -10,13 +10,13 @@ package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
 import org.eclipse.rdf4j.sail.SailException;
 
 public class Sort implements PlanNode {
@@ -24,7 +24,6 @@ public class Sort implements PlanNode {
 	private final PlanNode parent;
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
-	final static ValueComparator valueComparator = new ValueComparator();
 
 	public Sort(PlanNode parent) {
 		parent = PlanNodeHelper.handleSorting(this, parent);
@@ -33,6 +32,7 @@ public class Sort implements PlanNode {
 
 	@Override
 	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
 			final CloseableIteration<? extends ValidationTuple, SailException> iterator = parent.iterator();
@@ -41,18 +41,38 @@ public class Sort implements PlanNode {
 
 			Iterator<ValidationTuple> sortedTuplesIterator;
 
+			boolean closed = false;
+
 			@Override
 			public void close() throws SailException {
-				iterator.close();
+				if (closed) {
+					throw new IllegalStateException("Already closed");
+				}
+				closed = true;
+
+				assert sortedTuples == null
+						|| !iterator.hasNext() : "All tuples from parent iterator where not retrieved when sorting!";
+
+				try {
+					iterator.close();
+				} finally {
+					sortedTuplesIterator = Collections.emptyIterator();
+					sortedTuples = null;
+				}
+
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				sortTuples();
 				return sortedTuplesIterator.hasNext();
 			}
 
 			private void sortTuples() {
+				if (closed) {
+					throw new IllegalStateException("Tried to iterate on a closed iterator");
+				}
+
 				if (sortedTuples == null) {
 					sortedTuples = new ArrayList<>();
 					boolean alreadySorted = true;
@@ -60,8 +80,16 @@ public class Sort implements PlanNode {
 					while (iterator.hasNext()) {
 						ValidationTuple next = iterator.next();
 						sortedTuples.add(next);
+
+						// quick break out if sortedTuples is guaranteed to be of size 1 since we don't need to sort it
+						// then
+						if (sortedTuples.size() == 1 && !iterator.hasNext()) {
+							sortedTuplesIterator = sortedTuples.iterator();
+							return;
+						}
+
 						if (prev != null
-								&& valueComparator.compare(prev.getActiveTarget(), next.getActiveTarget()) > 0) {
+								&& prev.compareActiveTarget(next) > 0) {
 							alreadySorted = false;
 						}
 						prev = next;
@@ -70,30 +98,26 @@ public class Sort implements PlanNode {
 					if (!alreadySorted && sortedTuples.size() > 1) {
 						if (sortedTuples.size() > 8192) { // MIN_ARRAY_SORT_GRAN in Arrays.parallelSort(...)
 							ValidationTuple[] objects = sortedTuples.toArray(new ValidationTuple[0]);
-							Arrays.parallelSort(objects,
-									(a, b) -> valueComparator.compare(a.getActiveTarget(), b.getActiveTarget()));
+							Arrays.parallelSort(objects, ValidationTuple::compareActiveTarget);
 							sortedTuples = Arrays.asList(objects);
 						} else {
-							sortedTuples
-									.sort((a, b) -> valueComparator.compare(a.getActiveTarget(), b.getActiveTarget()));
+							sortedTuples.sort(ValidationTuple::compareActiveTarget);
 						}
 					}
 					sortedTuplesIterator = sortedTuples.iterator();
 
 				}
+
+				assert !iterator.hasNext() : "Iterator: " + iterator.toString();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				sortTuples();
 
 				return sortedTuplesIterator.next();
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 
 	}
@@ -118,11 +142,6 @@ public class Sort implements PlanNode {
 	@Override
 	public String getId() {
 		return System.identityHashCode(this) + "";
-	}
-
-	@Override
-	public String toString() {
-		return "Sort";
 	}
 
 	@Override
@@ -156,5 +175,12 @@ public class Sort implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public String toString() {
+		return "Sort{" +
+				"parent=" + parent +
+				'}';
 	}
 }

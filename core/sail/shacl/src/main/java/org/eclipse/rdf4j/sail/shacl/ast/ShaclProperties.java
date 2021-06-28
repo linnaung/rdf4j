@@ -1,3 +1,10 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ ******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast;
 
 import java.util.ArrayList;
@@ -26,7 +33,7 @@ public class ShaclProperties {
 	// sh:PropertyShape so the reasoner will figure that out
 	private IRI type = SHACL.NODE_SHAPE;
 
-	private final List<Resource> clazz = new ArrayList<>();
+	private final List<IRI> clazz = new ArrayList<>();
 	private final List<Resource> or = new ArrayList<>();
 	private final List<Resource> xone = new ArrayList<>();
 	private final List<Resource> and = new ArrayList<>();
@@ -42,7 +49,7 @@ public class ShaclProperties {
 	private Long minCount;
 	private Long maxCount;
 
-	private Resource datatype;
+	private IRI datatype;
 	private Resource in;
 	private final List<Value> hasValue = new ArrayList<>();
 	private final List<Resource> hasValueIn = new ArrayList<>();
@@ -141,7 +148,7 @@ public class ShaclProperties {
 					if (datatype != null) {
 						throw new IllegalStateException(predicate + " already populated");
 					}
-					datatype = (Resource) object;
+					datatype = (IRI) object;
 					break;
 				case "http://www.w3.org/ns/shacl#minCount":
 					if (minCount != null) {
@@ -195,7 +202,7 @@ public class ShaclProperties {
 					pattern.add(object.stringValue());
 					break;
 				case "http://www.w3.org/ns/shacl#class":
-					clazz.add((Resource) object);
+					clazz.add((IRI) object);
 					break;
 				case "http://www.w3.org/ns/shacl#targetNode":
 					targetNode.add(object);
@@ -304,7 +311,7 @@ public class ShaclProperties {
 
 	}
 
-	public List<Resource> getClazz() {
+	public List<IRI> getClazz() {
 		return clazz;
 	}
 
@@ -328,7 +335,7 @@ public class ShaclProperties {
 		return maxCount;
 	}
 
-	public Resource getDatatype() {
+	public IRI getDatatype() {
 		return datatype;
 	}
 

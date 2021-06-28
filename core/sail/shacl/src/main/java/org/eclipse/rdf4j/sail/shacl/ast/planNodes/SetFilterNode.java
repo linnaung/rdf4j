@@ -9,6 +9,7 @@
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -59,13 +60,13 @@ public class SetFilterNode implements PlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				calulateNext();
 				return next != null;
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				calulateNext();
 
 				ValidationTuple temp = next;
@@ -74,10 +75,6 @@ public class SetFilterNode implements PlanNode {
 				return temp;
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -124,5 +121,23 @@ public class SetFilterNode implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		SetFilterNode that = (SetFilterNode) o;
+		return index == that.index && returnValid == that.returnValid && targetNodeList.equals(that.targetNodeList)
+				&& parent.equals(that.parent);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(targetNodeList, parent, index, returnValid);
 	}
 }

@@ -7,9 +7,9 @@
  *******************************************************************************/
 package org.eclipse.rdf4j.http.protocol.transaction;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -24,7 +24,7 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author jeen
@@ -78,6 +78,42 @@ public class TransactionReaderTest {
 
 	}
 
+	/**
+	 * reproduces GH-3048
+	 * 
+	 * @throws Exception
+	 */
+	@Test
+	public void testRoundtripRDFStar() throws Exception {
+
+		AddStatementOperation rdfStarOperation = new AddStatementOperation(alice, knows,
+				vf.createTriple(bob, knows, alice), context1);
+
+		List<TransactionOperation> txn = new ArrayList<>();
+		txn.add(rdfStarOperation);
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream(4096);
+		TransactionWriter w = new TransactionWriter();
+		w.serialize(txn, out);
+
+		ByteArrayInputStream in = new ByteArrayInputStream(out.toByteArray());
+		TransactionReader r = new TransactionReader();
+		Collection<TransactionOperation> parsedTxn = r.parse(in);
+
+		assertNotNull(parsedTxn);
+
+		for (TransactionOperation op : parsedTxn) {
+			assertTrue(op instanceof AddStatementOperation);
+			AddStatementOperation addOp = (AddStatementOperation) op;
+			assertEquals(rdfStarOperation, op);
+			Resource[] contexts = addOp.getContexts();
+
+			assertEquals(1, contexts.length);
+			assertTrue(contexts[0].equals(context1) || contexts[1].equals(context1));
+		}
+
+	}
+
 	@Test
 	public void testControlCharHandling() throws Exception {
 		AddStatementOperation operation = new AddStatementOperation(bob, knows, controlCharText);
@@ -102,5 +138,4 @@ public class TransactionReaderTest {
 		}
 
 	}
-
 }

@@ -2,7 +2,6 @@ package org.eclipse.rdf4j.sail.shacl.ast.targets;
 
 import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -20,7 +19,6 @@ import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnionNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.Unique;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnorderedSelect;
-import org.eclipse.rdf4j.sail.shacl.ast.planNodes.ValidationTuple;
 
 public class TargetSubjectsOf extends Target {
 
@@ -38,7 +36,7 @@ public class TargetSubjectsOf extends Target {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		targetSubjectsOf.forEach(t -> {
 			model.add(subject, getPredicate(), t);
 		});
@@ -53,21 +51,19 @@ public class TargetSubjectsOf extends Target {
 			SailConnection connection) {
 
 		PlanNode planNode = targetSubjectsOf.stream()
-				.map(predicate -> {
-					return connectionsGroup
-							.getCachedNodeFor(new UnorderedSelect(connection, null,
-									predicate, null, s -> new ValidationTuple(s.getSubject(), scope, false)));
-				})
+				.map(predicate -> (PlanNode) new UnorderedSelect(connection, null,
+						predicate, null, UnorderedSelect.Mapper.SubjectScopedMapper.getFunction(scope)))
 				.reduce(UnionNode::new)
-				.orElse(new EmptyNode());
+				.orElse(EmptyNode.getInstance());
 
-		return new Unique(planNode);
+		return new Unique(planNode, false);
 	}
 
 	@Override
 	public String getQueryFragment(String subjectVariable, String objectVariable,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
-		String tempVar = "?" + UUID.randomUUID().toString().replace("-", "");
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
+		String tempVar = stableRandomVariableProvider.next().asSparqlVariable();
 
 		return targetSubjectsOf.stream()
 				.map(target -> "\n{ BIND(<" + target + "> as " + tempVar + ") \n " + subjectVariable + " "
@@ -100,10 +96,11 @@ public class TargetSubjectsOf extends Target {
 
 	@Override
 	public String getTargetQueryFragment(StatementMatcher.Variable subject, StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 		assert (subject == null);
 
-		String tempVar = "?" + UUID.randomUUID().toString().replace("-", "");
+		String tempVar = stableRandomVariableProvider.next().asSparqlVariable();
 
 		if (targetSubjectsOf.size() == 1) {
 

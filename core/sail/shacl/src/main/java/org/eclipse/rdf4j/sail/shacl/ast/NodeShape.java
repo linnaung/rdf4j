@@ -1,8 +1,15 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ ******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast;
 
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Model;
@@ -81,8 +88,8 @@ public class NodeShape extends Shape implements ConstraintComponent, Identifiabl
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
-		super.toModel(subject, predicate, model, exported);
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
+		super.toModel(subject, predicate, model, cycleDetection);
 		model.add(getId(), RDF.TYPE, SHACL.NODE_SHAPE);
 
 		if (subject != null) {
@@ -94,39 +101,53 @@ public class NodeShape extends Shape implements ConstraintComponent, Identifiabl
 
 		}
 
-		if (exported.contains(getId())) {
+		if (cycleDetection.contains(getId())) {
 			return;
 		}
-		exported.add(getId());
+		cycleDetection.add(getId());
 
-		constraintComponents.forEach(c -> c.toModel(getId(), null, model, exported));
+		constraintComponents.forEach(c -> c.toModel(getId(), null, model, cycleDetection));
 
 	}
 
 	@Override
-	public PlanNode generateSparqlValidationPlan(ConnectionsGroup connectionsGroup,
+	public ValidationQuery generateSparqlValidationQuery(ConnectionsGroup connectionsGroup,
 			boolean logValidationPlans, boolean negatePlan, boolean negateChildren, Scope scope) {
-		if (isDeactivated()) {
-			return new EmptyNode();
+
+		if (deactivated) {
+			return ValidationQuery.Deactivated.getInstance();
 		}
 
-		PlanNode union = new EmptyNode();
+		ValidationQuery validationQuery = constraintComponents.stream()
+				.map(c -> {
+					ValidationQuery validationQuery1 = c.generateSparqlValidationQuery(connectionsGroup,
+							logValidationPlans, negatePlan,
+							negateChildren, Scope.nodeShape);
+					if (!(c instanceof PropertyShape)) {
+						return validationQuery1.withConstraintComponent(c.getConstraintComponent());
+					}
+					return validationQuery1;
+				})
+				.reduce(ValidationQuery::union)
+				.orElseThrow(IllegalStateException::new);
 
-		for (ConstraintComponent constraintComponent : constraintComponents) {
-			PlanNode validationPlanNode = constraintComponent
-					.generateSparqlValidationPlan(connectionsGroup, logValidationPlans, negatePlan, false,
-							Scope.nodeShape);
-			if (!(constraintComponent instanceof PropertyShape) && produceValidationReports) {
-				validationPlanNode = new ValidationReportNode(validationPlanNode, t -> {
-					return new ValidationResult(t.getActiveTarget(), t.getActiveTarget(), this,
-							constraintComponent.getConstraintComponent(), getSeverity(), t.getScope());
-				});
+		if (produceValidationReports) {
+			// since we split our shapes by constraint component we know that we will only have 1 constraint component
+			// unless we are within a logical operator like sh:not, in which case we don't need to create a validation
+			// report since sh:detail is not supported for sparql based validation
+			assert constraintComponents.size() == 1;
+			if (!(constraintComponents.get(0) instanceof PropertyShape)) {
+				validationQuery = validationQuery.withShape(this);
+				validationQuery = validationQuery.withSeverity(severity);
+				validationQuery.makeCurrentStateValidationReport();
 			}
-			union = new UnionNode(union,
-					validationPlanNode);
 		}
 
-		return union;
+		if (scope == Scope.propertyShape) {
+			validationQuery.shiftToPropertyShape();
+		}
+
+		return validationQuery;
 
 	}
 
@@ -136,10 +157,10 @@ public class NodeShape extends Shape implements ConstraintComponent, Identifiabl
 			Scope scope) {
 
 		if (isDeactivated()) {
-			return new EmptyNode();
+			return EmptyNode.getInstance();
 		}
 
-		PlanNode union = new EmptyNode();
+		PlanNode union = EmptyNode.getInstance();
 
 		for (ConstraintComponent constraintComponent : constraintComponents) {
 			PlanNode validationPlanNode = constraintComponent
@@ -154,7 +175,7 @@ public class NodeShape extends Shape implements ConstraintComponent, Identifiabl
 			}
 
 			if (scope == Scope.propertyShape) {
-				validationPlanNode = new Unique(new ShiftToPropertyShape(validationPlanNode));
+				validationPlanNode = new Unique(new ShiftToPropertyShape(validationPlanNode), true);
 			}
 
 			union = new UnionNode(union,
@@ -165,19 +186,11 @@ public class NodeShape extends Shape implements ConstraintComponent, Identifiabl
 	}
 
 	@Override
-	public ValidationApproach getPreferedValidationApproach() {
+	public ValidationApproach getPreferredValidationApproach(ConnectionsGroup connectionsGroup) {
 		return constraintComponents.stream()
-				.map(ConstraintComponent::getPreferedValidationApproach)
-				.reduce(ValidationApproach::reduce)
+				.map(constraintComponent -> constraintComponent.getPreferredValidationApproach(connectionsGroup))
+				.reduce(ValidationApproach::reducePreferred)
 				.orElse(ValidationApproach.Transactional);
-	}
-
-	@Override
-	public Set<ValidationApproach> getSupportedValidationApproaches() {
-		return constraintComponents.stream()
-				.map(ConstraintComponent::getSupportedValidationApproaches)
-				.flatMap(Set::stream)
-				.collect(Collectors.toSet());
 	}
 
 	@Override
@@ -190,19 +203,20 @@ public class NodeShape extends Shape implements ConstraintComponent, Identifiabl
 
 		PlanNode planNode = constraintComponents.stream()
 				.map(c -> c.getAllTargetsPlan(connectionsGroup, Scope.nodeShape))
+				.distinct()
 				.reduce(UnionNode::new)
-				.orElse(new EmptyNode());
+				.orElse(EmptyNode.getInstance());
 
 		planNode = new UnionNode(planNode,
 				getTargetChain()
 						.getEffectiveTarget("_target", Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner())
-						.getPlanNode(connectionsGroup, Scope.nodeShape, true));
+						.getPlanNode(connectionsGroup, Scope.nodeShape, true, null));
 
 		if (scope == Scope.propertyShape) {
-			planNode = new ShiftToPropertyShape(planNode);
+			planNode = new Unique(new ShiftToPropertyShape(planNode), true);
 		}
 
-		planNode = new Unique(planNode);
+		planNode = new Unique(planNode, false);
 
 		return planNode;
 	}
@@ -221,43 +235,19 @@ public class NodeShape extends Shape implements ConstraintComponent, Identifiabl
 	@Override
 	public SparqlFragment buildSparqlValidNodes_rsx_targetShape(StatementMatcher.Variable subject,
 			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 
-		boolean isFilterCondition = constraintComponents.stream()
-				.map(o -> o.buildSparqlValidNodes_rsx_targetShape(subject, object, rdfsSubClassOfReasoner,
-						Scope.nodeShape))
-				.map(SparqlFragment::isFilterCondition)
-				.findFirst()
-				.orElse(false);
+		List<SparqlFragment> sparqlFragments = constraintComponents.stream()
+				.map(shape -> shape.buildSparqlValidNodes_rsx_targetShape(subject, object, rdfsSubClassOfReasoner,
+						Scope.nodeShape, stableRandomVariableProvider))
+				.collect(Collectors.toList());
 
-		if (isFilterCondition) {
-			String sparql = constraintComponents.stream()
-					.map(c -> c.buildSparqlValidNodes_rsx_targetShape(subject, object, rdfsSubClassOfReasoner,
-							Scope.nodeShape))
-					.map(SparqlFragment::getFragment)
-					.collect(Collectors.joining(" ) && ( ", "( ", " )"));
-
-			return SparqlFragment.filterCondition(sparql);
-
+		if (SparqlFragment.isFilterCondition(sparqlFragments)) {
+			return SparqlFragment.and(sparqlFragments);
 		} else {
-			String sparql = constraintComponents.stream()
-					.map(c -> c.buildSparqlValidNodes_rsx_targetShape(subject, object, rdfsSubClassOfReasoner,
-							Scope.nodeShape))
-					.map(SparqlFragment::getFragment)
-					.reduce((a, b) -> a + "\n" + b)
-					.orElse("");
-			return SparqlFragment.bgp(sparql);
+			return SparqlFragment.join(sparqlFragments);
 		}
 	}
 
-	@Override
-	public Stream<StatementMatcher> getStatementMatchers_rsx_targetShape(StatementMatcher.Variable subject,
-			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
-
-		return constraintComponents.stream()
-				.flatMap(c -> c.getStatementMatchers_rsx_targetShape(subject, object,
-						rdfsSubClassOfReasoner, Scope.nodeShape));
-
-	}
 }

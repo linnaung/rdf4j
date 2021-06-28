@@ -9,6 +9,7 @@
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -96,13 +97,13 @@ public class ExternalFilterByPredicate implements PlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				calculateNext();
 				return next != null;
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				calculateNext();
 
 				ValidationTuple temp = next;
@@ -111,10 +112,6 @@ public class ExternalFilterByPredicate implements PlanNode {
 				return temp;
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -133,6 +130,8 @@ public class ExternalFilterByPredicate implements PlanNode {
 				.append("\n");
 		stringBuilder.append(parent.getId() + " -> " + getId()).append("\n");
 
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
 		if (connection instanceof MemoryStoreConnection) {
 			stringBuilder.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> "
 					+ getId() + " [label=\"filter source\"]").append("\n");
@@ -170,5 +169,35 @@ public class ExternalFilterByPredicate implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ExternalFilterByPredicate that = (ExternalFilterByPredicate) o;
+		if (connection instanceof MemoryStoreConnection && that.connection instanceof MemoryStoreConnection) {
+			return ((MemoryStoreConnection) connection).getSail()
+					.equals(((MemoryStoreConnection) that.connection).getSail())
+					&& filterOnPredicates.equals(that.filterOnPredicates) && parent.equals(that.parent)
+					&& on == that.on;
+
+		}
+
+		return connection.equals(that.connection) && filterOnPredicates.equals(that.filterOnPredicates)
+				&& parent.equals(that.parent) && on == that.on;
+	}
+
+	@Override
+	public int hashCode() {
+		if (connection instanceof MemoryStoreConnection) {
+			return Objects.hash(((MemoryStoreConnection) connection).getSail(), filterOnPredicates, parent, on);
+
+		}
+		return Objects.hash(connection, filterOnPredicates, parent, on);
 	}
 }

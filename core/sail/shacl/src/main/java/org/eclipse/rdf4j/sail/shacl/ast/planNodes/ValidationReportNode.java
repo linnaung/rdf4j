@@ -8,6 +8,7 @@
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -20,6 +21,7 @@ public class ValidationReportNode implements PlanNode {
 	private final Function<ValidationTuple, ValidationResult> validationResultFunction;
 	PlanNode parent;
 	private boolean printed = false;
+	private ValidationExecutionLogger validationExecutionLogger;
 
 	public ValidationReportNode(PlanNode parent,
 			Function<ValidationTuple, ValidationResult> validationResultFunction) {
@@ -31,7 +33,7 @@ public class ValidationReportNode implements PlanNode {
 	@Override
 	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
 
-		return new CloseableIteration<ValidationTuple, SailException>() {
+		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
 			private final CloseableIteration<? extends ValidationTuple, SailException> iterator = parent.iterator();
 
@@ -41,27 +43,22 @@ public class ValidationReportNode implements PlanNode {
 			}
 
 			@Override
-			public boolean hasNext() throws SailException {
+			public boolean localHasNext() throws SailException {
 				return iterator.hasNext();
 			}
 
 			@Override
-			public ValidationTuple next() throws SailException {
+			public ValidationTuple loggingNext() throws SailException {
 				ValidationTuple next = iterator.next();
-				next.addValidationResult(validationResultFunction.apply(next));
-				return next;
+				return next.addValidationResult(validationResultFunction);
 			}
 
-			@Override
-			public void remove() throws SailException {
-				iterator.remove();
-			}
 		};
 	}
 
 	@Override
 	public int depth() {
-		return parent.depth();
+		return parent.depth() + 1;
 	}
 
 	@Override
@@ -89,6 +86,7 @@ public class ValidationReportNode implements PlanNode {
 
 	@Override
 	public void receiveLogger(ValidationExecutionLogger validationExecutionLogger) {
+		this.validationExecutionLogger = validationExecutionLogger;
 		parent.receiveLogger(validationExecutionLogger);
 	}
 
@@ -100,5 +98,22 @@ public class ValidationReportNode implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ValidationReportNode that = (ValidationReportNode) o;
+		return validationResultFunction.equals(that.validationResultFunction) && parent.equals(that.parent);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(validationResultFunction, parent);
 	}
 }

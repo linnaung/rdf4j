@@ -1,6 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ ******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast;
 
+import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
@@ -34,6 +44,72 @@ public class StatementMatcher {
 		this.predicateValue = predicate == null ? null : (IRI) predicate.value;
 		this.objectName = object == null ? null : object.name;
 		this.objectValue = object == null ? null : object.value;
+	}
+
+	public static List<StatementMatcher> reduce(List<StatementMatcher> statementMatchers) {
+		List<StatementMatcher> wildcardMatchers = statementMatchers.stream()
+				.filter(s -> s.subjectIsWildcard() || s.predicateIsWildcard() || s.objectIsWildcard())
+				.collect(Collectors.toList());
+
+		if (wildcardMatchers.isEmpty()) {
+			return statementMatchers;
+		}
+
+		return statementMatchers.stream().filter(s -> {
+			for (StatementMatcher statementMatcher : wildcardMatchers) {
+				if (statementMatcher != s && statementMatcher.covers(s)) {
+					return false;
+				}
+			}
+
+			return true;
+		}).collect(Collectors.toList());
+
+	}
+
+	private boolean covers(StatementMatcher s) {
+
+		if (subjectIsWildcard()) {
+			if (s.subjectName != null) {
+				return false;
+			}
+		} else {
+			if (!Objects.equals(subjectName, s.subjectName)) {
+				return false;
+			}
+			if (!Objects.equals(subjectValue, s.subjectValue)) {
+				return false;
+			}
+		}
+
+		if (predicateIsWildcard()) {
+			if (s.predicateName != null) {
+				return false;
+			}
+		} else {
+			if (!Objects.equals(predicateName, s.predicateName)) {
+				return false;
+			}
+			if (!Objects.equals(predicateValue, s.predicateValue)) {
+				return false;
+			}
+		}
+
+		if (objectIsWildcard()) {
+			if (s.objectName != null) {
+				return false;
+			}
+		} else {
+			if (!Objects.equals(objectName, s.objectName)) {
+				return false;
+			}
+			if (!Objects.equals(objectValue, s.objectValue)) {
+				return false;
+			}
+		}
+
+		return true;
+
 	}
 
 	public String getSubjectName() {
@@ -72,6 +148,42 @@ public class StatementMatcher {
 		return objectName == null && objectValue == null;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		StatementMatcher that = (StatementMatcher) o;
+		return Objects.equals(subjectName, that.subjectName) &&
+				Objects.equals(subjectValue, that.subjectValue) &&
+				Objects.equals(predicateName, that.predicateName) &&
+				Objects.equals(predicateValue, that.predicateValue) &&
+				Objects.equals(objectName, that.objectName) &&
+				Objects.equals(objectValue, that.objectValue);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(subjectName, subjectValue, predicateName, predicateValue, objectName, objectValue);
+	}
+
+	public static class StableRandomVariableProvider {
+
+		// We just need a random base that isn't used elsewhere in the ShaclSail, but we don't want it to be stable so
+		// we can compare the SPARQL queries where these variables are used
+		private static final String BASE = UUID.randomUUID().toString().replace("-", "") + "_";
+
+		private int counter = 0;
+
+		public Variable next() {
+			return new Variable(BASE + counter++);
+		}
+
+	}
+
 	public static class Variable {
 		String name;
 		Value value;
@@ -101,9 +213,49 @@ public class StatementMatcher {
 			return name == null && value == null;
 		}
 
-		public static Variable getRandomInstance() {
-			return new Variable(UUID.randomUUID().toString().replace("-", ""));
+		public String asSparqlVariable() {
+			if (value != null)
+				throw new IllegalStateException(
+						"Can not produce SPARQL variable for variables that have fixed values!");
+			return "?" + name.replace("-", "__");
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			Variable variable = (Variable) o;
+			return Objects.equals(name, variable.name) &&
+					Objects.equals(value, variable.value);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(name, value);
+		}
+
+		@Override
+		public String toString() {
+			return "Variable{" +
+					"name='" + name + '\'' +
+					", value=" + value +
+					'}';
 		}
 	}
 
+	@Override
+	public String toString() {
+		return "StatementMatcher{" +
+				"subjectName='" + subjectName + '\'' +
+				", subjectValue=" + subjectValue +
+				", predicateName='" + predicateName + '\'' +
+				", predicateValue=" + predicateValue +
+				", objectName='" + objectName + '\'' +
+				", objectValue=" + objectValue +
+				'}';
+	}
 }

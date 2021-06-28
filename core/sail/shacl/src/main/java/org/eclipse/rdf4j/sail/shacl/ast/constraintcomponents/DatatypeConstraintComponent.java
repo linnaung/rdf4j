@@ -14,14 +14,14 @@ import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
 
 public class DatatypeConstraintComponent extends SimpleAbstractConstraintComponent {
 
-	Resource datatype;
+	IRI datatype;
 
-	public DatatypeConstraintComponent(Resource datatype) {
+	public DatatypeConstraintComponent(IRI datatype) {
 		this.datatype = datatype;
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.DATATYPE, datatype);
 	}
 
@@ -48,4 +48,5 @@ public class DatatypeConstraintComponent extends SimpleAbstractConstraintCompone
 			return "!isLiteral(?" + varName + ") || datatype(?" + varName + ") != <" + datatype.stringValue() + ">";
 		}
 	}
+
 }

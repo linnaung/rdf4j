@@ -1,5 +1,7 @@
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Objects;
+
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.sail.SailException;
@@ -31,25 +33,17 @@ public class TrimToTarget implements PlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				return parentIterator.hasNext();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 
-				ValidationTuple next = parentIterator.next();
-				ValidationTuple validationTuple = new ValidationTuple(next);
-
-				validationTuple.trimToTarget();
-
-				return validationTuple;
-			}
-
-			@Override
-			public void remove() throws SailException {
+				return parentIterator.next().trimToTarget();
 
 			}
+
 		};
 
 	}
@@ -72,11 +66,6 @@ public class TrimToTarget implements PlanNode {
 	}
 
 	@Override
-	public String toString() {
-		return "TrimToTarget";
-	}
-
-	@Override
 	public String getId() {
 		return System.identityHashCode(this) + "";
 	}
@@ -95,5 +84,31 @@ public class TrimToTarget implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		TrimToTarget that = (TrimToTarget) o;
+		return keepPath == that.keepPath &&
+				parent.equals(that.parent);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(parent, keepPath);
+	}
+
+	@Override
+	public String toString() {
+		return "TrimToTarget{" +
+				"parent=" + parent +
+				", keepPath=" + keepPath +
+				'}';
 	}
 }

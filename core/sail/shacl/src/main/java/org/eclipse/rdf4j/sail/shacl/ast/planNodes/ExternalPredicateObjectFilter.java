@@ -8,7 +8,7 @@
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
-import java.util.Arrays;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -84,7 +84,7 @@ public class ExternalPredicateObjectFilter implements PlanNode {
 										ExternalPredicateObjectFilter.this.getClass().getSimpleName()
 												+ ":IgnoredAsTypeMismatch",
 										temp, ExternalPredicateObjectFilter.this,
-										getId());
+										getId(), null);
 							}
 						}
 					} else {
@@ -96,12 +96,14 @@ public class ExternalPredicateObjectFilter implements PlanNode {
 										ExternalPredicateObjectFilter.this.getClass().getSimpleName()
 												+ ":IgnoredAsTypeMismatch",
 										temp, ExternalPredicateObjectFilter.this,
-										getId());
+										getId(), null);
 							}
 						}
 					}
 
 				}
+
+				assert next != null || !parentIterator.hasNext() : parentIterator.toString();
 			}
 
 			private Resource isType(Value subject) {
@@ -120,13 +122,13 @@ public class ExternalPredicateObjectFilter implements PlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				calculateNext();
 				return next != null;
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				calculateNext();
 
 				ValidationTuple temp = next;
@@ -135,10 +137,6 @@ public class ExternalPredicateObjectFilter implements PlanNode {
 				return temp;
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -157,6 +155,8 @@ public class ExternalPredicateObjectFilter implements PlanNode {
 				.append("\n");
 		stringBuilder.append(parent.getId() + " -> " + getId()).append("\n");
 
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
 		if (connection instanceof MemoryStoreConnection) {
 			stringBuilder.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> "
 					+ getId() + " [label=\"filter source\"]").append("\n");
@@ -166,14 +166,6 @@ public class ExternalPredicateObjectFilter implements PlanNode {
 		}
 
 		parent.getPlanAsGraphvizDot(stringBuilder);
-	}
-
-	@Override
-	public String toString() {
-		return "ExternalPredicateObjectFilter{" +
-				", filterOnPredicate=" + filterOnPredicate +
-				"filterOnObject=" + Arrays.toString(filterOnObject.stream().map(Formatter::prefix).toArray()) +
-				'}';
 	}
 
 	@Override
@@ -200,5 +192,59 @@ public class ExternalPredicateObjectFilter implements PlanNode {
 	public enum FilterOn {
 		activeTarget,
 		value
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ExternalPredicateObjectFilter that = (ExternalPredicateObjectFilter) o;
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
+		if (connection instanceof MemoryStoreConnection && that.connection instanceof MemoryStoreConnection) {
+			return returnMatching == that.returnMatching &&
+					((MemoryStoreConnection) connection).getSail()
+							.equals(((MemoryStoreConnection) that.connection).getSail())
+					&&
+					filterOnObject.equals(that.filterOnObject) &&
+					filterOnPredicate.equals(that.filterOnPredicate) &&
+					filterOn == that.filterOn &&
+					parent.equals(that.parent);
+		} else {
+			return returnMatching == that.returnMatching &&
+					connection.equals(that.connection) &&
+					filterOnObject.equals(that.filterOnObject) &&
+					filterOnPredicate.equals(that.filterOnPredicate) &&
+					filterOn == that.filterOn &&
+					parent.equals(that.parent);
+		}
+	}
+
+	@Override
+	public int hashCode() {
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
+		if (connection instanceof MemoryStoreConnection) {
+			return Objects.hash(((MemoryStoreConnection) connection).getSail(), filterOnObject, filterOnPredicate,
+					filterOn, parent, returnMatching);
+
+		} else {
+			return Objects.hash(connection, filterOnObject, filterOnPredicate, filterOn, parent, returnMatching);
+		}
+	}
+
+	@Override
+	public String toString() {
+		return "ExternalPredicateObjectFilter{" +
+				"filterOnObject=" + filterOnObject +
+				", filterOnPredicate=" + filterOnPredicate +
+				", filterOn=" + filterOn +
+				", parent=" + parent +
+				", returnMatching=" + returnMatching +
+				'}';
 	}
 }

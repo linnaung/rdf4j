@@ -62,6 +62,7 @@ public class MinCountBenchmarkEmpty {
 	public void setUp() throws InterruptedException {
 		Logger root = (Logger) LoggerFactory.getLogger(ShaclSailConnection.class.getName());
 		root.setLevel(ch.qos.logback.classic.Level.INFO);
+		System.setProperty("org.eclipse.rdf4j.sail.shacl.experimentalSparqlValidation", "true");
 
 		SimpleValueFactory vf = SimpleValueFactory.getInstance();
 
@@ -97,6 +98,27 @@ public class MinCountBenchmarkEmpty {
 	}
 
 	@Benchmark
+	public void shaclBulk() throws Exception {
+
+		SailRepository repository = new SailRepository(Utils.getInitializedShaclSail("shacl.ttl"));
+
+		try (SailRepositoryConnection connection = repository.getConnection()) {
+			connection.begin();
+			connection.commit();
+		}
+
+		try (SailRepositoryConnection connection = repository.getConnection()) {
+			connection.begin(ShaclSail.TransactionSettings.ValidationApproach.Bulk);
+			for (List<Statement> statements : allStatements) {
+				connection.add(statements);
+			}
+			connection.commit();
+		}
+		repository.shutDown();
+
+	}
+
+	@Benchmark
 	public void shaclClear() throws Exception {
 
 		SailRepository repository = new SailRepository(Utils.getInitializedShaclSail("shacl.ttl"));
@@ -113,10 +135,7 @@ public class MinCountBenchmarkEmpty {
 				connection.commit();
 			}
 
-			((ShaclSail) repository.getSail()).setPerformanceLogging(true);
 			connection.clear();
-			System.out.println();
-			((ShaclSail) repository.getSail()).setPerformanceLogging(false);
 
 		}
 		repository.shutDown();

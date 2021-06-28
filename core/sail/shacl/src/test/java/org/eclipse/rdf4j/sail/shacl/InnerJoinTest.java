@@ -11,6 +11,7 @@ package org.eclipse.rdf4j.sail.shacl;
 import static junit.framework.TestCase.assertTrue;
 
 import java.util.ArrayDeque;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -56,7 +57,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a", "b"));
 
@@ -72,7 +73,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a1", "b"));
 
@@ -88,7 +89,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a2", "b"));
 
@@ -104,7 +105,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples);
 
@@ -120,7 +121,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples);
 
@@ -138,7 +139,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a1", "b1"), Arrays.asList("a2", "b2"), Arrays.asList("a3", "b3"),
 				Arrays.asList("a4", "b4"));
@@ -155,7 +156,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a1", "b1"), Arrays.asList("a2", "b2"));
 
@@ -172,7 +173,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a1", "b1"), Arrays.asList("a2", "b2"), Arrays.asList("a3", "b3"));
 
@@ -190,7 +191,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a1", "b1"), Arrays.asList("a2", "b2"), Arrays.asList("a2", "b22"),
 				Arrays.asList("a3", "b3"), Arrays.asList("a4", "b4"));
@@ -209,7 +210,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a1", "b1"), Arrays.asList("a2", "b2"), Arrays.asList("a2", "b22"),
 				Arrays.asList("a4", "b4"));
@@ -228,7 +229,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a2", "b2"), Arrays.asList("a2", "b22"), Arrays.asList("a4", "b4"));
 
@@ -245,7 +246,7 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a2", "b2"), Arrays.asList("a2", "b22"));
 
@@ -263,14 +264,15 @@ public class InnerJoinTest {
 
 		List<ValidationTuple> tuples = new MockConsumePlanNode(innerJoin).asList();
 
-		tuples.forEach(System.out::println);
+//		tuples.forEach(System.out::println);
 
 		verify(tuples, Arrays.asList("a1", "b1"), Arrays.asList("a1", "b11"), Arrays.asList("a2", "b2"),
 				Arrays.asList("a2", "b22"));
 
 	}
 
-	public void verify(List<ValidationTuple> actual, List<String>... expect) {
+	@SafeVarargs
+	private final void verify(List<ValidationTuple> actual, List<String>... expect) {
 
 		Set<ValidationTuple> collect = Arrays.stream(expect)
 				.map(strings -> strings.stream()
@@ -279,7 +281,7 @@ public class InnerJoinTest {
 						.collect(Collectors.toList()))
 				.map(v -> {
 					assert (v.size() == 2);
-					return new ValidationTuple(new ArrayDeque<>(v), ConstraintComponent.Scope.propertyShape, true);
+					return new ValidationTuple(v, ConstraintComponent.Scope.propertyShape, true);
 				})
 				.collect(Collectors.toSet());
 

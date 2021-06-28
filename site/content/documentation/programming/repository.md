@@ -59,9 +59,13 @@ memStore.setSyncDelay(1000L);
 Repository repo = new SailRepository(memStore);
 ```
 
+ The MemoryStore is designed for datasets with fewer than 100,000 triples.
+
 ### Native RDF Repository
 
-A Native RDF Repository does not keep its data in main memory, but instead stores it directly to disk (in a binary format optimized for compact storage and fast retrieval). It is an efficient, scalable and fast solution for RDF storage of datasets that are too large to keep entirely in memory.
+The NativeStore saves data to disk in a binary format which is optimized for compact storage and fast retrieval. If there is sufficient physical memory, the Native store will act like the MemoryStore on most operating systems because the read/write commands will be cached by the OS.
+
+It is therefore an efficient, scalable and fast solution for datasets with up to 100 million triples (and probably even more).
 
 The code for creation of a Native RDF repository is almost identical to that of a main memory repository:
 
@@ -86,7 +90,21 @@ String indexes = "spoc,posc,cosp";
 Repository repo = new SailRepository(new NativeStore(dataDir, indexes));
 ```
 
-### Elasticserch RDF Repository
+{{< tag " New in RDF4J 3.7" >}}
+
+If a data directory is not set, a temporary directory will be created when the native store is initialized and (contrary to the previous examples) subsequently deleted when the repository is shut down.
+
+This is convenient when the repository is only used as a means to transform large RDF files.
+
+```java
+import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.sail.nativerdf.NativeStore;
+...
+Repository repo = new SailRepository(new NativeStore());
+```
+
+### Elasticsearch RDF Repository
 
 {{< tag " New in RDF4J 3.1" >}}
 
@@ -215,11 +233,11 @@ RDF4J REST API). The HTTP client session is managed by the {{< javadoc
 "http/client/HttpClientSessionManager.html" >}}, which in turn depends
 on the Apache HttpClient.
 
-The session uses a scheduled thread pool executor to handle multithreaded
+The session uses a caching thread pool executor to handle multithreaded
 access to a remote endpoint, defined by default to use a thread pool with a
 core size of 1.
 
-To configure this to use a different core size, you can specify the
+To configure this to use a different core pool size, you can specify the
 `org.eclipse.rdf4j.client.executors.corePoolSize` system property with a
 different number.
 
@@ -327,43 +345,7 @@ The RepositoryProvider creates and keeps a singleton instance of RepositoryManag
 
 ### Creating a Federation
 
-It is possible to create a virtual repository that is a federation of existing repositories. The following code illustrates how to use the RepositoryManagerFederator class to create a federation. It assumes you already have a reference to a RepositoryManager instance, and is a simplified form of what the RDF4J Console runs when its federate command is invoked:
-
-```java
-void federate(RepositoryManager manager, String fedID, String description,
-	Collection<String> memberIDs, boolean readonly, boolean distinct)
-	throws MalformedURLException, RDF4JException {
-    if (manager.hasRepositoryConfig(fedID)) {
-	System.err.println(fedID + " already exists.");
-    }
-    else if (validateMembers(manager, readonly, memberIDs)) {
-	RepositoryManagerFederator rmf =
-	    new RepositoryManagerFederator(manager);
-	rmf.addFed(fedID, description, memberIDs, readonly, distinct);
-	System.out.writeln("Federation created.");
-    }
-}
-boolean validateMembers(RepositoryManager manager, boolean readonly,
-	 Collection<String> memberIDs)
-	 throws RDF4JException {
-    boolean result = true;
-    for (String memberID : memberIDs) {
-	if (manager.hasRepositoryConfig(memberID)) {
-	    if (!readonly) {
-		if (!manager.getRepository(memberID).isWritable()) {
-		    result = false;
-		    System.err.println(memberID + " is read-only.");
-		}
-	    }
-	}
-	else {
-	   result = false;
-	   System.err.println(memberID + " does not exist.");
-	}
-    }
-    return result;
-}
-```
+RDF4J has the option to create a repository that acts as a federation of stores. For more information about this, see the [FedX federation](/documentation/programming/federation) documentation.
 
 ## Using a repository: RepositoryConnections
 
@@ -648,8 +630,6 @@ TupleQueryResult keywordQueryResult = keywordQuery.evaluate();
 
 #### Explaining queries
 
-> New in RDF4J 3.2.0 - Experimental feature
-
 SPARQL queries are translated to query plans and then run through an optimization pipeline before they get evaluated and
 the results returned. The query explain feature gives a peek into what decisions are being made and how they affect
 the performance of your query.
@@ -659,7 +639,7 @@ Explaining queries currently only works if you are using one of the built in sto
 If you are connecting to a remote RDF4J Server, using the Workbench or connecting to a third party database then you will get an
 UnsupportedException.
 
-In 3.2.0 queries have a new method `explain(...)` that returns an `Explanation` explaining how the query will be, or has been, evaluated.
+In RDF4J 3.2.0, queries have a new method `explain(...)` that returns an `Explanation` explaining how the query will be, or has been, evaluated.
 
  ```java
  try (SailRepositoryConnection connection = sailRepository.getConnection()) {
@@ -989,6 +969,13 @@ Projection (resultSizeActual=9, totalTimeActual=0.448ms, selfTimeActual=0.007ms)
 
 Notice that `ArbitraryLengthPath` produces 5 results and that the entire query runs in 0.164ms instead of 1.5s.
 
+Another way to visualize the query plan is to use the Graphiz DOT format with `query.explain(Explanation.Level.Timed).toDot()`.
+This visualization makes it easier to see which part of the query is slowest by looking at the color coding.
+
+<img src="../images/query-plan-explanation.png" alt="Picture of query explanation visualized with Graphviz." class="img-responsive"/>
+
+[Image produced by Dreampuf GraphvizOnline](https://dreampuf.github.io/GraphvizOnline/#digraph%20Explanation%20%7B%0A%20%20%20UUID_beb1d25d33bd4dcc9e6b42e6fd85fa2b%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FF0000%22%3E%3CU%3EProjection%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3EResult%20size%20actual%3C%2Ftd%3E%3Ctd%3E9%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3ETotal%20time%20actual%3C%2Ftd%3E%3Ctd%20BGCOLOR%3D%22%23FF0000%22%3E1.47ms%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3ESelf%20time%20actual%3C%2Ftd%3E%3Ctd%20BGCOLOR%3D%22%23FFE9E9%22%3E0.038ms%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_beb1d25d33bd4dcc9e6b42e6fd85fa2b%20-%3E%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20%5Blabel%3D%22left%22%5D%20%3B%0A%20%20%20UUID_beb1d25d33bd4dcc9e6b42e6fd85fa2b%20-%3E%20UUID_e3dd648f8f684d4fbfd4b7f7a6960947%20%5Blabel%3D%22right%22%5D%20%3B%0A%20%20%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FFFFFF%22%3E%3CU%3EProjectionElemList%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20-%3E%20UUID_3c67ab803c074c60bd1a0c8a0a070a67%20%5Blabel%3D%22index%200%22%5D%20%3B%0A%20%20%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20-%3E%20UUID_c55be31929a046e1acaeee2cd0aebf7b%20%5Blabel%3D%22index%201%22%5D%20%3B%0A%20%20%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20-%3E%20UUID_fb810ed934504076840e795c5fd49493%20%5Blabel%3D%22index%202%22%5D%20%3B%0A%20%20%20UUID_3c67ab803c074c60bd1a0c8a0a070a67%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FFFFFF%22%3E%3CU%3EProjectionElem%20%26quot%3Bperson%26quot%3B%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_c55be31929a046e1acaeee2cd0aebf7b%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FFFFFF%22%3E%3CU%3EProjectionElem%20%26quot%3Bfriend%26quot%3B%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_fb810ed934504076840e795c5fd49493%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FFFFFF%22%3E%3CU%3EProjectionElem%20%26quot%3Bage%26quot%3B%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20subgraph%20cluster_UUID_e3dd648f8f684d4fbfd4b7f7a6960947%20%7B%0A%20%20%20color%3Dgrey%0AUUID_e3dd648f8f684d4fbfd4b7f7a6960947%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FF0606%22%3E%3CU%3EUnion%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%3E%3CB%3ENew%20scope%3C%2FB%3E%3C%2Ftd%3E%3Ctd%3E%3CB%3Etrue%3C%2FB%3E%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3EResult%20size%20actual%3C%2Ftd%3E%3Ctd%3E9%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3ETotal%20time%20actual%3C%2Ftd%3E%3Ctd%20BGCOLOR%3D%22%23FF0606%22%3E1.44ms%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3ESelf%20time%20actual%3C%2Ftd%3E%3Ctd%20BGCOLOR%3D%22%23FFAEAE%22%3E0.14ms%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_e3dd648f8f684d4fbfd4b7f7a6960947%20-%3E%20UUID_460b578e6230407f986cd444b91ab796%20%5Blabel%3D%22left%22%5D%20%3B%0A%20%20%20UUID_e3dd648f8f684d4fbfd4b7f7a6960947%20-%3E%20UUID_b603ce18210d4c059f2aa6302341fb39%20%5Blabel%3D%22right%22%5D%20%3B%0A%20%20%20UUID_460b578e6230407f986cd444b91ab796%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCO)
+
 If you want to practice with these examples, the code below produces these three plans.
 
 ```java
@@ -1107,6 +1094,7 @@ public class QueryExplainExample {
 
 			Explanation explain = query.explain(Explanation.Level.Timed);
 			System.out.println(explain);
+			System.out.println(explain.toDot());
 
 		}
 

@@ -11,6 +11,7 @@ package org.eclipse.rdf4j.sail.shacl;
 import static junit.framework.TestCase.assertTrue;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -27,16 +28,22 @@ import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
+import org.apache.jena.update.UpdateAction;
 import org.eclipse.rdf4j.IsolationLevel;
 import org.eclipse.rdf4j.IsolationLevels;
 import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.DynamicModel;
@@ -45,9 +52,12 @@ import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.model.util.Models;
 import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.RDF4J;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
+import org.eclipse.rdf4j.model.vocabulary.RSX;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
+import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
@@ -64,6 +74,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.Parameterized;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.topbraid.jenax.util.JenaUtil;
+import org.topbraid.shacl.util.ModelPrinter;
+import org.topbraid.shacl.validation.ValidationUtil;
+import org.topbraid.shacl.vocabulary.SH;
 
 /**
  * @author Håvard Ottestad
@@ -75,157 +89,159 @@ abstract public class AbstractShaclTest {
 
 	private static final String[] FILENAME_EXTENSION = { "rq" };
 
-	// @formatter:off
-	// formatter doesn't understand that the trailing ) needs to be on a new line.
 	private static final List<String> testCasePaths = Stream.of(
-
 			"test-cases/and-or/datatypeNodeShape",
-		"test-cases/class/allObjects",
-		"test-cases/class/allSubjects",
-		"test-cases/class/and",
-		"test-cases/class/and2",
-		"test-cases/class/complexTargetShape",
-		"test-cases/class/complexTargetShape2",
-		"test-cases/class/multipleClass",
-		"test-cases/class/not",
-		"test-cases/class/not2",
-		"test-cases/class/notAnd",
-		"test-cases/class/notNotSimple",
-		"test-cases/class/simple",
-		"test-cases/class/simpleTargetShape",
+			"test-cases/class/allObjects",
+			"test-cases/class/allSubjects",
+			"test-cases/class/and",
+			"test-cases/class/and2",
+			"test-cases/class/complexTargetShape",
+			"test-cases/class/complexTargetShape2",
+			"test-cases/class/multipleClass",
+			"test-cases/class/not",
+			"test-cases/class/not2",
+			"test-cases/class/notAnd",
+			"test-cases/class/notNotSimple",
+			"test-cases/class/simple",
+			"test-cases/class/simpleTargetShape",
 //		"test-cases/class/sparqlTarget",
 //		"test-cases/class/sparqlTargetNot",
-		"test-cases/class/subclass",
-		"test-cases/class/targetNode",
-		"test-cases/class/validateTarget",
-		"test-cases/class/validateTargetNot",
-		"test-cases/complex/dcat",
-		"test-cases/complex/foaf",
+			"test-cases/class/subclass",
+			"test-cases/class/targetNode",
+			"test-cases/class/validateTarget",
+			"test-cases/class/validateTargetNot",
+			"test-cases/complex/dcat",
+			"test-cases/complex/foaf",
+			"test-cases/complex/targetShapeAndQualifiedShape",
 //		"test-cases/complex/sparqlTarget",
-		"test-cases/datatype/allObjects",
-		"test-cases/datatype/not",
-		"test-cases/datatype/notNodeShape",
-		"test-cases/datatype/notNodeShapeAnd",
-		"test-cases/datatype/notNodeShapeTargetShape",
-		"test-cases/datatype/notNot",
-		"test-cases/datatype/notSimpleNodeShape",
-		"test-cases/datatype/notTargetNode",
-		"test-cases/datatype/notTargetShape",
-		"test-cases/datatype/simple",
-		"test-cases/datatype/simpleNested",
-		"test-cases/datatype/simpleNode",
-		"test-cases/datatype/simpleNodeNested",
+			"test-cases/datatype/allObjects",
+			"test-cases/datatype/not",
+			"test-cases/datatype/notNodeShape",
+			"test-cases/datatype/notNodeShapeAnd",
+			"test-cases/datatype/notNodeShapeTargetShape",
+			"test-cases/datatype/notNot",
+			"test-cases/datatype/notSimpleNodeShape",
+			"test-cases/datatype/notTargetNode",
+			"test-cases/datatype/notTargetShape",
+			"test-cases/datatype/simple",
+			"test-cases/datatype/simpleNested",
+			"test-cases/datatype/simpleNested2",
+			"test-cases/datatype/simpleNode",
+			"test-cases/datatype/simpleNodeNested",
 //		"test-cases/datatype/sparqlTarget",
-		"test-cases/datatype/targetNode",
-		"test-cases/datatype/targetNode2",
-		"test-cases/datatype/targetNodeLang",
-		"test-cases/datatype/targetObjectsOf",
-		"test-cases/datatype/targetSubjectsOf",
-		"test-cases/datatype/targetSubjectsOfSingle",
-		"test-cases/deactivated/nodeshape",
-		"test-cases/deactivated/or",
-		"test-cases/deactivated/propertyshape",
-		"test-cases/functionalProperty/multipleFunctional",
-		"test-cases/functionalProperty/multipleFunctionalOr",
-		"test-cases/functionalProperty/singleFunctional",
-		"test-cases/hasValue/and",
-		"test-cases/hasValue/not",
-		"test-cases/hasValue/not2",
-		"test-cases/hasValueIn/and",
-		"test-cases/hasValueIn/not",
-		"test-cases/hasValueIn/not2",
-		"test-cases/hasValueIn/simple",
-		"test-cases/hasValueIn/targetNode",
-		"test-cases/hasValueIn/targetNode2",
-		"test-cases/implicitTargetClass/simple",
-		"test-cases/in/notAnd",
-		"test-cases/in/notOr",
-		"test-cases/in/simple",
-		"test-cases/languageIn/simple",
-		"test-cases/maxCount/not",
-		"test-cases/maxCount/nested",
-		"test-cases/maxCount/not2",
-		"test-cases/maxCount/notNot",
-		"test-cases/maxCount/simple",
-		"test-cases/maxCount/simpleInversePath",
+			"test-cases/datatype/targetNode",
+			"test-cases/datatype/targetNode2",
+			"test-cases/datatype/targetNodeLang",
+			"test-cases/datatype/targetObjectsOf",
+			"test-cases/datatype/targetSubjectsOf",
+			"test-cases/datatype/targetSubjectsOfSingle",
+			"test-cases/deactivated/nodeshape",
+			"test-cases/deactivated/or",
+			"test-cases/deactivated/propertyshape",
+			"test-cases/functionalProperty/multipleFunctional",
+			"test-cases/functionalProperty/multipleFunctionalOr",
+			"test-cases/functionalProperty/singleFunctional",
+			"test-cases/hasValue/and",
+			"test-cases/hasValue/not",
+			"test-cases/hasValue/not2",
+			"test-cases/hasValueIn/and",
+			"test-cases/hasValueIn/not",
+			"test-cases/hasValueIn/not2",
+			"test-cases/hasValueIn/simple",
+			"test-cases/hasValueIn/targetNode",
+			"test-cases/hasValueIn/targetNode2",
+			"test-cases/implicitTargetClass/simple",
+			"test-cases/in/notAnd",
+			"test-cases/in/notOr",
+			"test-cases/in/simple",
+			"test-cases/languageIn/simple",
+			"test-cases/maxCount/not",
+			"test-cases/maxCount/nested",
+			"test-cases/maxCount/not2",
+			"test-cases/maxCount/notNot",
+			"test-cases/maxCount/simple",
+			"test-cases/maxCount/simpleInversePath",
 //		"test-cases/maxCount/sparqlTarget",
-		"test-cases/maxCount/targetNode",
-		"test-cases/maxExclusive/simple",
-		"test-cases/maxExclusiveMinLength/not",
-		"test-cases/maxExclusiveMinLength/simple",
-		"test-cases/maxInclusive/simple",
-		"test-cases/maxLength/simple",
-		"test-cases/minCount/not",
-		"test-cases/minCount/simple",
-		"test-cases/minCount/targetNode",
-		"test-cases/minExclusive/dateVsTime",
-		"test-cases/minExclusive/simple",
-		"test-cases/minInclusive/simple",
-		"test-cases/minLength/simple",
-		"test-cases/nodeKind/not",
-		"test-cases/nodeKind/simple",
-		"test-cases/nodeKind/simpleInversePath",
-		"test-cases/nodeKind/validateTarget",
-		"test-cases/or/class",
-		"test-cases/or/class2",
-		"test-cases/or/class2InversePath",
-		"test-cases/or/classValidateTarget",
-		"test-cases/or/datatype",
-		"test-cases/or/datatype2",
-		"test-cases/or/datatypeDifferentPaths",
-		"test-cases/or/datatypeNodeShape",
-		"test-cases/or/datatypeTargetNode",
-		"test-cases/or/implicitAnd",
+			"test-cases/maxCount/targetNode",
+			"test-cases/maxExclusive/simple",
+			"test-cases/maxExclusiveMinLength/not",
+			"test-cases/maxExclusiveMinLength/simple",
+			"test-cases/maxInclusive/simple",
+			"test-cases/maxLength/simple",
+			"test-cases/minCount/not",
+			"test-cases/minCount/simple",
+			"test-cases/minCount/targetNode",
+			"test-cases/minExclusive/dateVsTime",
+			"test-cases/minExclusive/simple",
+			"test-cases/minInclusive/simple",
+			"test-cases/minLength/simple",
+			"test-cases/nodeKind/not",
+			"test-cases/nodeKind/simple",
+			"test-cases/nodeKind/simpleInversePath",
+			"test-cases/nodeKind/targetNode",
+			"test-cases/nodeKind/validateTarget",
+			"test-cases/or/class",
+			"test-cases/or/class2",
+			"test-cases/or/class2InversePath",
+			"test-cases/or/classValidateTarget",
+			"test-cases/or/datatype",
+			"test-cases/or/datatype2",
+			"test-cases/or/datatypeDifferentPaths",
+			"test-cases/or/datatypeNodeShape",
+			"test-cases/or/datatypeTargetNode",
+			"test-cases/or/implicitAnd",
 //		"test-cases/or/implicitAndSparqlTarget",
-		"test-cases/or/inheritance",
-		"test-cases/or/inheritance-deep",
-		"test-cases/or/inheritanceNodeShape",
-		"test-cases/or/maxCount",
-		"test-cases/or/minCount",
-		"test-cases/or/minCountDifferentPath",
-		"test-cases/or/minCountMaxCount",
-		"test-cases/or/multiple",
-		"test-cases/or/nodeKindMinLength",
-		"test-cases/or/nodeKindValidateTarget",
-		"test-cases/pattern/multiple",
-		"test-cases/pattern/simple",
-		"test-cases/propertyShapeWithTarget/simple",
-		"test-cases/uniqueLang/not",
-		"test-cases/uniqueLang/simple",
-		"test-cases/datatype/notNestedPropertyShape",
-		"test-cases/datatype/notNestedPropertyShape2",
-		"test-cases/hasValue/simple",
-		"test-cases/hasValue/and2",
-		"test-cases/hasValue/targetNode",
-		"test-cases/hasValue/targetNode2",
-		"test-cases/hasValueIn/simple",
-		"test-cases/hasValueIn/and",
-		"test-cases/hasValueIn/not",
-		"test-cases/hasValueIn/not2",
-		"test-cases/hasValueIn/targetNode",
-		"test-cases/hasValueIn/targetNode2",
-		"test-cases/languageIn/subtags",
-		"test-cases/languageIn/subtags2",
-		"test-cases/hasValueIn/targetNode2",
-		"test-cases/hasValue/or",
-		"test-cases/hasValue/targetShapeOr",
-		"test-cases/hasValue/targetShapeAnd",
-		"test-cases/hasValue/targetShapeAnd2",
-		"test-cases/hasValue/targetShapeAndOr",
-		"test-cases/hasValue/targetShapeAndOr2",
-		"test-cases/hasValueIn/targetShapeOr",
-		"test-cases/hasValueIn/or",
-		"test-cases/class/simpleNested",
-		"test-cases/class/nestedNode",
-		"test-cases/qualifiedShape/minCountSimple",
-		"test-cases/qualifiedShape/maxCountSimple"
+			"test-cases/or/inheritance",
+			"test-cases/or/inheritance-deep",
+			"test-cases/or/inheritanceNodeShape",
+			"test-cases/or/maxCount",
+			"test-cases/or/minCount",
+			"test-cases/or/minCountDifferentPath",
+			"test-cases/or/minCountMaxCount",
+			"test-cases/or/multiple",
+			"test-cases/or/nodeKindMinLength",
+			"test-cases/or/nodeKindValidateTarget",
+			"test-cases/pattern/multiple",
+			"test-cases/pattern/simple",
+			"test-cases/propertyShapeWithTarget/simple",
+			"test-cases/uniqueLang/not",
+			"test-cases/uniqueLang/simple",
+			"test-cases/datatype/notNestedPropertyShape",
+			"test-cases/datatype/notNestedPropertyShape2",
+			"test-cases/hasValue/simple",
+			"test-cases/hasValue/and2",
+			"test-cases/hasValue/targetNode",
+			"test-cases/hasValue/targetNode2",
+			"test-cases/hasValueIn/simple",
+			"test-cases/hasValueIn/and",
+			"test-cases/hasValueIn/not",
+			"test-cases/hasValueIn/not2",
+			"test-cases/hasValueIn/targetNode",
+			"test-cases/hasValueIn/targetNode2",
+			"test-cases/languageIn/subtags",
+			"test-cases/languageIn/subtags2",
+			"test-cases/hasValueIn/targetNode2",
+			"test-cases/hasValue/or",
+			"test-cases/hasValue/targetShapeOr",
+			"test-cases/hasValue/targetShapeAnd",
+			"test-cases/hasValue/targetShapeAnd2",
+			"test-cases/hasValue/targetShapeAnd3",
+			"test-cases/hasValue/targetShapeAndOr",
+			"test-cases/hasValue/targetShapeAndOr2",
+			"test-cases/hasValue/targetShapeAndOr3",
+			"test-cases/hasValueIn/targetShapeOr",
+			"test-cases/hasValueIn/or",
+			"test-cases/class/simpleNested",
+			"test-cases/class/nestedNode",
+			"test-cases/qualifiedShape/minCountSimple",
+			"test-cases/qualifiedShape/maxCountSimple",
+			"test-cases/uniqueLang/complex",
+			"test-cases/qualifiedShape/complex"
+	)
+			.distinct()
+			.sorted()
+			.collect(Collectors.toList());
 
-		)
-		.distinct()
-		.sorted()
-		.collect(Collectors.toList());
-
-	// @formatter:on
 	static boolean fullLogging = false;
 	final String testCasePath;
 	final String path;
@@ -438,7 +454,7 @@ abstract public class AbstractShaclTest {
 
 			Model validationReportExpected = Rio.parse(resourceAsStream, "", RDFFormat.TURTLE);
 
-			if (!isIsomorphic(validationReportActual, validationReportExpected)) {
+			if (!Models.isomorphic(validationReportActual, validationReportExpected)) {
 //				writeActualModelToExpectedModelForDevPurposes(dataPath, validationReportActual);
 
 				String validationReportExpectedString = modelToString(validationReportExpected);
@@ -447,31 +463,6 @@ abstract public class AbstractShaclTest {
 			}
 		} catch (IOException e) {
 			throw new RuntimeException(e);
-		}
-	}
-
-	private static boolean isIsomorphic(Model validationReportActual, Model validationReportExpected) {
-		validationReportActual = normalizeModel(validationReportActual);
-		validationReportExpected = normalizeModel(validationReportExpected);
-
-		String actualString = modelToString(validationReportActual);
-		String expectedString = modelToString(validationReportExpected);
-
-		if (actualString.equals(expectedString)) {
-			return true;
-		}
-
-		return Models.isomorphic(validationReportActual, validationReportExpected);
-//		return true;
-	}
-
-	private static Model normalizeModel(Model model) {
-		StringWriter sw = new StringWriter();
-		Rio.write(model, sw, RDFFormat.TURTLE);
-		try {
-			return Rio.parse(new StringReader(sw.toString()), "", RDFFormat.TURTLE);
-		} catch (IOException e) {
-			throw new IllegalStateException();
 		}
 	}
 
@@ -486,6 +477,182 @@ abstract public class AbstractShaclTest {
 			IOUtils.write(modelToString(report), fileOutputStream, StandardCharsets.UTF_8);
 		}
 
+	}
+
+	static void referenceImplementationTestCaseValidation(String shaclPath, String dataPath,
+			ExpectedResult expectedResult) {
+
+//		// ignored test cases for shacl extensions
+		if (shaclPath.equals("test-cases/class/complexTargetShape")) {
+			return;
+		}
+		if (shaclPath.equals("test-cases/class/complexTargetShape2")) {
+			return;
+		}
+		if (shaclPath.equals("test-cases/class/simpleTargetShape")) {
+			return;
+		}
+		if (shaclPath.equals("test-cases/datatype/notNodeShapeTargetShape")) {
+			return;
+		}
+		if (shaclPath.startsWith("test-cases/hasValue/targetShape")) {
+			return;
+		}
+		if (shaclPath.equals("test-cases/datatype/notTargetShape")) {
+			return;
+		}
+		if (shaclPath.startsWith("test-cases/hasValueIn/")) {
+			return;
+		}
+
+		// we support more variations for RDFS than the reference engine
+		if (shaclPath.contains("subclass")) {
+			return;
+		}
+
+		// reference implementation has wrong blank node identifier for path
+		if (dataPath.equals("test-cases/or/class2InversePath/invalid/case2")) {
+			return;
+		}
+
+		// reference implementation has wrong blank node identifier for path
+		if (dataPath.equals("test-cases/or/class2InversePath/invalid/case3")) {
+			return;
+		}
+
+		// uses rsx:nodeShape
+		if (shaclPath.equals("test-cases/qualifiedShape/complex")) {
+			return;
+		}
+
+		// uses rsx:nodeShape
+		if (shaclPath.equals("test-cases/complex/targetShapeAndQualifiedShape")) {
+			return;
+		}
+
+		if (fullLogging) {
+			logger.error(shaclPath);
+			logger.error(dataPath);
+		}
+
+		if (!dataPath.endsWith("/")) {
+			dataPath = dataPath + "/";
+		}
+
+		if (!shaclPath.endsWith("/")) {
+			shaclPath = shaclPath + "/";
+		}
+
+		String shaclFile = shaclPath + "shacl.ttl";
+
+		org.apache.jena.rdf.model.Model shacl = JenaUtil.createMemoryModel();
+		try (InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader().getResourceAsStream(shaclFile)) {
+			shacl.read(resourceAsStream, "", org.apache.jena.util.FileUtils.langTurtle);
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
+
+		checkShapesConformToW3cShaclRecommendation(shacl);
+
+		org.apache.jena.rdf.model.Model data = JenaUtil.createMemoryModel();
+
+		try (InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader()
+				.getResourceAsStream(dataPath + "initialData.ttl")) {
+			if (resourceAsStream != null) {
+				data.read(resourceAsStream, "", org.apache.jena.util.FileUtils.langTurtle);
+			}
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
+
+		URL resource = AbstractShaclTest.class.getClassLoader().getResource(dataPath);
+		List<File> queries = FileUtils.listFiles(new File(resource.getFile()), FILENAME_EXTENSION, false)
+				.stream()
+				.sorted()
+				.collect(Collectors.toList());
+
+		for (File queryFile : queries) {
+			try {
+				logger.debug(queryFile.getCanonicalPath());
+				String query = FileUtils.readFileToString(queryFile, StandardCharsets.UTF_8);
+				logger.debug(query);
+				UpdateAction.parseExecute(query, data);
+			} catch (IOException e) {
+				throw new IllegalStateException(e);
+			}
+
+		}
+
+		org.apache.jena.rdf.model.Resource report = ValidationUtil.validateModel(data, shacl, true);
+
+		org.apache.jena.rdf.model.Model model = report.getModel();
+		model.setNsPrefix("sh", "http://www.w3.org/ns/shacl#");
+
+		boolean conforms = report.getProperty(SH.conforms).getBoolean();
+
+		if (expectedResult == ExpectedResult.valid) {
+			assertTrue("Expected test case to conform", conforms);
+		} else {
+			assertFalse("Expected test case to not conform", conforms);
+
+			try {
+				Model validationReportExpected = Rio.parse(new StringReader(ModelPrinter.get().print(model)), "",
+						RDFFormat.TURTLE);
+
+				try {
+					InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader()
+							.getResourceAsStream(dataPath + "report.ttl");
+
+					Model validationReportActual = Rio.parse(resourceAsStream, "", RDFFormat.TURTLE);
+
+					validationReportActual = extractValidationReport(validationReportActual);
+					validationReportExpected = extractValidationReport(validationReportExpected);
+
+					for (Model validationReport : Arrays.asList(validationReportActual, validationReportExpected)) {
+						validationReport.remove(null, RDF4J.TRUNCATED, null);
+						// we don't yet support sh:resultMessage
+						validationReport.remove(null, SHACL.RESULT_MESSAGE, null);
+					}
+
+					if (!Models.isomorphic(validationReportActual, validationReportExpected)) {
+
+						String validationReportExpectedString = modelToString(validationReportExpected);
+						String validationReportActualString = modelToString(validationReportActual);
+						assertEquals(validationReportExpectedString, validationReportActualString);
+					}
+				} catch (IOException e) {
+					throw new RuntimeException(e);
+				}
+
+			} catch (IOException e) {
+				throw new IllegalStateException();
+			}
+
+		}
+
+	}
+
+	private static void checkShapesConformToW3cShaclRecommendation(org.apache.jena.rdf.model.Model shacl) {
+		org.apache.jena.rdf.model.Model w3cShacl = JenaUtil.createMemoryModel();
+		try (InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader()
+				.getResourceAsStream("w3cshacl.ttl")) {
+			w3cShacl.read(resourceAsStream, "", org.apache.jena.util.FileUtils.langTurtle);
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
+
+		org.apache.jena.rdf.model.Resource report = ValidationUtil.validateModel(shacl, w3cShacl, true);
+
+		boolean conforms = report.getProperty(SH.conforms).getBoolean();
+
+		if (!conforms) {
+			org.apache.jena.rdf.model.Model model = report.getModel();
+			model.setNsPrefix("sh", "http://www.w3.org/ns/shacl#");
+
+			System.out.println(ModelPrinter.get().print(model));
+
+			fail("SHACL does not conform to the W3C SHACL Recommendation");
+		}
 	}
 
 	private static void printCurrentState(SailRepository shaclRepository) {
@@ -517,6 +684,18 @@ abstract public class AbstractShaclTest {
 	}
 
 	static String modelToString(Model model) {
+
+		ArrayList<Statement> statements = new ArrayList<>(model);
+		ValueComparator valueComparator = new ValueComparator();
+		statements.sort(
+				Comparator
+						.comparing(Statement::getPredicate, valueComparator)
+						.thenComparing(Statement::getSubject, valueComparator)
+						.thenComparing(Statement::getObject, valueComparator)
+		);
+
+		model = new LinkedHashModel(statements);
+
 		model.setNamespace("ex", "http://example.com/ns#");
 		model.setNamespace(FOAF.PREFIX, FOAF.NAMESPACE);
 		model.setNamespace(XSD.PREFIX, XSD.NAMESPACE);
@@ -525,6 +704,7 @@ abstract public class AbstractShaclTest {
 		model.setNamespace(SHACL.NS);
 		model.setNamespace(RDF.NS);
 		model.setNamespace(RDFS.NS);
+		model.setNamespace(RSX.NS);
 
 		WriterConfig writerConfig = new WriterConfig();
 		writerConfig.set(BasicWriterSettings.PRETTY_PRINT, true);
@@ -536,6 +716,62 @@ abstract public class AbstractShaclTest {
 		Rio.write(model, stringWriter, RDFFormat.TURTLE, writerConfig);
 
 		return stringWriter.toString();
+	}
+
+	private static Model extractValidationReport(Model model) {
+
+		Resource subject = Models.subject(model.filter(null, RDF.TYPE, SHACL.VALIDATION_REPORT)).get();
+		return ModelExtractor.extract(model, subject, s -> {
+			if (s.getPredicate().equals(SHACL.SOURCE_SHAPE)) {
+				return ModelExtractor.Decision.includeDontFollow;
+			}
+
+			return ModelExtractor.Decision.includeAndFollow;
+		});
+	}
+
+	static class ModelExtractor {
+
+		enum Decision {
+			includeAndFollow,
+			includeDontFollow,
+			exclude
+		}
+
+		static Model extract(Model model, Resource start, Function<Statement, Decision> decisionFunction) {
+			DynamicModel emptyModel = new DynamicModelFactory().createEmptyModel();
+
+			Set<Statement> breadthFirstSearchBuffer = new HashSet<>();
+			model.getStatements(start, null, null).forEach(breadthFirstSearchBuffer::add);
+
+			while (!breadthFirstSearchBuffer.isEmpty()) {
+				Set<Statement> tempBuffer = new HashSet<>();
+				for (Statement statement : breadthFirstSearchBuffer) {
+					Decision decision = decisionFunction.apply(statement);
+
+					switch (decision) {
+
+					case includeAndFollow:
+						boolean add = emptyModel.add(statement);
+						if (add && statement.getObject() instanceof Resource) {
+							model.getStatements((Resource) statement.getObject(), null, null).forEach(tempBuffer::add);
+						}
+						break;
+					case includeDontFollow:
+						emptyModel.add(statement);
+						break;
+					case exclude:
+						break;
+					}
+				}
+
+				breadthFirstSearchBuffer = tempBuffer;
+
+			}
+
+			return emptyModel;
+		}
+
 	}
 
 	private static void printFile(String filename) {
@@ -645,13 +881,13 @@ abstract public class AbstractShaclTest {
 			}
 
 			if (ran) {
-				testValidationReport(dataPath, validationReportActual);
-
 				if (expectedResult == ExpectedResult.valid) {
 					assertFalse(exception);
 				} else {
 					assertTrue(exception);
 				}
+
+				testValidationReport(dataPath, validationReportActual);
 			}
 		} finally {
 			shaclRepository.shutDown();
@@ -751,6 +987,7 @@ abstract public class AbstractShaclTest {
 			List<Shape> shapes = ((ShaclSail) shaclRepository.getSail()).getCurrentShapes();
 
 			DynamicModel actual = new DynamicModelFactory().createEmptyModel();
+			HashSet<Resource> dedupe = new HashSet<>();
 			shapes.forEach(shape -> shape.toModel(actual));
 
 			try (InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader()
@@ -777,7 +1014,7 @@ abstract public class AbstractShaclTest {
 				actual.remove(null, RDF.TYPE, SHACL.SHAPE);
 				actual.remove(null, RDF.TYPE, SHACL.PROPERTY_SHAPE);
 
-				if (!isIsomorphic(parse, actual)) {
+				if (!Models.isomorphic(parse, actual)) {
 					assertEquals(modelToString(parse), modelToString(actual));
 				}
 
@@ -797,6 +1034,10 @@ abstract public class AbstractShaclTest {
 		System.out.println("\n############################################");
 		System.out.println("\tValidation Report\n");
 		Model validationReport = report.asModel();
+
+		validationReport.setNamespace(SHACL.NS);
+		validationReport.setNamespace(XSD.NS);
+		validationReport.setNamespace(RDF4J.NS);
 
 		WriterConfig writerConfig = new WriterConfig();
 		writerConfig.set(BasicWriterSettings.PRETTY_PRINT, true);
@@ -825,6 +1066,8 @@ abstract public class AbstractShaclTest {
 		shaclSail.setEclipseRdf4jShaclExtensions(true);
 		shaclSail.setDashDataShapes(true);
 		shaclSail.setPerformanceLogging(false);
+
+		System.setProperty("org.eclipse.rdf4j.sail.shacl.experimentalSparqlValidation", "true");
 
 		repository.init();
 

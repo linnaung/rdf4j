@@ -19,7 +19,6 @@ import java.lang.ref.Reference;
 import java.lang.ref.ReferenceQueue;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.concurrent.Callable;
@@ -176,9 +175,10 @@ public class ShaclSail extends NotifyingSailWrapper {
 
 	private static final Logger logger = LoggerFactory.getLogger(ShaclSail.class);
 
-	private List<Shape> shapes = Collections.emptyList();
-
 	private static final Model DASH_CONSTANTS;
+
+	// Temporary field used to control if the new SPARQL based validation should be enabled!
+	final boolean experimentalSparqlValidation;
 
 	/**
 	 * an initialized {@link Repository} for storing/retrieving Shapes data
@@ -245,6 +245,9 @@ public class ShaclSail extends NotifyingSailWrapper {
 		ReferenceQueue<ShaclSail> objectReferenceQueue = new ReferenceQueue<>();
 		startMonitoring(objectReferenceQueue, new PhantomReference<>(this, objectReferenceQueue), initialized,
 				executorService);
+		this.experimentalSparqlValidation = "true"
+				.equalsIgnoreCase(System.getProperty("org.eclipse.rdf4j.sail.shacl.experimentalSparqlValidation"));
+
 	}
 
 	public ShaclSail() {
@@ -252,6 +255,9 @@ public class ShaclSail extends NotifyingSailWrapper {
 		ReferenceQueue<ShaclSail> objectReferenceQueue = new ReferenceQueue<>();
 		startMonitoring(objectReferenceQueue, new PhantomReference<>(this, objectReferenceQueue), initialized,
 				executorService);
+		this.experimentalSparqlValidation = "true"
+				.equalsIgnoreCase(System.getProperty("org.eclipse.rdf4j.sail.shacl.experimentalSparqlValidation"));
+
 	}
 
 	// This is used to keep track of the current connection, if the opening and closing of connections is done serially.
@@ -351,7 +357,6 @@ public class ShaclSail extends NotifyingSailWrapper {
 
 		try (SailRepositoryConnection shapesRepoConnection = shapesRepo.getConnection()) {
 			shapesRepoConnection.begin(IsolationLevels.NONE);
-			shapes = refreshShapes(shapesRepoConnection);
 			shapesRepoConnection.commit();
 		}
 
@@ -359,33 +364,8 @@ public class ShaclSail extends NotifyingSailWrapper {
 
 	}
 
-//	List<NodeShape> refreshShapes(SailRepositoryConnection shapesRepoConnection) throws SailException {
-//
-//		SailRepository shapesRepoCache = new SailRepository(
-//				SchemaCachingRDFSInferencer.fastInstantiateFrom(shaclVocabulary, new MemoryStore()));
-//
-//		shapesRepoCache.init();
-//		List<NodeShape> shapes;
-//
-//		try (SailRepositoryConnection shapesRepoCacheConnection = shapesRepoCache.getConnection()) {
-//			shapesRepoCacheConnection.begin(IsolationLevels.NONE);
-//			try (RepositoryResult<Statement> statements = shapesRepoConnection.getStatements(null, null, null, false)) {
-//				shapesRepoCacheConnection.add(statements);
-//			}
-//
-//			runInferencingSparqlQueries(shapesRepoCacheConnection);
-//			shapesRepoCacheConnection.commit();
-//
-//			shapes = NodeShape.Factory.getShapes(shapesRepoCacheConnection, this);
-//		}
-//
-//		shapesRepoCache.shutDown();
-//		return shapes;
-//	}
-
-	@Experimental
-	public List<Shape> refreshShapes(RepositoryConnection shapesRepoConnection) throws SailException {
-
+	@InternalUseOnly
+	public List<Shape> getShapes(RepositoryConnection shapesRepoConnection) throws SailException {
 		SailRepository shapesRepoCache = new SailRepository(
 				SchemaCachingRDFSInferencer.fastInstantiateFrom(shaclVocabulary, new MemoryStore(), false));
 
@@ -408,19 +388,10 @@ public class ShaclSail extends NotifyingSailWrapper {
 	}
 
 	private void forceRefreshShapes() {
-		Lock writeLock = null;
-		try {
-			writeLock = acquireExclusiveWriteLock(null);
-			if (shapesRepo != null) {
-				try (SailRepositoryConnection shapesRepoConnection = shapesRepo.getConnection()) {
-					shapesRepoConnection.begin(IsolationLevels.NONE);
-					shapes = refreshShapes(shapesRepoConnection);
-					shapesRepoConnection.commit();
-				}
-			}
-		} finally {
-			if (writeLock != null) {
-				releaseExclusiveWriteLock(writeLock);
+		if (shapesRepo != null) {
+			try (SailRepositoryConnection shapesRepoConnection = shapesRepo.getConnection()) {
+				shapesRepoConnection.begin(IsolationLevels.NONE, TransactionSettings.ValidationApproach.Bulk);
+				shapesRepoConnection.commit();
 			}
 		}
 	}
@@ -449,7 +420,6 @@ public class ShaclSail extends NotifyingSailWrapper {
 
 		initialized.set(false);
 		executorService[0] = null;
-		shapes = Collections.emptyList();
 		super.shutDown();
 	}
 
@@ -486,10 +456,6 @@ public class ShaclSail extends NotifyingSailWrapper {
 		}
 
 		return shaclSailConnection;
-	}
-
-	List<Shape> getShapes() {
-		return shapes;
 	}
 
 	private void enrichShapes(SailRepositoryConnection shaclSailConnection) {
@@ -582,29 +548,6 @@ public class ShaclSail extends NotifyingSailWrapper {
 		lock.release();
 
 		return null;
-	}
-
-//	Lock convertToReadLock(Lock writeLockStamp) {
-//		assert writeLockStamp != null;
-//
-//		writeLockStamp.release();
-//
-//		Lock readLock = null;
-//		while (readLock == null) {
-//			try {
-//				readLock = lockManager.getReadLock();
-//			} catch (InterruptedException e) {
-//				e.printStackTrace();
-//			}
-//		}
-//
-//		return readLock;
-//
-//
-//	}
-
-	void setShapes(List<Shape> shapes) {
-		this.shapes = shapes;
 	}
 
 	/**
@@ -811,6 +754,12 @@ public class ShaclSail extends NotifyingSailWrapper {
 	 * @return <code>true</code> if serializable validation is enabled, <code>false</code> otherwise.
 	 */
 	public boolean isSerializableValidation() {
+		if (getBaseSail() instanceof SchemaCachingRDFSInferencer) {
+			if (serializableValidation) {
+				logger.warn("SchemaCachingRDFSInferencer is not supported when using serializable validation!");
+			}
+			return false;
+		}
 		return serializableValidation;
 	}
 
@@ -883,10 +832,11 @@ public class ShaclSail extends NotifyingSailWrapper {
 		ex.shutdown();
 	}
 
-	@Deprecated
 	@InternalUseOnly
 	public List<Shape> getCurrentShapes() {
-		return shapes;
+		try (SailRepositoryConnection connection = shapesRepo.getConnection()) {
+			return getShapes(connection);
+		}
 	}
 
 	/**
@@ -1011,10 +961,62 @@ public class ShaclSail extends NotifyingSailWrapper {
 
 	public static class TransactionSettings {
 
+		@Experimental
+		public enum PerformanceHint implements TransactionSetting {
+
+			/**
+			 * Run validation is parallel (multithreaded).
+			 */
+			ParallelValidation("ParallelValidation"),
+			/**
+			 * Run validation serially (single threaded)
+			 */
+			SerialValidation("SerialValidation"),
+			/**
+			 * Cache intermediate results. Uses more memory but can reduce validation time.
+			 */
+			CacheEnabled("CacheEnabled"),
+			/**
+			 * Do not cache intermediate results.
+			 */
+			CacheDisabled("CacheDisabled");
+
+			private final String value;
+
+			PerformanceHint(String value) {
+				this.value = value;
+			}
+
+			@Override
+			public String getName() {
+				return ValidationApproach.class.getCanonicalName();
+			}
+
+			@Override
+			public String getValue() {
+				return value;
+			}
+
+		}
+
 		public enum ValidationApproach implements TransactionSetting {
 
+			/**
+			 * Do not run any validation. This could potentially lead to your database becoming invalid.
+			 */
 			Disabled("Disabled"),
+
+			/**
+			 * Let the SHACL engine decide on the best approach for validating. This typically means that it will use
+			 * transactional validation except when changing the SHACL Shape.
+			 */
 			Auto("Auto"),
+
+			/**
+			 * Use a validation approach that is optimized for bulk operations such as adding or removing large amounts
+			 * of data. This will automatically disable parallel validation and turn off caching. Add performance hints
+			 * to enable parallel validation or caching if you have enough resources (RAM).
+			 */
 			Bulk("Bulk");
 
 			private final String value;

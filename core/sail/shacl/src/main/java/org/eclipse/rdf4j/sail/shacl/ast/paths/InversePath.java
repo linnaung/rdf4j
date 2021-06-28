@@ -33,9 +33,9 @@ public class InversePath extends Path {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.INVERSE_PATH, inversePath.getId());
-		inversePath.toModel(inversePath.getId(), null, model, exported);
+		inversePath.toModel(inversePath.getId(), null, model, cycleDetection);
 	}
 
 	@Override
@@ -55,6 +55,11 @@ public class InversePath extends Path {
 	}
 
 	@Override
+	public boolean isSupported() {
+		return inversePath.isSupported();
+	}
+
+	@Override
 	public Stream<StatementMatcher> getStatementMatcher(StatementMatcher.Variable subject,
 			StatementMatcher.Variable object,
 			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
@@ -63,9 +68,11 @@ public class InversePath extends Path {
 
 	@Override
 	public String getTargetQueryFragment(StatementMatcher.Variable subject, StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 
-		return inversePath.getTargetQueryFragment(object, subject, rdfsSubClassOfReasoner);
+		return inversePath.getTargetQueryFragment(object, subject, rdfsSubClassOfReasoner,
+				stableRandomVariableProvider);
 
 	}
 }

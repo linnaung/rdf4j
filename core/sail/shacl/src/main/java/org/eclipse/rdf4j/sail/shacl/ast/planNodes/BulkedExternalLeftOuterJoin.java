@@ -9,6 +9,7 @@
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.ArrayDeque;
+import java.util.Objects;
 import java.util.function.Function;
 
 import org.apache.commons.text.StringEscapeUtils;
@@ -87,13 +88,13 @@ public class BulkedExternalLeftOuterJoin extends AbstractBulkJoinPlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				calculateNext();
 				return !left.isEmpty();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				calculateNext();
 
 				if (!left.isEmpty()) {
@@ -134,10 +135,6 @@ public class BulkedExternalLeftOuterJoin extends AbstractBulkJoinPlanNode {
 				return null;
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -158,6 +155,8 @@ public class BulkedExternalLeftOuterJoin extends AbstractBulkJoinPlanNode {
 
 		leftNode.getPlanAsGraphvizDot(stringBuilder);
 
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
 		if (connection instanceof MemoryStoreConnection) {
 			stringBuilder.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> "
 					+ getId() + " [label=\"right\"]").append("\n");
@@ -193,5 +192,28 @@ public class BulkedExternalLeftOuterJoin extends AbstractBulkJoinPlanNode {
 	public void receiveLogger(ValidationExecutionLogger validationExecutionLogger) {
 		this.validationExecutionLogger = validationExecutionLogger;
 		leftNode.receiveLogger(validationExecutionLogger);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		if (!super.equals(o)) {
+			return false;
+		}
+		BulkedExternalLeftOuterJoin that = (BulkedExternalLeftOuterJoin) o;
+		return skipBasedOnPreviousConnection == that.skipBasedOnPreviousConnection && connection.equals(that.connection)
+				&& leftNode.equals(that.leftNode)
+				&& Objects.equals(previousStateConnection, that.previousStateConnection) && query.equals(that.query);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(super.hashCode(), connection, leftNode, skipBasedOnPreviousConnection,
+				previousStateConnection, query);
 	}
 }

@@ -4,7 +4,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -22,6 +21,7 @@ import org.eclipse.rdf4j.sail.shacl.ast.NodeShape;
 import org.eclipse.rdf4j.sail.shacl.ast.PropertyShape;
 import org.eclipse.rdf4j.sail.shacl.ast.ShaclProperties;
 import org.eclipse.rdf4j.sail.shacl.ast.Shape;
+import org.eclipse.rdf4j.sail.shacl.ast.SparqlFragment;
 import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
 import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.ConstraintComponent;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.ExternalFilterByQuery;
@@ -56,8 +56,8 @@ public class RSXTargetShape extends Target {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
-		targetShape.toModel(subject, getPredicate(), model, exported);
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
+		targetShape.toModel(subject, getPredicate(), model, cycleDetection);
 	}
 
 	@Override
@@ -68,28 +68,33 @@ public class RSXTargetShape extends Target {
 	private PlanNode getAddedRemovedInner(ConnectionsGroup connectionsGroup, ConstraintComponent.Scope scope,
 			SailConnection connection) {
 
-		List<StatementMatcher> collect = getStatementMatcher(null, new StatementMatcher.Variable("temp1"),
-				connectionsGroup.getRdfsSubClassOfReasoner()).collect(Collectors.toList());
+		StatementMatcher.Variable object = new StatementMatcher.Variable("temp1");
 
-		String query = getTargetQueryFragment(null, new StatementMatcher.Variable("temp1"),
-				connectionsGroup.getRdfsSubClassOfReasoner());
+		SparqlFragment sparqlFragment = this.targetShape.buildSparqlValidNodes_rsx_targetShape(null, object,
+				connectionsGroup.getRdfsSubClassOfReasoner(), null,
+				new StatementMatcher.StableRandomVariableProvider());
 
-		List<StatementMatcher.Variable> vars = Collections.singletonList(new StatementMatcher.Variable("temp1"));
+		List<StatementMatcher> statementMatchers = sparqlFragment.getStatementMatchers();
+
+		String query = sparqlFragment.getFragment();
+
+		List<StatementMatcher.Variable> vars = Collections.singletonList(object);
 
 		return new Unique(new TargetChainRetriever(
 				connectionsGroup,
-				collect,
-				null,
+				statementMatchers,
+				statementMatchers,
 				query,
 				vars,
 				scope
-		));
+		), false);
 
 	}
 
 	@Override
 	public String getQueryFragment(String subjectVariable, String objectVariable,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 
 		throw new UnsupportedOperationException(this.getClass().getSimpleName());
 
@@ -97,8 +102,9 @@ public class RSXTargetShape extends Target {
 
 	@Override
 	public PlanNode getTargetFilter(ConnectionsGroup connectionsGroup, PlanNode parent) {
+
 		String query = getTargetQueryFragment(null, new StatementMatcher.Variable("temp1"),
-				connectionsGroup.getRdfsSubClassOfReasoner());
+				connectionsGroup.getRdfsSubClassOfReasoner(), new StatementMatcher.StableRandomVariableProvider());
 
 		// TODO: this is a slow way to solve this problem! We should use bulk operations.
 		return new ExternalFilterByQuery(connectionsGroup.getBaseConnection(), parent, query,
@@ -113,16 +119,22 @@ public class RSXTargetShape extends Target {
 			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
 		assert (subject == null);
 
-		return this.targetShape.getStatementMatchers_rsx_targetShape(subject, object,
-				rdfsSubClassOfReasoner, null);
+		return this.targetShape
+				.buildSparqlValidNodes_rsx_targetShape(subject, object, rdfsSubClassOfReasoner, null,
+						new StatementMatcher.StableRandomVariableProvider())
+				.getStatementMatchers()
+				.stream();
 	}
 
 	@Override
 	public String getTargetQueryFragment(StatementMatcher.Variable subject, StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 		assert (subject == null);
 
-		return this.targetShape.buildSparqlValidNodes_rsx_targetShape(subject, object, rdfsSubClassOfReasoner, null)
+		return this.targetShape
+				.buildSparqlValidNodes_rsx_targetShape(subject, object, rdfsSubClassOfReasoner, null,
+						new StatementMatcher.StableRandomVariableProvider())
 				.getFragment();
 
 	}

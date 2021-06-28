@@ -8,6 +8,11 @@
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.sail.SailException;
@@ -22,8 +27,6 @@ public class ShiftToNodeShape implements PlanNode {
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
-	boolean keepPath = false;
-
 	public ShiftToNodeShape(PlanNode parent) {
 		parent = PlanNodeHelper.handleSorting(this, parent);
 		this.parent = parent;
@@ -35,6 +38,18 @@ public class ShiftToNodeShape implements PlanNode {
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
 			final CloseableIteration<? extends ValidationTuple, SailException> parentIterator = parent.iterator();
+			Iterator<ValidationTuple> iterator = Collections.emptyIterator();
+
+			public void calculateNext() {
+				if (!iterator.hasNext()) {
+					if (parentIterator.hasNext()) {
+						List<ValidationTuple> validationTuples = parentIterator.next().shiftToNodeShape();
+						iterator = validationTuples.iterator();
+					}
+					assert iterator.hasNext() || !parentIterator.hasNext();
+				}
+
+			}
 
 			@Override
 			public void close() throws SailException {
@@ -42,25 +57,18 @@ public class ShiftToNodeShape implements PlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
-				return parentIterator.hasNext();
+			protected boolean localHasNext() throws SailException {
+				calculateNext();
+				return iterator.hasNext();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
+				calculateNext();
 
-				ValidationTuple next = parentIterator.next();
-				ValidationTuple validationTuple = new ValidationTuple(next);
-
-				validationTuple.shiftToNodeShape();
-
-				return validationTuple;
+				return iterator.next();
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 
 	}
@@ -84,7 +92,7 @@ public class ShiftToNodeShape implements PlanNode {
 
 	@Override
 	public String toString() {
-		return "TrimToTarget";
+		return "ShiftToNodeShape";
 	}
 
 	@Override
@@ -106,5 +114,22 @@ public class ShiftToNodeShape implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ShiftToNodeShape that = (ShiftToNodeShape) o;
+		return parent.equals(that.parent);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(parent);
 	}
 }

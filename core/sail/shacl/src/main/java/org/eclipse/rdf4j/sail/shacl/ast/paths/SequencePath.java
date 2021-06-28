@@ -12,7 +12,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.sail.shacl.ConnectionsGroup;
 import org.eclipse.rdf4j.sail.shacl.RdfsSubClassOfReasoner;
-import org.eclipse.rdf4j.sail.shacl.ast.HelperTool;
+import org.eclipse.rdf4j.sail.shacl.ast.ShaclAstLists;
 import org.eclipse.rdf4j.sail.shacl.ast.ShaclUnsupportedException;
 import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
@@ -24,7 +24,7 @@ public class SequencePath extends Path {
 
 	public SequencePath(Resource id, RepositoryConnection connection) {
 		super(id);
-		sequence = HelperTool.toList(connection, id, Resource.class)
+		sequence = ShaclAstLists.toList(connection, id, Resource.class)
 				.stream()
 				.map(p -> Path.buildPath(connection, p))
 				.collect(Collectors.toList());
@@ -37,17 +37,26 @@ public class SequencePath extends Path {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
-		sequence.forEach(p -> p.toModel(p.getId(), null, model, exported));
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 
 		List<Resource> values = sequence.stream().map(Path::getId).collect(Collectors.toList());
 
-		HelperTool.listToRdf(values, id, model);
+		if (!model.contains(getId(), null, null)) {
+			ShaclAstLists.listToRdf(values, id, model);
+		}
+
+		sequence.forEach(p -> p.toModel(p.getId(), null, model, cycleDetection));
+
 	}
 
 	@Override
 	public PlanNode getAdded(ConnectionsGroup connectionsGroup, PlanNodeWrapper planNodeWrapper) {
 		throw new ShaclUnsupportedException();
+	}
+
+	@Override
+	public boolean isSupported() {
+		return false;
 	}
 
 	@Override
@@ -59,7 +68,8 @@ public class SequencePath extends Path {
 
 	@Override
 	public String getTargetQueryFragment(StatementMatcher.Variable subject, StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 		throw new ShaclUnsupportedException();
 	}
 

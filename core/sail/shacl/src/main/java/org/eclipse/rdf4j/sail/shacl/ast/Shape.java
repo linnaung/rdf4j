@@ -1,3 +1,10 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ ******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast;
 
 import java.io.StringWriter;
@@ -20,6 +27,7 @@ import org.eclipse.rdf4j.model.vocabulary.DASH;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RSX;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
+import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
@@ -69,8 +77,13 @@ import org.eclipse.rdf4j.sail.shacl.ast.targets.TargetClass;
 import org.eclipse.rdf4j.sail.shacl.ast.targets.TargetNode;
 import org.eclipse.rdf4j.sail.shacl.ast.targets.TargetObjectsOf;
 import org.eclipse.rdf4j.sail.shacl.ast.targets.TargetSubjectsOf;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 abstract public class Shape implements ConstraintComponent, Identifiable, Exportable, TargetChainInterface {
+
+	private static final Logger logger = LoggerFactory.getLogger(Shape.class);
+
 	Resource id;
 	TargetChain targetChain;
 
@@ -150,12 +163,17 @@ abstract public class Shape implements ConstraintComponent, Identifiable, Export
 
 	protected abstract Shape shallowClone();
 
+	/**
+	 *
+	 * @param model the model to export the shapes into
+	 * @return the provided model
+	 */
 	public Model toModel(Model model) {
 		toModel(null, null, model, new HashSet<>());
 		return model;
 	}
 
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		ModelBuilder modelBuilder = new ModelBuilder();
 
 		modelBuilder.subject(getId());
@@ -165,7 +183,7 @@ abstract public class Shape implements ConstraintComponent, Identifiable, Export
 		}
 
 		target.forEach(t -> {
-			t.toModel(getId(), null, model, exported);
+			t.toModel(getId(), null, model, cycleDetection);
 		});
 
 		model.addAll(modelBuilder.build());
@@ -250,26 +268,6 @@ abstract public class Shape implements ConstraintComponent, Identifiable, Export
 					properties.getIgnoredProperties()));
 		}
 
-		properties.getOr()
-				.stream()
-				.map(or -> new OrConstraintComponent(or, connection, cache, shaclSail))
-				.forEach(constraintComponent::add);
-
-		properties.getXone()
-				.stream()
-				.map(xone -> new XoneConstraintComponent(xone, connection, cache, shaclSail))
-				.forEach(constraintComponent::add);
-
-		properties.getAnd()
-				.stream()
-				.map(and -> new AndConstraintComponent(and, connection, cache, shaclSail))
-				.forEach(constraintComponent::add);
-
-		properties.getNot()
-				.stream()
-				.map(or -> new NotConstraintComponent(or, connection, cache, shaclSail))
-				.forEach(constraintComponent::add);
-
 		properties.getClazz()
 				.stream()
 				.map(ClassConstraintComponent::new)
@@ -324,6 +322,26 @@ abstract public class Shape implements ConstraintComponent, Identifiable, Export
 					.forEach(constraintComponent::add);
 		}
 
+		properties.getOr()
+				.stream()
+				.map(or -> new OrConstraintComponent(or, connection, cache, shaclSail))
+				.forEach(constraintComponent::add);
+
+		properties.getXone()
+				.stream()
+				.map(xone -> new XoneConstraintComponent(xone, connection, cache, shaclSail))
+				.forEach(constraintComponent::add);
+
+		properties.getAnd()
+				.stream()
+				.map(and -> new AndConstraintComponent(and, connection, cache, shaclSail))
+				.forEach(constraintComponent::add);
+
+		properties.getNot()
+				.stream()
+				.map(or -> new NotConstraintComponent(or, connection, cache, shaclSail))
+				.forEach(constraintComponent::add);
+
 		return constraintComponent;
 	}
 
@@ -345,16 +363,20 @@ abstract public class Shape implements ConstraintComponent, Identifiable, Export
 		ValidationApproach validationApproach = ValidationApproach.SPARQL;
 		if (!validateEntireBaseSail) {
 			validationApproach = constraintComponents.stream()
-					.map(ConstraintComponent::getPreferedValidationApproach)
-					.reduce(ValidationApproach::reduce)
+					.map(constraintComponent -> constraintComponent.getPreferredValidationApproach(connectionsGroup))
+					.reduce(ValidationApproach::reducePreferred)
 					.get();
 		}
 
 		if (validationApproach == ValidationApproach.SPARQL) {
-			if (Shape.this.getSupportedValidationApproaches().contains(ValidationApproach.SPARQL)) {
-				return Shape.this.generateSparqlValidationPlan(connectionsGroup, logValidationPlans, false, false,
-						Scope.none);
+			if (connectionsGroup.isExperimentalSparqlValidation()
+					&& Shape.this.getOptimalBulkValidationApproach() == ValidationApproach.SPARQL) {
+				logger.debug("Use validation approach {} for shape {}", validationApproach, this);
+				return Shape.this.generateSparqlValidationQuery(connectionsGroup, logValidationPlans, false, false,
+						Scope.none).getValidationPlan(connectionsGroup.getBaseConnection());
 			} else {
+				logger.debug("Use fall back validation approach for bulk validation instead of SPARQL for shape {}",
+						this);
 
 				return Shape.this.generateTransactionalValidationPlan(connectionsGroup, logValidationPlans,
 						() -> Shape.this.getTargetChain()
@@ -367,11 +389,13 @@ abstract public class Shape implements ConstraintComponent, Identifiable, Export
 			}
 
 		} else if (validationApproach == ValidationApproach.Transactional) {
+			logger.debug("Use validation approach {} for shape {}", validationApproach, this);
+
 			if (this.requiresEvaluation(connectionsGroup, Scope.none)) {
 				return Shape.this.generateTransactionalValidationPlan(connectionsGroup, logValidationPlans, null,
 						Scope.none);
 			} else {
-				return new EmptyNode();
+				return EmptyNode.getInstance();
 			}
 
 		} else {
@@ -405,19 +429,18 @@ abstract public class Shape implements ConstraintComponent, Identifiable, Export
 	 */
 	public SparqlFragment buildSparqlValidNodes_rsx_targetShape(StatementMatcher.Variable subject,
 			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 		throw new UnsupportedOperationException(this.getClass().getSimpleName());
 	}
 
-	/**
-	 * For rsx:targetShape
-	 *
-	 * @return
-	 */
-	public Stream<StatementMatcher> getStatementMatchers_rsx_targetShape(StatementMatcher.Variable subject,
-			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
-		throw new UnsupportedOperationException(this.getClass().getSimpleName());
+	@Override
+	public ValidationApproach getOptimalBulkValidationApproach() {
+		return constraintComponents.stream()
+				.map(ConstraintComponent::getOptimalBulkValidationApproach)
+				.reduce(ValidationApproach::reduceCompatible)
+				.orElse(ValidationApproach.MOST_COMPATIBLE);
+
 	}
 
 	public static class Factory {
@@ -534,13 +557,17 @@ abstract public class Shape implements ConstraintComponent, Identifiable, Export
 	public String toString() {
 		Model statements = toModel(new DynamicModel(new LinkedHashModelFactory()));
 		statements.setNamespace(SHACL.NS);
+		statements.setNamespace(XSD.NS);
 		WriterConfig writerConfig = new WriterConfig();
 		writerConfig.set(BasicWriterSettings.PRETTY_PRINT, true);
 		writerConfig.set(BasicWriterSettings.INLINE_BLANK_NODES, true);
 
 		StringWriter stringWriter = new StringWriter();
 		Rio.write(statements, stringWriter, RDFFormat.TURTLE, writerConfig);
-		return stringWriter.toString().replace("@prefix sh: <http://www.w3.org/ns/shacl#> .", "").trim();
+		return stringWriter.toString()
+				.replace("@prefix sh: <http://www.w3.org/ns/shacl#> .", "")
+				.replace("@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .", "")
+				.trim();
 	}
 
 }

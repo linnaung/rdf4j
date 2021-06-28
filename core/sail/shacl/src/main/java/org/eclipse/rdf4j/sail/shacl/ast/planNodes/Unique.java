@@ -8,15 +8,20 @@
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
 import org.eclipse.rdf4j.sail.SailException;
+import org.eclipse.rdf4j.sail.shacl.CloseablePeakableIteration;
 import org.eclipse.rdf4j.sail.shacl.GlobalValidationExecutionLogging;
+import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.ConstraintComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -25,19 +30,29 @@ import org.slf4j.LoggerFactory;
  */
 public class Unique implements PlanNode {
 	private final Logger logger = LoggerFactory.getLogger(Unique.class);
-	private final int id;
+	private final boolean compress;
+	private StackTraceElement[] stackTrace;
 
 	PlanNode parent;
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
-	static AtomicInteger counter = new AtomicInteger();
-
-	public Unique(PlanNode parent) {
+	public Unique(PlanNode parent, boolean compress) {
+//		this.stackTrace = Thread.currentThread().getStackTrace();
 		parent = PlanNodeHelper.handleSorting(this, parent);
 
+		if (parent instanceof Unique) {
+			Unique parentUnique = ((Unique) parent);
+
+			parent = parentUnique.parent;
+
+			if (!compress) {
+				compress = parentUnique.compress;
+			}
+		}
+
 		this.parent = parent;
-		this.id = counter.incrementAndGet();
+		this.compress = compress;
 	}
 
 	@Override
@@ -45,11 +60,20 @@ public class Unique implements PlanNode {
 
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final CloseableIteration<? extends ValidationTuple, SailException> parentIterator = parent.iterator();
+			final CloseablePeakableIteration<? extends ValidationTuple, SailException> parentIterator;
 
-			Set<ValidationTuple> multiCardinalityDedupeSet;
+			{
+				if (compress) {
+					parentIterator = new CloseablePeakableIteration<>(
+							new TargetAndValueSortIterator(new CloseablePeakableIteration<>(parent.iterator())));
+				} else {
+					parentIterator = new CloseablePeakableIteration<>(parent.iterator());
+				}
+			}
 
-			boolean useMultiCardinalityDedupeSet;
+			Set<ValidationTupleValueAndActiveTarget> targetAndValueDedupeSet;
+
+			boolean propertyShapeWithValue;
 
 			ValidationTuple next;
 			ValidationTuple previous;
@@ -62,29 +86,54 @@ public class Unique implements PlanNode {
 				while (next == null && parentIterator.hasNext()) {
 					ValidationTuple temp = parentIterator.next();
 
-					if (temp.getFullChainSize() > 1) {
-						useMultiCardinalityDedupeSet = true;
+					assert !propertyShapeWithValue
+							|| temp.getScope() == ConstraintComponent.Scope.propertyShape && temp.hasValue();
+
+					if (temp.getScope() == ConstraintComponent.Scope.propertyShape && temp.hasValue()) {
+						propertyShapeWithValue = true;
 					}
 
-					if (previous == null) {
+					if (compress) {
+						Set<ValidationTuple> tuples = new HashSet<>();
+
+						if (propertyShapeWithValue) {
+
+							while (parentIterator.hasNext()
+									&& parentIterator.peek().getValue().equals(temp.getValue())
+									&& parentIterator.peek().sameTargetAs(temp)) {
+								tuples.add(parentIterator.next());
+							}
+						} else {
+							while (parentIterator.hasNext() && parentIterator.peek().sameTargetAs(temp)) {
+								tuples.add(parentIterator.next());
+							}
+						}
+
+						if (tuples.isEmpty()) {
+							next = temp;
+						} else {
+							tuples.add(temp);
+							next = new ValidationTuple(temp, tuples);
+						}
+
+					} else if (previous == null) {
 						next = temp;
 					} else {
-						if (useMultiCardinalityDedupeSet) {
-							if (multiCardinalityDedupeSet == null
-									|| !previous.sameTargetAs(temp)) {
-								multiCardinalityDedupeSet = new HashSet<>();
+						if (propertyShapeWithValue) {
+							if (targetAndValueDedupeSet == null || !previous.sameTargetAs(temp)) {
+								targetAndValueDedupeSet = new HashSet<>();
 								if (previous.sameTargetAs(temp)) {
-									multiCardinalityDedupeSet.add(previous);
+									targetAndValueDedupeSet.add(new ValidationTupleValueAndActiveTarget(previous));
 								}
 							}
 
-							if (!multiCardinalityDedupeSet.contains(temp)) {
+							if (!targetAndValueDedupeSet.contains(new ValidationTupleValueAndActiveTarget(temp))) {
 								next = temp;
-								multiCardinalityDedupeSet.add(next);
+								targetAndValueDedupeSet.add(new ValidationTupleValueAndActiveTarget(next));
 							}
 
 						} else {
-							if (!(previous == temp || previous.equals(temp))) {
+							if (!(previous.sameTargetAs(temp))) {
 								next = temp;
 							}
 						}
@@ -96,8 +145,8 @@ public class Unique implements PlanNode {
 					} else {
 						if (GlobalValidationExecutionLogging.loggingEnabled) {
 							validationExecutionLogger.log(depth(),
-									Unique.this.getClass().getSimpleName() + ":IgnoredNotUnique", temp, Unique.this,
-									getId());
+									Unique.this.getClass().getSimpleName() + ":IgnoredNotUnique ", temp, Unique.this,
+									getId(), stackTrace != null ? stackTrace[2].toString() : null);
 						}
 					}
 
@@ -107,31 +156,26 @@ public class Unique implements PlanNode {
 
 			@Override
 			public void close() throws SailException {
-				multiCardinalityDedupeSet = null;
+				targetAndValueDedupeSet = null;
 				parentIterator.close();
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				calculateNext();
 				return next != null;
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				calculateNext();
-				if (previous != null && next.compareTarget(previous) < 0) {
-					throw new AssertionError();
-				}
+				assert !(previous != null && next.compareActiveTarget(previous) < 0);
+
 				ValidationTuple temp = next;
 				next = null;
 				return temp;
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -150,11 +194,6 @@ public class Unique implements PlanNode {
 				.append("\n");
 		stringBuilder.append(parent.getId() + " -> " + getId()).append("\n");
 		parent.getPlanAsGraphvizDot(stringBuilder);
-	}
-
-	@Override
-	public String toString() {
-		return "Unique";
 	}
 
 	@Override
@@ -194,4 +233,118 @@ public class Unique implements PlanNode {
 	public int hashCode() {
 		return Objects.hash(parent);
 	}
+
+	@Override
+	public String toString() {
+		return "Unique{" +
+				"compress=" + compress +
+				", parent=" + parent +
+				'}';
+	}
+
+	static class ValidationTupleValueAndActiveTarget {
+
+		private final ValidationTuple validationTuple;
+
+		public ValidationTupleValueAndActiveTarget(ValidationTuple validationTuple) {
+			this.validationTuple = validationTuple;
+		}
+
+		public ValidationTuple getValidationTuple() {
+			return validationTuple;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			ValidationTupleValueAndActiveTarget oValidationTuple = (ValidationTupleValueAndActiveTarget) o;
+
+			if (validationTuple.hasValue() || oValidationTuple.validationTuple.hasValue()) {
+				assert validationTuple.hasValue() && oValidationTuple.validationTuple.hasValue();
+				return validationTuple.getValue().equals(oValidationTuple.validationTuple.getValue())
+						&& validationTuple.getActiveTarget().equals(oValidationTuple.validationTuple.getActiveTarget());
+			} else {
+				return validationTuple.getActiveTarget().equals(oValidationTuple.validationTuple.getActiveTarget());
+			}
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(validationTuple.getActiveTarget(), validationTuple.getValue());
+		}
+	}
+
+	static class TargetAndValueSortIterator implements CloseableIteration<ValidationTuple, SailException> {
+
+		private final CloseablePeakableIteration<? extends ValidationTuple, SailException> iterator;
+
+		public TargetAndValueSortIterator(
+				CloseablePeakableIteration<? extends ValidationTuple, SailException> iterator) {
+			this.iterator = iterator;
+		}
+
+		private Iterator<ValidationTuple> next = Collections.emptyIterator();
+
+		private void calculateNext() {
+			if (next.hasNext()) {
+				return;
+			}
+
+			if (!iterator.hasNext()) {
+				return;
+			}
+
+			ArrayList<ValidationTuple> validationTuples = new ArrayList<>();
+			ValidationTuple temp = iterator.next();
+			if (temp.getScope() == ConstraintComponent.Scope.propertyShape && temp.hasValue()) {
+				while (iterator.hasNext()
+						&& temp.sameTargetAs(iterator.peek())
+						&& iterator.peek().getScope() == ConstraintComponent.Scope.propertyShape
+						&& iterator.peek().hasValue()) {
+					validationTuples.add(iterator.next());
+				}
+			}
+
+			if (validationTuples.isEmpty()) {
+				next = Collections.singletonList(temp).iterator();
+			} else {
+				validationTuples.add(temp);
+
+				ValueComparator valueComparator = new ValueComparator();
+				validationTuples.sort((a, b) -> valueComparator.compare(a.getValue(), b.getValue()));
+				next = validationTuples.iterator();
+
+			}
+
+		}
+
+		@Override
+		public void close() throws SailException {
+			iterator.close();
+		}
+
+		@Override
+		public boolean hasNext() throws SailException {
+			calculateNext();
+			return next.hasNext();
+		}
+
+		@Override
+		public ValidationTuple next() throws SailException {
+			calculateNext();
+			return next.next();
+		}
+
+		@Override
+		public void remove() throws SailException {
+			throw new UnsupportedOperationException();
+		}
+
+	}
+
 }

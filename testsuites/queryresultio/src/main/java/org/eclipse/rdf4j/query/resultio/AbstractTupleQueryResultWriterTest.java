@@ -28,7 +28,7 @@ import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
 import org.eclipse.rdf4j.rio.helpers.BasicWriterSettings;
 import org.eclipse.rdf4j.rio.helpers.RDFStarUtil;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Generic tests for {@link TupleQueryResultWriter} implementations.
@@ -63,8 +63,8 @@ public abstract class AbstractTupleQueryResultWriterTest {
 		BindingSet actual = collector.getBindingSets().get(0);
 
 		if (writer.getTupleQueryResultFormat().supportsRDFStar()) {
-			// natively-supporting RDF* writers should ignore the encoding setting and just always use their extended
-			// format
+			// natively-supporting RDF-star writers should ignore the encoding setting and just always use their
+			// extended format
 			assertThat(actual.getValue("t")).isInstanceOf(Triple.class);
 		} else {
 			assertThat(actual.getValue("t")).isInstanceOf(IRI.class);

@@ -3,7 +3,6 @@ package org.eclipse.rdf4j.sail.shacl.ast.paths;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -72,4 +71,9 @@ public abstract class Path implements Identifiable, Exportable, Targetable {
 	public abstract PlanNode getAdded(ConnectionsGroup connectionsGroup,
 			PlanNodeWrapper planNodeWrapper);
 
+	/**
+	 *
+	 * @return true if feature is currently supported by the ShaclSail
+	 */
+	public abstract boolean isSupported();
 }

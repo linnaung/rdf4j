@@ -13,6 +13,7 @@ import static org.eclipse.rdf4j.model.util.Values.bnode;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
@@ -101,7 +102,7 @@ public class ValidationResult {
 		return asModel(model, new HashSet<>());
 	}
 
-	public Model asModel(Model model, Set<Resource> values) {
+	public Model asModel(Model model, Set<Resource> rdfListDedupe) {
 
 		model.add(getId(), RDF.TYPE, SHACL.VALIDATION_RESULT);
 
@@ -123,7 +124,7 @@ public class ValidationResult {
 //			detail.asModel(model);
 //		}
 
-		shape.toModel(getId(), SHACL.SOURCE_SHAPE, model, values);
+		shape.toModel(getId(), SHACL.SOURCE_SHAPE, model, new HashSet<>());
 
 		return model;
 	}
@@ -156,10 +157,33 @@ public class ValidationResult {
 	@Override
 	public String toString() {
 		return "ValidationResult{" +
-				"sourceConstraintComponent=" + sourceConstraintComponent +
+				"focusNode=" + focusNode +
+				", value=" + value.orElse(null) +
+				", shape=" + shape.getId() +
 				", path=" + path +
+				", sourceConstraintComponent=" + sourceConstraintComponent +
+				", severity=" + severity +
 				", detail=" + detail +
-				", focusNode=" + focusNode +
 				'}';
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ValidationResult that = (ValidationResult) o;
+		return value.equals(that.value) && shape.equals(that.shape)
+				&& sourceConstraintComponent == that.sourceConstraintComponent && severity == that.severity
+				&& focusNode.equals(that.focusNode) && Objects.equals(path, that.path)
+				&& Objects.equals(detail, that.detail);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(value, shape, sourceConstraintComponent, severity, focusNode, path, detail);
 	}
 }

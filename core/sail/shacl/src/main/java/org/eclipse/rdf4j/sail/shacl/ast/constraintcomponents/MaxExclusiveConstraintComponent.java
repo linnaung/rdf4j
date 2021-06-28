@@ -23,7 +23,7 @@ public class MaxExclusiveConstraintComponent extends SimpleAbstractConstraintCom
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.MAX_EXCLUSIVE, maxExclusive);
 	}
 

@@ -30,7 +30,6 @@ import org.eclipse.rdf4j.sail.shacl.results.ValidationResult;
  *
  */
 @InternalUseOnly
-@Deprecated
 public class LazyValidationReport extends ValidationReport {
 
 	private List<ValidationResultIterator> validationResultIterators;
@@ -74,11 +73,11 @@ public class LazyValidationReport extends ValidationReport {
 		model.add(getId(), RDF.TYPE, SHACL.VALIDATION_REPORT);
 		model.add(getId(), RDF4J.TRUNCATED, BooleanLiteral.valueOf(truncated));
 
-		HashSet<Resource> resources = new HashSet<>();
+		HashSet<Resource> rdfListDedupe = new HashSet<>();
 
 		for (ValidationResult result : validationResult) {
 			model.add(getId(), SHACL.RESULT, result.getId());
-			result.asModel(model, resources);
+			result.asModel(model, rdfListDedupe);
 		}
 
 		return model;

@@ -1,7 +1,6 @@
 package org.eclipse.rdf4j.sail.shacl.ast.targets;
 
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -15,12 +14,11 @@ import org.eclipse.rdf4j.sail.shacl.ConnectionsGroup;
 import org.eclipse.rdf4j.sail.shacl.RdfsSubClassOfReasoner;
 import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
 import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.ConstraintComponent;
-import org.eclipse.rdf4j.sail.shacl.ast.planNodes.ExternalFilterIsSubject;
+import org.eclipse.rdf4j.sail.shacl.ast.planNodes.ExternalFilterTargetIsSubject;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnBufferedPlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.Unique;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnorderedSelect;
-import org.eclipse.rdf4j.sail.shacl.ast.planNodes.ValidationTuple;
 
 public class DashAllSubjects extends Target {
 
@@ -36,7 +34,7 @@ public class DashAllSubjects extends Target {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.TARGET_PROP, id);
 		model.add(id, RDF.TYPE, getPredicate());
 	}
@@ -49,16 +47,15 @@ public class DashAllSubjects extends Target {
 	private PlanNode getAddedRemovedInner(ConnectionsGroup connectionsGroup, ConstraintComponent.Scope scope,
 			SailConnection connection) {
 
-		return connectionsGroup
-				.getCachedNodeFor(new Unique(new UnorderedSelect(connection, null,
-						null, null, s -> new ValidationTuple(s.getSubject(), scope, false))));
+		return new Unique(new UnorderedSelect(connection, null,
+				null, null, UnorderedSelect.Mapper.SubjectScopedMapper.getFunction(scope)), false);
 
 	}
 
 	@Override
 	public String getQueryFragment(String subjectVariable, String objectVariable,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
-		String tempVar = "?" + UUID.randomUUID().toString().replace("-", "");
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 
 //		return targetObjectsOf.stream()
 //			.map(target -> "\n{ BIND(<" + target + "> as " + tempVar + ") \n " + objectVariable + " "
@@ -72,8 +69,8 @@ public class DashAllSubjects extends Target {
 
 	@Override
 	public PlanNode getTargetFilter(ConnectionsGroup connectionsGroup, PlanNode parent) {
-		return new ExternalFilterIsSubject(connectionsGroup.getBaseConnection(), parent)
-				.getFalseNode(UnBufferedPlanNode.class);
+		return new ExternalFilterTargetIsSubject(connectionsGroup.getBaseConnection(), parent)
+				.getTrueNode(UnBufferedPlanNode.class);
 	}
 
 	@Override
@@ -93,11 +90,12 @@ public class DashAllSubjects extends Target {
 
 	@Override
 	public String getTargetQueryFragment(StatementMatcher.Variable subject, StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 		assert (subject == null);
 
-		String tempVar1 = "?" + UUID.randomUUID().toString().replace("-", "");
-		String tempVar2 = "?" + UUID.randomUUID().toString().replace("-", "");
+		String tempVar1 = stableRandomVariableProvider.next().asSparqlVariable();
+		String tempVar2 = stableRandomVariableProvider.next().asSparqlVariable();
 
 		return " ?" + object.getName() + " " + tempVar1 + " " + tempVar2 + " .";
 

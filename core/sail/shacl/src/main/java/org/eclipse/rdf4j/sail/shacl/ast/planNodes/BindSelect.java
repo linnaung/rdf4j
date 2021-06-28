@@ -8,7 +8,10 @@
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import static java.util.stream.Collectors.toCollection;
+
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
@@ -23,16 +26,15 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
 import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
-import org.eclipse.rdf4j.query.impl.ListBindingSet;
-import org.eclipse.rdf4j.query.impl.MapBindingSet;
+import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.eclipse.rdf4j.query.parser.ParsedQuery;
 import org.eclipse.rdf4j.query.parser.QueryParserFactory;
 import org.eclipse.rdf4j.query.parser.QueryParserRegistry;
 import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
-import org.eclipse.rdf4j.sail.shacl.RdfsSubClassOfReasoner;
 import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
+import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.AbstractConstraintComponent;
 import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.ConstraintComponent;
 import org.eclipse.rdf4j.sail.shacl.ast.targets.EffectiveTarget;
 import org.slf4j.Logger;
@@ -57,16 +59,19 @@ public class BindSelect implements PlanNode {
 	private final PlanNode source;
 	private final EffectiveTarget.Extend direction;
 	private final boolean includePropertyShapeValues;
+	private final List<String> varNames;
+	private final ConstraintComponent.Scope scope;
 	private StackTraceElement[] stackTrace;
-	private final RdfsSubClassOfReasoner rdfsSubClassOfReasoner;
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
 	public BindSelect(SailConnection connection, String query, List<StatementMatcher.Variable> vars, PlanNode source,
-			Function<BindingSet, ValidationTuple> mapper, int bulkSize, EffectiveTarget.Extend direction,
-			boolean includePropertyShapeValues, RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			List<String> varNames, ConstraintComponent.Scope scope, int bulkSize, EffectiveTarget.Extend direction,
+			boolean includePropertyShapeValues) {
 		this.connection = connection;
-		this.mapper = mapper;
+		this.mapper = (bindingSet) -> new ValidationTuple(bindingSet, varNames, scope, includePropertyShapeValues);
+		this.varNames = varNames;
+		this.scope = scope;
 		this.vars = vars;
 		this.bulkSize = bulkSize;
 		source = PlanNodeHelper.handleSorting(this, source);
@@ -80,7 +85,6 @@ public class BindSelect implements PlanNode {
 		this.direction = direction;
 		this.includePropertyShapeValues = includePropertyShapeValues;
 		// this.stackTrace = Thread.currentThread().getStackTrace();
-		this.rdfsSubClassOfReasoner = rdfsSubClassOfReasoner;
 
 	}
 
@@ -113,83 +117,47 @@ public class BindSelect implements PlanNode {
 			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingSet;
 
 			final CloseableIteration<? extends ValidationTuple, SailException> iterator = source.iterator();
+			List<ValidationTuple> bulk = new ArrayList<>(bulkSize);
 
-			Integer targetChainSize = null;
+			ParsedQuery parsedQuery = null;
 
 			public void calculateNext() {
 
-				// already results available
-				if (bindingSet != null && bindingSet.hasNext()) {
-					return;
-				}
+				while (bindingSet == null || !bindingSet.hasNext()) {
 
-				if (bindingSet != null) {
-					bindingSet.close();
-				}
-
-				if (!iterator.hasNext()) {
-					return;
-				}
-
-				List<ValidationTuple> bulk = new ArrayList<>(bulkSize);
-
-				ValidationTuple next = iterator.next();
-
-				if (includePropertyShapeValues) {
-					assert next.getScope() == ConstraintComponent.Scope.propertyShape;
-					assert next.hasValue();
-				}
-
-				bulk.add(next);
-
-				int targetChainSize;
-				if (includePropertyShapeValues || next.getScope() != ConstraintComponent.Scope.propertyShape) {
-					targetChainSize = next.getFullChainSize();
-				} else {
-					targetChainSize = next.getTargetChain(includePropertyShapeValues).size();
-				}
-
-				if (this.targetChainSize != null) {
-					assert targetChainSize == this.targetChainSize;
-				} else {
-					this.targetChainSize = targetChainSize;
-				}
-
-				StringBuilder orderBy = new StringBuilder();
-
-				StringBuilder values = new StringBuilder("\nVALUES( ");
-				if (direction == EffectiveTarget.Extend.right) {
-
-					for (int i = 0; i < targetChainSize; i++) {
-						values.append("?").append(vars.get(i).getName()).append(" ");
-					}
-				} else if (direction == EffectiveTarget.Extend.left) {
-					for (int i = vars.size() - targetChainSize; i < vars.size(); i++) {
-						values.append("?").append(vars.get(i).getName()).append(" ");
+					if (bindingSet != null) {
+						bindingSet.close();
 					}
 
-				} else {
-					throw new IllegalStateException("Unknown direction: " + direction);
-				}
+					if (bulk.isEmpty() && !iterator.hasNext()) {
+						return;
+					}
 
-				values.append("){}\n");
+					ValidationTuple next;
+					if (bulk.isEmpty()) {
+						next = iterator.next();
+						bulk.add(next);
+					} else {
+						next = bulk.get(0);
+					}
 
-				for (StatementMatcher.Variable var : vars) {
-					orderBy.append("?").append(var.getName()).append(" ");
-				}
+					if (includePropertyShapeValues) {
+						assert next.getScope() == ConstraintComponent.Scope.propertyShape;
+						assert next.hasValue();
+					}
 
-				String query = BindSelect.this.query;
+					int targetChainSize;
+					if (includePropertyShapeValues || next.getScope() != ConstraintComponent.Scope.propertyShape) {
+						targetChainSize = next.getFullChainSize(true);
+					} else {
+						targetChainSize = next.getFullChainSize(includePropertyShapeValues);
+					}
 
-				query = query.replace("#VALUES_INJECTION_POINT#", values.toString());
-				query = "select * where { " + values.toString() + query + "\n}\nORDER BY " + orderBy;
+					if (parsedQuery == null) {
+						parsedQuery = getParsedQuery(targetChainSize);
+					}
 
-				QueryParserFactory queryParserFactory = QueryParserRegistry.getInstance()
-						.get(QueryLanguage.SPARQL)
-						.get();
-
-				try {
-					ParsedQuery parsedQuery = queryParserFactory.getParser().parseQuery(query, null);
-					for (int i = 1; i < bulkSize && iterator.hasNext(); i++) {
+					while (bulk.size() < bulkSize && iterator.hasNext()) {
 						bulk.add(iterator.next());
 					}
 
@@ -209,26 +177,51 @@ public class BindSelect implements PlanNode {
 								.collect(Collectors.toList());
 					}
 
+					Set<String> varNamesSet = new HashSet<>(varNames);
+
 					List<BindingSet> bindingSets = bulk
 							.stream()
-							.map(t -> new ListBindingSet(varNames,
-									new ArrayList<>(t.getTargetChain(includePropertyShapeValues))))
+							.filter(t -> {
+								int temp;
+								if (includePropertyShapeValues
+										|| t.getScope() != ConstraintComponent.Scope.propertyShape) {
+									temp = t.getFullChainSize(true);
+								} else {
+									temp = t.getFullChainSize(includePropertyShapeValues);
+								}
+
+								return temp == targetChainSize;
+							})
+							.map(t -> new SimpleBindingSet(varNamesSet, varNames,
+									t.getTargetChain(includePropertyShapeValues)))
 							.collect(Collectors.toList());
+
+					bulk = bulk
+							.stream()
+							.filter(t -> {
+								int temp;
+								if (includePropertyShapeValues
+										|| t.getScope() != ConstraintComponent.Scope.propertyShape) {
+									temp = t.getFullChainSize(true);
+								} else {
+									temp = t.getFullChainSize(includePropertyShapeValues);
+								}
+
+								return temp != targetChainSize;
+							})
+							.collect(toCollection(ArrayList::new));
 
 					updateQuery(parsedQuery, bindingSets, targetChainSize);
 
 					bindingSet = connection.evaluate(parsedQuery.getTupleExpr(), parsedQuery.getDataset(),
-							new MapBindingSet(), true);
-				} catch (MalformedQueryException e) {
-					logger.error("Malformed query: \n{}", query);
-					throw e;
+							EmptyBindingSet.getInstance(), true);
 				}
-
 			}
 
 			@Override
 			public void close() throws SailException {
 				try {
+					assert !iterator.hasNext();
 					iterator.close();
 				} finally {
 					if (bindingSet != null) {
@@ -238,22 +231,56 @@ public class BindSelect implements PlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() throws SailException {
 				calculateNext();
 				return bindingSet != null && bindingSet.hasNext();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() throws SailException {
 				calculateNext();
 				return mapper.apply(bindingSet.next());
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
+	}
+
+	private ParsedQuery getParsedQuery(int targetChainSize) {
+
+		StringBuilder values = new StringBuilder("\nVALUES( ");
+		if (direction == EffectiveTarget.Extend.right) {
+
+			for (int i = 0; i < targetChainSize; i++) {
+				values.append("?").append(vars.get(i).getName()).append(" ");
+			}
+		} else if (direction == EffectiveTarget.Extend.left) {
+			for (int i = vars.size() - targetChainSize; i < vars.size(); i++) {
+				values.append("?").append(vars.get(i).getName()).append(" ");
+			}
+
+		} else {
+			throw new IllegalStateException("Unknown direction: " + direction);
+		}
+
+		values.append("){}\n");
+
+		String query = BindSelect.this.query;
+
+		query = query.replace(AbstractConstraintComponent.VALUES_INJECTION_POINT, values.toString());
+		query = "select * where { " + values + query + "\n}";
+
+		QueryParserFactory queryParserFactory = QueryParserRegistry.getInstance()
+				.get(QueryLanguage.SPARQL)
+				.get();
+		ParsedQuery parsedQuery;
+		try {
+			parsedQuery = queryParserFactory.getParser().parseQuery(query, null);
+
+		} catch (MalformedQueryException e) {
+			logger.error("Malformed query: \n{}", query);
+			throw e;
+		}
+		return parsedQuery;
 	}
 
 	@Override
@@ -270,6 +297,8 @@ public class BindSelect implements PlanNode {
 		stringBuilder.append(getId() + " [label=\"" + StringEscapeUtils.escapeJava(this.toString()) + "\"];")
 				.append("\n");
 
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
 		if (connection instanceof MemoryStoreConnection) {
 			stringBuilder
 					.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> " + getId())
@@ -283,11 +312,6 @@ public class BindSelect implements PlanNode {
 	@Override
 	public String getId() {
 		return System.identityHashCode(this) + "";
-	}
-
-	@Override
-	public String toString() {
-		return "Select{" + "query='" + query.replace("\n", "  ") + '\'' + '}';
 	}
 
 	@Override
@@ -315,17 +339,60 @@ public class BindSelect implements PlanNode {
 			return false;
 		}
 		BindSelect that = (BindSelect) o;
-		return includePropertyShapeValues == that.includePropertyShapeValues &&
-				Objects.equals(mapper, that.mapper) &&
-				Objects.equals(query, that.query) &&
-				Objects.equals(vars, that.vars) &&
-				Objects.equals(source, that.source) &&
-				direction == that.direction &&
-				Objects.equals(rdfsSubClassOfReasoner, that.rdfsSubClassOfReasoner);
+
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
+		if (connection instanceof MemoryStoreConnection && that.connection instanceof MemoryStoreConnection) {
+			return bulkSize == that.bulkSize &&
+					includePropertyShapeValues == that.includePropertyShapeValues &&
+					((MemoryStoreConnection) connection).getSail()
+							.equals(((MemoryStoreConnection) that.connection).getSail())
+					&&
+					varNames.equals(that.varNames) &&
+					scope.equals(that.scope) &&
+					query.equals(that.query) &&
+					vars.equals(that.vars) &&
+					source.equals(that.source) &&
+					direction == that.direction;
+		} else {
+			return bulkSize == that.bulkSize &&
+					includePropertyShapeValues == that.includePropertyShapeValues &&
+					connection.equals(that.connection) &&
+					varNames.equals(that.varNames) &&
+					scope.equals(that.scope) &&
+					query.equals(that.query) &&
+					vars.equals(that.vars) &&
+					source.equals(that.source) &&
+					direction == that.direction;
+		}
+
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(mapper, query, vars, source, direction, includePropertyShapeValues, rdfsSubClassOfReasoner);
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
+		if (connection instanceof MemoryStoreConnection) {
+			return Objects.hash(((MemoryStoreConnection) connection).getSail(), varNames, scope, query, vars, bulkSize,
+					source, direction, includePropertyShapeValues);
+		} else {
+			return Objects.hash(connection, varNames, scope, query, vars, bulkSize, source, direction,
+					includePropertyShapeValues);
+		}
 	}
+
+	@Override
+	public String toString() {
+		return "BindSelect{" +
+				"query='" + query.replace("\n", "\t") + '\'' +
+				", vars=" + vars +
+				", bulkSize=" + bulkSize +
+				", source=" + source +
+				", direction=" + direction +
+				", includePropertyShapeValues=" + includePropertyShapeValues +
+				", varNames=" + varNames +
+				", scope=" + scope +
+				'}';
+	}
+
 }

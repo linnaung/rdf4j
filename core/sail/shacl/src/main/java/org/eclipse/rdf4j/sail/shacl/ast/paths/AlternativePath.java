@@ -31,14 +31,19 @@ public class AlternativePath extends Path {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.ALTERNATIVE_PATH, alternativePath.getId());
-		alternativePath.toModel(alternativePath.getId(), null, model, exported);
+		alternativePath.toModel(alternativePath.getId(), null, model, cycleDetection);
 	}
 
 	@Override
 	public PlanNode getAdded(ConnectionsGroup connectionsGroup, PlanNodeWrapper planNodeWrapper) {
 		throw new ShaclUnsupportedException();
+	}
+
+	@Override
+	public boolean isSupported() {
+		return false;
 	}
 
 	@Override
@@ -50,7 +55,8 @@ public class AlternativePath extends Path {
 
 	@Override
 	public String getTargetQueryFragment(StatementMatcher.Variable subject, StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner) {
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 		throw new ShaclUnsupportedException();
 	}
 }

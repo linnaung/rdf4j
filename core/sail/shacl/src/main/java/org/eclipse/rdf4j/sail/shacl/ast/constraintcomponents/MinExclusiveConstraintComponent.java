@@ -23,7 +23,7 @@ public class MinExclusiveConstraintComponent extends SimpleAbstractConstraintCom
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.MIN_EXCLUSIVE, minExclusive);
 	}
 
@@ -32,7 +32,7 @@ public class MinExclusiveConstraintComponent extends SimpleAbstractConstraintCom
 		if (negated) {
 			return literalToString(minExclusive) + " < ?" + varName;
 		} else {
-			return literalToString(minExclusive) + " >= ?" + varName + "";
+			return literalToString(minExclusive) + " >= ?" + varName;
 		}
 	}
 
