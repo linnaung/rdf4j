@@ -1,19 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.hdt;
 
-import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.nio.charset.StandardCharsets;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 
@@ -32,17 +33,17 @@ import org.eclipse.rdf4j.rio.helpers.AbstractRDFParser;
 
 /**
  * RDF parser for HDT v1.0 files. This parser is not thread-safe, therefore its public methods are synchronized.
- *
+ * <p>
  * Unfortunately the draft specification is not entirely clear and probably slightly out of date, since the open source
  * reference implementation HDT-It seems to implement a slightly different version. This parser tries to be compatible
  * with HDT-It 1.0.
- *
+ * <p>
  * The most important parts are the Dictionaries containing the actual values (S, P, O part of a triple), and the
  * Triples containing the numeric references to construct the triples.
- *
+ * <p>
  * Since objects in one triple are often subjects in another triple, these "shared" parts are stored in a shared
  * Dictionary, which may significantly reduce the file size.
- *
+ * <p>
  * File structure:
  *
  * <pre>
@@ -52,13 +53,12 @@ import org.eclipse.rdf4j.rio.helpers.AbstractRDFParser;
  * | Dictionary (Shared) |
  * | Dictionary (S)      |
  * | Dictionary (P)      |
- * | Dictionary (O)      |    
+ * | Dictionary (O)      |
  * | Triples             |
  * +---------------------+
  * </pre>
  *
  * @author Bart Hanssens
- *
  * @see <a href="http://www.rdfhdt.org/hdt-binary-format/">HDT draft (2015)</a>
  * @see <a href="https://www.w3.org/Submission/2011/03/">W3C Member Submission (2011)</a>
  */
@@ -86,8 +86,7 @@ public class HDTParser extends AbstractRDFParser {
 
 	@Override
 	public Collection<RioSetting<?>> getSupportedSettings() {
-		Set<RioSetting<?>> result = new HashSet<>();
-		return result;
+		return Set.of();
 	}
 
 	@Override
@@ -97,9 +96,9 @@ public class HDTParser extends AbstractRDFParser {
 			throw new IllegalArgumentException("Input stream must not be 'null'");
 		}
 
-		if (in instanceof FileInputStream) {
-			// "TODO: use more optimized way to parse the file, eg. filechannel / membuffer"
-		}
+//		if (in instanceof FileInputStream) {
+//			 TODO: use more optimized way to parse the file, eg. filechannel / membuffer
+//		}
 
 		HDTDictionarySection shared = null;
 		HDTDictionarySection subjects = null;
@@ -163,9 +162,10 @@ public class HDTParser extends AbstractRDFParser {
 			rdfHandler.startRDF();
 		}
 
-		int cnt = 0;
+		assert shared != null;
 		int size = shared.size();
 
+		assert section != null;
 		while (section.hasNext()) {
 			int[] t = section.next();
 			byte[] s = getSO(t[0], size, shared, subjects);
@@ -188,7 +188,7 @@ public class HDTParser extends AbstractRDFParser {
 	 */
 	@Override
 	public synchronized void parse(Reader reader, String baseURI)
-			throws IOException, RDFParseException, RDFHandlerException {
+			throws RDFParseException, RDFHandlerException {
 		throw new UnsupportedOperationException("HDT is binary, text readers not supported.");
 	}
 

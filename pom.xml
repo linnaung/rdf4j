@@ -3,7 +3,7 @@
 	<modelVersion>4.0.0</modelVersion>
 	<groupId>org.eclipse.rdf4j</groupId>
 	<artifactId>rdf4j</artifactId>
-	<version>3.6.0-SNAPSHOT</version>
+	<version>5.0.1-SNAPSHOT</version>
 	<packaging>pom</packaging>
 	<name>Eclipse RDF4J</name>
 	<description>An extensible Java framework for RDF and SPARQL</description>
@@ -18,7 +18,7 @@
 			<id>jeenbroekstra</id>
 			<name>Jeen Broekstra</name>
 			<email>jeen@fastmail.com</email>
-			<timezone>GMT+10</timezone>
+			<timezone>AEST</timezone>
 		</developer>
 		<developer>
 			<id>hmottestad</id>
@@ -41,6 +41,7 @@
 		<module>assembly-descriptors</module>
 		<module>core</module>
 		<module>tools</module>
+		<module>spring-components</module>
 		<module>testsuites</module>
 		<module>compliance</module>
 		<module>examples</module>
@@ -61,7 +62,7 @@
 					<plugin>
 						<groupId>org.sonatype.plugins</groupId>
 						<artifactId>nexus-staging-maven-plugin</artifactId>
-						<version>1.6.8</version>
+						<version>1.6.13</version>
 						<extensions>true</extensions>
 						<configuration>
 							<serverId>ossrh</serverId>
@@ -94,9 +95,6 @@
 								</goals>
 							</execution>
 						</executions>
-						<configuration>
-							<source>8</source>
-						</configuration>
 					</plugin>
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
@@ -128,9 +126,6 @@
 			</build>
 		</profile>
 		<profile>
-			<id>compliance</id>
-		</profile>
-		<profile>
 			<id>assembly</id>
 			<modules>
 				<module>assembly</module>
@@ -158,57 +153,41 @@
 								<inherited>false</inherited>
 								<phase>package</phase>
 								<goals>
-									<goal>aggregate</goal>
+									<goal>aggregate-no-fork</goal>
 								</goals>
 								<configuration>
-									<doctitle>Eclipse RDF4J ${project.version} API</doctitle>
-									<windowtitle>Eclipse RDF4J ${project.version} API</windowtitle>
+									<overview>src/main/javadoc/overview.html</overview>
+									<windowtitle>Eclipse RDF4J ${project.version}</windowtitle>
+									<doctitle>Eclipse RDF4J version ${project.version} API specification</doctitle>
 									<groups>
 										<group>
 											<title>RDF Model API</title>
 											<packages>org.eclipse.rdf4j.model*</packages>
 										</group>
 										<group>
-											<title>Repository API: database and SPARQL endpoint access</title>
+											<title>Repository API</title>
 											<packages>org.eclipse.rdf4j.repository*</packages>
 										</group>
 										<group>
-											<title>Rio: RDF Parsers and Writers</title>
+											<title>Rio: RDF Parsers/Writers</title>
 											<packages>org.eclipse.rdf4j.rio*</packages>
-										</group>
-										<group>
-											<title>Query API and query parsers</title>
-											<packages>org.eclipse.rdf4j.query:org.eclipse.rdf4j.query.impl:org.eclipse.rdf4j.query.algebra*:org.eclipse.rdf4j.query.parser*</packages>
 										</group>
 										<group>
 											<title>Query Result Parsers and Writers</title>
 											<packages>org.eclipse.rdf4j.query.resultio*</packages>
 										</group>
 										<group>
-											<title>SPARQLBuilder</title>
-											<packages>org.eclipse.rdf4j.sparqlbuilder*</packages>
-										</group>
-										<group>
-											<title>Storage And Inference Layer (SAIL) SPI</title>
+											<title>SAIL API</title>
 											<packages>org.eclipse.rdf4j.sail*</packages>
-										</group>
-										<group>
-											<title>RDF4J REST Client and Protocol</title>
-											<packages>org.eclipse.rdf4j.http*</packages>
 										</group>
 									</groups>
 									<links>
-										<link>http://docs.oracle.com/javase/8/docs/api/</link>
+										<link>https://docs.oracle.com/en/java/javase/11/docs/api/</link>
 									</links>
 									<excludePackageNames>*.ast:*.AST:*.benchmark</excludePackageNames>
 								</configuration>
 							</execution>
 						</executions>
-						<configuration>
-							<encoding>utf8</encoding>
-							<source>1.8</source>
-							<additionalparam>${javadoc.opts}</additionalparam>
-						</configuration>
 					</plugin>
 					<plugin>
 						<groupId>org.apache.maven.plugins</groupId>
@@ -225,31 +204,71 @@
 			<properties>
 				<skipTests>true</skipTests>
 				<skipITs>true</skipITs>
+				<formatter.skip>true</formatter.skip>
+				<impsort.skip>true</impsort.skip>
+				<xml-format.skip>true</xml-format.skip>
+				<japicmp.skip>true</japicmp.skip>
 			</properties>
 		</profile>
 		<profile>
-			<id>doclint-java8-disable</id>
-			<activation>
-				<jdk>1.8</jdk>
-			</activation>
-			<properties>
-				<javadoc.opts>-Xdoclint:none</javadoc.opts>
-			</properties>
+			<id>skipUnitTests</id>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.apache.maven.plugins</groupId>
+						<artifactId>maven-surefire-plugin</artifactId>
+						<configuration>
+							<skipTests>true</skipTests>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
 		</profile>
 		<profile>
-			<id>doclint-java9-disable</id>
-			<activation>
-				<jdk>[9,)</jdk>
-			</activation>
-			<properties>
-				<javadoc.opts>-Xdoclint:none -html5</javadoc.opts>
-			</properties>
+			<id>use-sonatype-snapshots</id>
+			<repositories>
+				<repository>
+					<releases>
+						<enabled>false</enabled>
+					</releases>
+					<snapshots>
+						<enabled>true</enabled>
+					</snapshots>
+					<id>oss-sonatype-snapshots</id>
+					<url>https://oss.sonatype.org/content/repositories/snapshots</url>
+				</repository>
+			</repositories>
+		</profile>
+		<profile>
+			<id>licence-check</id>
+			<pluginRepositories>
+				<pluginRepository>
+					<id>dash-licenses-snapshots</id>
+					<url>https://repo.eclipse.org/content/groups/releases/</url>
+				</pluginRepository>
+			</pluginRepositories>
+			<build>
+				<plugins>
+					<plugin>
+						<groupId>org.eclipse.dash</groupId>
+						<artifactId>license-tool-plugin</artifactId>
+						<version>1.1.0</version>
+						<configuration>
+							<failWhenReviewNeeded>true</failWhenReviewNeeded>
+							<!-- TODO: maven/mavencentral/org.openjdk.jmh/jmh-generator-annprocess/1.35, GPL-2.0-only WITH Classpath-exception-2.0, restricted, #3045 -->
+							<excludeGroupIds>org.openjdk.jmh</excludeGroupIds>
+							<!-- We can safely ignore the restricted label on ES, see: https://github.com/eclipse/rdf4j/pull/4355#issuecomment-1521573125 -->
+							<excludeArtifactIds>elasticsearch</excludeArtifactIds>
+						</configuration>
+					</plugin>
+				</plugins>
+			</build>
 		</profile>
 		<profile>
 			<id>formatting</id>
 			<activation>
-				<!-- active on all Java 8 and higher builds by default -->
-				<jdk>[1.8,)</jdk>
+				<!-- active on all Java 11 and higher builds by default -->
+				<jdk>[11,)</jdk>
 			</activation>
 			<build>
 				<plugins>
@@ -290,26 +309,74 @@
 				</plugins>
 			</build>
 		</profile>
+		<profile>
+			<id>m2e</id>
+			<activation>
+				<property>
+					<name>m2e.version</name>
+				</property>
+			</activation>
+			<build>
+				<pluginManagement>
+					<plugins>
+						<plugin>
+							<groupId>org.eclipse.m2e</groupId>
+							<artifactId>lifecycle-mapping</artifactId>
+							<version>1.0.0</version>
+							<configuration>
+								<lifecycleMappingMetadata>
+									<pluginExecutions>
+										<pluginExecution>
+											<pluginExecutionFilter>
+												<groupId>au.com.acegi</groupId>
+												<artifactId>xml-format-maven-plugin</artifactId>
+												<versionRange>[0,)</versionRange>
+												<goals>
+													<goal>xml-format</goal>
+												</goals>
+											</pluginExecutionFilter>
+											<action>
+												<execute>
+													<runOnConfiguration>false</runOnConfiguration>
+													<runOnIncremental>false</runOnIncremental>
+												</execute>
+											</action>
+										</pluginExecution>
+									</pluginExecutions>
+								</lifecycleMappingMetadata>
+							</configuration>
+						</plugin>
+					</plugins>
+				</pluginManagement>
+			</build>
+		</profile>
 	</profiles>
 	<properties>
+		<java.version>11</java.version>
+		<maven.compiler.release>${java.version}</maven.compiler.release>
+		<maven.compiler.source>${java.version}</maven.compiler.source>
 		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
-		<slf4j.version>1.7.30</slf4j.version>
-		<logback.version>1.1.11</logback.version>
-		<httpclient.version>4.5.13</httpclient.version>
-		<httpcore.version>4.4.14</httpcore.version>
-		<jackson.version>2.10.5</jackson.version>
-		<jsonldjava.version>0.13.2</jsonldjava.version>
-		<last.japicmp.compare.version>3.1.4</last.japicmp.compare.version>
-		<jaxb.version>2.3.1</jaxb.version>
-		<lucene.version>7.7.2</lucene.version>
-		<solr.version>7.7.2</solr.version>
-		<elasticsearch.version>6.8.8</elasticsearch.version>
+		<enforce-javaee-provided.fail>true</enforce-javaee-provided.fail>
+		<slf4j.version>1.7.36</slf4j.version>
+		<logback.version>1.2.13</logback.version>
+		<log4j.version>2.17.2</log4j.version>
+		<httpclient.version>4.5.14</httpclient.version>
+		<jackson.version>2.13.5</jackson.version>
+		<httpcore.version>4.4.16</httpcore.version>
+		<jsonldjava.version>0.13.4</jsonldjava.version>
+		<last.japicmp.compare.version>5.0.0</last.japicmp.compare.version>
+		<jaxb.version>2.3.8</jaxb.version>
+		<lwjgl.version>3.3.3</lwjgl.version>
+		<lucene.version>8.9.0</lucene.version>
+		<solr.version>8.9.0</solr.version>
+		<elasticsearch.version>7.15.2</elasticsearch.version>
+		<spring.version>5.3.30</spring.version>
+		<guava.version>32.1.3-jre</guava.version>
+		<jmhVersion>1.37</jmhVersion>
 		<servlet.version>3.1.0</servlet.version>
-		<jetty.version>9.4.35.v20201120</jetty.version>
-		<spring.version>5.2.12.RELEASE</spring.version>
-		<guava.version>29.0-jre</guava.version>
-		<jmhVersion>1.21</jmhVersion>
+		<junit.version>5.9.3</junit.version>
+		<jetty.version>9.4.54.v20240208</jetty.version>
 	</properties>
 	<dependencyManagement>
 		<dependencies>
@@ -318,6 +385,14 @@
 				<groupId>com.fasterxml.jackson</groupId>
 				<artifactId>jackson-bom</artifactId>
 				<version>${jackson.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
+			</dependency>
+			<!-- fix dependencies for elastic/solr client libraries -->
+			<dependency>
+				<groupId>org.eclipse.jetty</groupId>
+				<artifactId>jetty-bom</artifactId>
+				<version>${jetty.version}</version>
 				<type>pom</type>
 				<scope>import</scope>
 			</dependency>
@@ -331,7 +406,13 @@
 			<dependency>
 				<groupId>com.opencsv</groupId>
 				<artifactId>opencsv</artifactId>
-				<version>4.6</version>
+				<version>5.3</version>
+				<exclusions>
+					<exclusion>
+						<groupId>commons-logging</groupId>
+						<artifactId>commons-logging</artifactId>
+					</exclusion>
+				</exclusions>
 			</dependency>
 			<!-- Apache Commons -->
 			<dependency>
@@ -340,30 +421,24 @@
 				<version>1.4</version>
 			</dependency>
 			<dependency>
-				<groupId>commons-fileupload</groupId>
-				<artifactId>commons-fileupload</artifactId>
-				<version>1.3.3</version>
-			</dependency>
-			<dependency>
 				<groupId>commons-io</groupId>
 				<artifactId>commons-io</artifactId>
-				<version>2.7</version>
+				<version>2.11.0</version>
 			</dependency>
 			<dependency>
 				<groupId>commons-codec</groupId>
 				<artifactId>commons-codec</artifactId>
-				<version>1.13</version>
-				<scope>runtime</scope>
+				<version>1.15</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-text</artifactId>
-				<version>1.9</version>
+				<version>1.10.0</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.commons</groupId>
 				<artifactId>commons-lang3</artifactId>
-				<version>3.11</version>
+				<version>3.12.0</version>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.httpcomponents</groupId>
@@ -373,11 +448,6 @@
 					<exclusion>
 						<groupId>commons-logging</groupId>
 						<artifactId>commons-logging</artifactId>
-					</exclusion>
-					<exclusion>
-						<!-- httpclient includes older codec -->
-						<groupId>commons-codec</groupId>
-						<artifactId>commons-codec</artifactId>
 					</exclusion>
 				</exclusions>
 			</dependency>
@@ -390,60 +460,22 @@
 						<groupId>commons-logging</groupId>
 						<artifactId>commons-logging</artifactId>
 					</exclusion>
-					<exclusion>
-						<!-- httpclient includes older codec -->
-						<groupId>commons-codec</groupId>
-						<artifactId>commons-codec</artifactId>
-					</exclusion>
 				</exclusions>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.httpcomponents</groupId>
 				<artifactId>httpmime</artifactId>
 				<version>${httpclient.version}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>commons-logging</groupId>
-						<artifactId>commons-logging</artifactId>
-					</exclusion>
-					<exclusion>
-						<!-- httpclient includes older codec -->
-						<groupId>commons-codec</groupId>
-						<artifactId>commons-codec</artifactId>
-					</exclusion>
-				</exclusions>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.httpcomponents</groupId>
 				<artifactId>fluent-hc</artifactId>
 				<version>${httpclient.version}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>commons-logging</groupId>
-						<artifactId>commons-logging</artifactId>
-					</exclusion>
-					<exclusion>
-						<!-- httpclient includes older codec -->
-						<groupId>commons-codec</groupId>
-						<artifactId>commons-codec</artifactId>
-					</exclusion>
-				</exclusions>
 			</dependency>
 			<dependency>
 				<groupId>org.apache.httpcomponents</groupId>
 				<artifactId>httpcore-nio</artifactId>
 				<version>${httpcore.version}</version>
-				<exclusions>
-					<exclusion>
-						<groupId>commons-logging</groupId>
-						<artifactId>commons-logging</artifactId>
-					</exclusion>
-					<exclusion>
-						<!-- httpclient includes older codec -->
-						<groupId>commons-codec</groupId>
-						<artifactId>commons-codec</artifactId>
-					</exclusion>
-				</exclusions>
 			</dependency>
 			<dependency>
 				<groupId>org.locationtech.spatial4j</groupId>
@@ -453,68 +485,7 @@
 			<dependency>
 				<groupId>org.locationtech.jts</groupId>
 				<artifactId>jts-core</artifactId>
-				<version>1.17.1</version>
-			</dependency>
-			<!-- Java Enterprise Edition -->
-			<dependency>
-				<groupId>javax.servlet</groupId>
-				<artifactId>javax.servlet-api</artifactId>
-				<version>${servlet.version}</version>
-				<scope>provided</scope>
-			</dependency>
-			<dependency>
-				<groupId>javax.servlet.jsp</groupId>
-				<artifactId>jsp-api</artifactId>
-				<version>2.2</version>
-				<scope>provided</scope>
-			</dependency>
-			<dependency>
-				<groupId>javax.servlet</groupId>
-				<artifactId>jstl</artifactId>
-				<version>1.2</version>
-			</dependency>
-			<dependency>
-				<groupId>taglibs</groupId>
-				<artifactId>standard</artifactId>
-				<version>1.1.2</version>
-				<scope>runtime</scope>
-			</dependency>
-			<dependency>
-				<groupId>javax.activation</groupId>
-				<artifactId>activation</artifactId>
-				<version>1.1</version>
-			</dependency>
-			<dependency>
-				<groupId>org.ebaysf.web</groupId>
-				<artifactId>cors-filter</artifactId>
-				<version>1.0.1</version>
-			</dependency>
-			<dependency>
-				<groupId>org.tuckey</groupId>
-				<artifactId>urlrewritefilter</artifactId>
-				<version>4.0.4</version>
-				<exclusions>
-					<exclusion>
-						<groupId>javax.servlet</groupId>
-						<artifactId>servlet-api</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>ant</groupId>
-						<artifactId>ant</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>commons-logging</groupId>
-						<artifactId>commons-logging</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>log4j</groupId>
-						<artifactId>log4j</artifactId>
-					</exclusion>
-					<exclusion>
-						<groupId>junit</groupId>
-						<artifactId>junit</artifactId>
-					</exclusion>
-				</exclusions>
+				<version>1.19.0</version>
 			</dependency>
 			<dependency>
 				<groupId>com.google.guava</groupId>
@@ -543,6 +514,11 @@
 					</exclusion>
 				</exclusions>
 			</dependency>
+			<dependency>
+				<groupId>com.google.guava</groupId>
+				<artifactId>guava-testlib</artifactId>
+				<version>${guava.version}</version>
+			</dependency>
 			<!-- Logging: SLF4J and logback -->
 			<dependency>
 				<groupId>org.slf4j</groupId>
@@ -551,19 +527,29 @@
 			</dependency>
 			<dependency>
 				<groupId>org.slf4j</groupId>
-				<artifactId>slf4j-jdk14</artifactId>
-				<version>${slf4j.version}</version>
-			</dependency>
-			<dependency>
-				<groupId>org.slf4j</groupId>
 				<artifactId>jcl-over-slf4j</artifactId>
 				<version>${slf4j.version}</version>
-				<scope>runtime</scope>
 			</dependency>
 			<dependency>
 				<groupId>org.slf4j</groupId>
 				<artifactId>log4j-over-slf4j</artifactId>
 				<version>${slf4j.version}</version>
+			</dependency>
+			<!-- bridging component for log4j2 to slf4j -->
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-to-slf4j</artifactId>
+				<version>${log4j.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-api</artifactId>
+				<version>${log4j.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.logging.log4j</groupId>
+				<artifactId>log4j-core</artifactId>
+				<version>${log4j.version}</version>
 			</dependency>
 			<dependency>
 				<groupId>ch.qos.logback</groupId>
@@ -577,35 +563,37 @@
 			</dependency>
 			<!-- Testing: JUnit -->
 			<dependency>
-				<groupId>junit</groupId>
-				<artifactId>junit</artifactId>
-				<version>4.13.1</version>
-				<scope>test</scope>
+				<groupId>org.junit</groupId>
+				<artifactId>junit-bom</artifactId>
+				<version>${junit.version}</version>
+				<type>pom</type>
+				<scope>import</scope>
 			</dependency>
 			<dependency>
 				<groupId>org.mockito</groupId>
 				<artifactId>mockito-core</artifactId>
-				<version>2.23.4</version>
-				<scope>test</scope>
+				<version>4.11.0</version>
 			</dependency>
 			<dependency>
-				<groupId>com.github.tomakehurst</groupId>
-				<artifactId>wiremock-jre8</artifactId>
-				<version>2.23.2</version>
-				<scope>test</scope>
+				<groupId>org.mockito</groupId>
+				<artifactId>mockito-junit-jupiter</artifactId>
+				<version>4.11.0</version>
+			</dependency>
+			<dependency>
+				<groupId>org.mock-server</groupId>
+				<artifactId>mockserver-junit-jupiter-no-dependencies</artifactId>
+				<version>5.15.0</version>
 			</dependency>
 			<dependency>
 				<groupId>org.assertj</groupId>
 				<artifactId>assertj-core</artifactId>
-				<version>3.11.1</version>
-				<scope>test</scope>
+				<version>3.24.2</version>
 			</dependency>
 			<dependency>
 				<groupId>com.github.jsonld-java</groupId>
 				<artifactId>jsonld-java</artifactId>
 				<version>${jsonldjava.version}</version>
 				<type>jar</type>
-				<scope>compile</scope>
 				<exclusions>
 					<exclusion>
 						<groupId>org.apache.httpcomponents</groupId>
@@ -630,9 +618,25 @@
 				</exclusions>
 			</dependency>
 			<dependency>
-				<groupId>org.mapdb</groupId>
-				<artifactId>mapdb</artifactId>
-				<version>1.0.8</version>
+				<groupId>no.hasmac</groupId>
+				<artifactId>hasmac-json-ld</artifactId>
+				<version>0.9.0</version>
+			</dependency>
+			<!-- kerby is used by solr-->
+			<dependency>
+				<groupId>org.apache.kerby</groupId>
+				<artifactId>kerb-core</artifactId>
+				<version>1.1.1</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.kerby</groupId>
+				<artifactId>kerb-util</artifactId>
+				<version>1.1.1</version>
+			</dependency>
+			<dependency>
+				<groupId>org.apache.kerby</groupId>
+				<artifactId>kerby-pkix</artifactId>
+				<version>1.1.1</version>
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
@@ -642,38 +646,36 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-assembly-plugin</artifactId>
-					<version>3.3.0</version>
+					<version>3.6.0</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-antrun-plugin</artifactId>
-					<version>1.6</version>
+					<version>3.1.0</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-clean-plugin</artifactId>
-					<version>3.0.0</version>
+					<version>3.3.2</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-compiler-plugin</artifactId>
-					<version>3.7.0</version>
+					<version>3.12.1</version>
 					<configuration>
-						<fork>true</fork>
-						<source>1.8</source>
-						<target>1.8</target>
+						<fork>false</fork>
 						<encoding>utf8</encoding>
 					</configuration>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-dependency-plugin</artifactId>
-					<version>2.8</version>
+					<version>3.6.1</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-deploy-plugin</artifactId>
-					<version>2.5</version>
+					<version>3.1.1</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
@@ -683,16 +685,16 @@
 				<plugin>
 					<groupId>au.com.acegi</groupId>
 					<artifactId>xml-format-maven-plugin</artifactId>
-					<version>3.1.2</version>
+					<version>3.3.1</version>
 					<configuration>
 						<tabIndent>true</tabIndent>
-						<excludes>**/target/**,**/site/themes/**</excludes>
+						<excludes>eclipse-settings/**,**/target/**,**/site/themes/**,**/.*/**</excludes>
 					</configuration>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-eclipse-plugin</artifactId>
-					<version>2.9</version>
+					<version>2.10</version>
 					<configuration>
 						<useProjectReferences>true</useProjectReferences>
 						<downloadSources>true</downloadSources>
@@ -708,15 +710,15 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-jar-plugin</artifactId>
-					<version>2.3.1</version>
+					<version>3.3.0</version>
 					<configuration>
 						<archive>
 							<manifestEntries>
 								<Implementation-Title>${project.name}</Implementation-Title>
 								<Implementation-Vendor-Id>${project.groupId}</Implementation-Vendor-Id>
 								<Implementation-Vendor>${project.organization.name}</Implementation-Vendor>
-								<Implementation-Version>${project.version}+${buildNumber}</Implementation-Version>
-								<Implementation-Build>${buildNumber}</Implementation-Build>
+								<Implementation-Version>${project.version}</Implementation-Version>
+								<Implementation-Build-Date>${maven.build.timestamp}</Implementation-Build-Date>
 							</manifestEntries>
 						</archive>
 					</configuration>
@@ -724,87 +726,124 @@
 				<plugin>
 					<groupId>org.apache.felix</groupId>
 					<artifactId>maven-bundle-plugin</artifactId>
-					<version>5.1.1</version>
+					<version>5.1.9</version>
 					<extensions>true</extensions>
 					<configuration>
 						<instructions>
 							<Implementation-Title>${project.name}</Implementation-Title>
 							<Implementation-Vendor-Id>${project.groupId}</Implementation-Vendor-Id>
 							<Implementation-Vendor>${project.organization.name}</Implementation-Vendor>
-							<Implementation-Version>${project.version}+${buildNumber}</Implementation-Version>
-							<Implementation-Build>${buildNumber}</Implementation-Build>
-							<Bundle-Version>${project.version}+${buildNumber}</Bundle-Version>
+							<Implementation-Version>${project.version}</Implementation-Version>
+							<Implementation-Build-Date>${maven.build.timestamp}</Implementation-Build-Date>
+							<Bundle-Version>${project.version}</Bundle-Version>
 						</instructions>
 					</configuration>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-javadoc-plugin</artifactId>
-					<version>2.8.1</version>
+					<version>3.6.3</version>
 					<configuration>
-						<source>8</source>
-						<additionalparam>${javadoc.opts}</additionalparam>
-						<additionnalDependencies>
-							<additionnalDependency>
+						<encoding>utf8</encoding>
+						<source>11</source>
+						<doclint>none</doclint>
+						<additionalOptions>
+							<additionalOption>-html5</additionalOption>
+						</additionalOptions>
+						<additionalDependencies>
+							<additionalDependency>
 								<groupId>org.elasticsearch</groupId>
 								<artifactId>elasticsearch</artifactId>
 								<version>${elasticsearch.version}</version>
-							</additionnalDependency>
-							<additionnalDependency>
+							</additionalDependency>
+							<additionalDependency>
 								<groupId>org.elasticsearch</groupId>
 								<artifactId>elasticsearch-x-content</artifactId>
 								<version>${elasticsearch.version}</version>
-							</additionnalDependency>
-							<additionnalDependency>
+							</additionalDependency>
+							<additionalDependency>
 								<groupId>org.elasticsearch.client</groupId>
 								<artifactId>transport</artifactId>
 								<version>${elasticsearch.version}</version>
-							</additionnalDependency>
-							<additionnalDependency>
+							</additionalDependency>
+							<additionalDependency>
 								<groupId>org.apache.solr</groupId>
 								<artifactId>solr-core</artifactId>
 								<version>${solr.version}</version>
-							</additionnalDependency>
-						</additionnalDependencies>
+							</additionalDependency>
+						</additionalDependencies>
 					</configuration>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-resources-plugin</artifactId>
-					<version>3.0.2</version>
+					<version>3.3.1</version>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-source-plugin</artifactId>
-					<version>2.4</version>
+					<version>3.3.0</version>
+				</plugin>
+				<plugin>
+					<groupId>org.codehaus.mojo</groupId>
+					<artifactId>properties-maven-plugin</artifactId>
+					<version>1.2.1</version>
+					<executions>
+						<execution>
+							<phase>generate-resources</phase>
+							<goals>
+								<goal>write-project-properties</goal>
+							</goals>
+							<configuration>
+								<!--  make maven project properties available to read from Java -->
+								<outputFile>${project.build.outputDirectory}/maven-config.properties</outputFile>
+							</configuration>
+						</execution>
+					</executions>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-surefire-plugin</artifactId>
-					<version>2.22.2</version>
+					<version>3.2.5</version>
 					<configuration>
 						<encoding>UTF-8</encoding>
-						<argLine>-Xmx1024M</argLine>
+						<argLine>-Xmx2048M</argLine>
 					</configuration>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-failsafe-plugin</artifactId>
-					<version>2.19.1</version>
+					<version>3.2.5</version>
 					<configuration>
 						<encoding>UTF-8</encoding>
 						<forkCount>1</forkCount>
 						<reuseForks>false</reuseForks>
-						<argLine>-Xmx1024M</argLine>
+						<argLine>-Xmx1G</argLine>
 						<includes>
-							<include>**/*Test.java</include>
+							<include>**/*IT.java</include>
 						</includes>
 					</configuration>
+					<executions>
+						<execution>
+							<id>integration-tests</id>
+							<phase>integration-test</phase>
+							<goals>
+								<goal>integration-test</goal>
+							</goals>
+						</execution>
+						<execution>
+							<id>verify</id>
+							<phase>verify</phase>
+							<goals>
+								<goal>verify</goal>
+							</goals>
+						</execution>
+					</executions>
 				</plugin>
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-war-plugin</artifactId>
-					<version>2.1.1</version>
+					<version>3.4.0</version>
 					<configuration>
 						<failOnMissingWebXml>false</failOnMissingWebXml>
 						<archive>
@@ -812,8 +851,8 @@
 								<Implementation-Title>${project.name}</Implementation-Title>
 								<Implementation-Vendor-Id>${project.groupId}</Implementation-Vendor-Id>
 								<Implementation-Vendor>${project.organization.name}</Implementation-Vendor>
-								<Implementation-Version>${project.version}+${buildNumber}</Implementation-Version>
-								<Implementation-Build>${buildNumber}</Implementation-Build>
+								<Implementation-Version>${project.version}</Implementation-Version>
+								<Implementation-Build-Date>${maven.build.timestamp}</Implementation-Build-Date>
 							</manifestEntries>
 						</archive>
 					</configuration>
@@ -821,9 +860,9 @@
 				<plugin>
 					<groupId>net.revelc.code.formatter</groupId>
 					<artifactId>formatter-maven-plugin</artifactId>
-					<version>2.12.0</version>
+					<version>2.23.0</version>
 					<configuration>
-						<configFile>${maven.multiModuleProjectDirectory}/eclipse-settings/eclipse-rdf4j-conventions.xml</configFile>
+						<configFile>${project.basedir}/eclipse-settings/eclipse-rdf4j-conventions.xml</configFile>
 						<lineEnding>LF</lineEnding>
 						<skipHtmlFormatting>true</skipHtmlFormatting>
 					</configuration>
@@ -831,21 +870,21 @@
 				<plugin>
 					<groupId>net.revelc.code</groupId>
 					<artifactId>impsort-maven-plugin</artifactId>
-					<version>1.3.2</version>
+					<version>1.9.0</version>
 					<configuration>
 						<groups>java.,javax.,org.,com.</groups>
 						<staticGroups>java,*</staticGroups>
 					</configuration>
 				</plugin>
 				<plugin>
-					<groupId>org.apache.tomcat.maven</groupId>
-					<artifactId>tomcat7-maven-plugin</artifactId>
-					<version>2.2</version>
+					<groupId>org.eclipse.jetty</groupId>
+					<artifactId>jetty-maven-plugin</artifactId>
+					<version>${jetty.version}</version>
 				</plugin>
 				<plugin>
 					<groupId>com.github.siom79.japicmp</groupId>
 					<artifactId>japicmp-maven-plugin</artifactId>
-					<version>0.14.3</version>
+					<version>0.18.3</version>
 					<configuration>
 						<oldVersion>
 							<dependency>
@@ -862,31 +901,28 @@
 						</newVersion>
 						<parameter>
 							<onlyModified>true</onlyModified>
-							<breakBuildOnBinaryIncompatibleModifications>true</breakBuildOnBinaryIncompatibleModifications>
-							<breakBuildOnSourceIncompatibleModifications>true</breakBuildOnSourceIncompatibleModifications>
+							<breakBuildBasedOnSemanticVersioning>true</breakBuildBasedOnSemanticVersioning>
 							<ignoreMissingOldVersion>true</ignoreMissingOldVersion>
 							<excludes>
 								<exclude>@org.eclipse.rdf4j.common.annotation.InternalUseOnly</exclude>
 								<exclude>@org.eclipse.rdf4j.common.annotation.Experimental</exclude>
 								<exclude>org.eclipse.rdf4j.common.annotation.InternalUseOnly</exclude>
 								<exclude>org.eclipse.rdf4j.common.annotation.Experimental</exclude>
-								<!-- GH-2538 bug fix, not considered backward incompatible -->
-								<exclude>org.eclipse.rdf4j.model.Namespace#equals(java.lang.Object)</exclude>
-								<exclude>org.eclipse.rdf4j.model.Namespace#hashCode()</exclude>
-								<!-- GH-2350 introduced with defaults, so false positive -->
-								<exclude>org.eclipse.rdf4j.IsolationLevel#getValue()</exclude>
-								<exclude>org.eclipse.rdf4j.IsolationLevel#getName()</exclude>
 							</excludes>
 							<overrideCompatibilityChangeParameters>
-								<overrideCompatibilityChangeParameter>
-									<compatibilityChange>METHOD_ABSTRACT_ADDED_IN_IMPLEMENTED_INTERFACE</compatibilityChange>
-									<binaryCompatible>true</binaryCompatible>
-									<sourceCompatible>true</sourceCompatible>
-								</overrideCompatibilityChangeParameter>
+								<!-- The override below was previously activated, left as a comment in case we want to activate it again.
+                                <overrideCompatibilityChangeParameter>
+                                	<compatibilityChange>METHOD_ABSTRACT_ADDED_IN_IMPLEMENTED_INTERFACE</compatibilityChange>
+                                	<binaryCompatible>true</binaryCompatible>
+                                	<sourceCompatible>true</sourceCompatible>
+                                	<semanticVersionLevel>MINOR</semanticVersionLevel>
+                                </overrideCompatibilityChangeParameter>
+                                 -->
 								<overrideCompatibilityChangeParameter>
 									<compatibilityChange>METHOD_NEW_DEFAULT</compatibilityChange>
 									<binaryCompatible>true</binaryCompatible>
 									<sourceCompatible>true</sourceCompatible>
+									<semanticVersionLevel>MINOR</semanticVersionLevel>
 								</overrideCompatibilityChangeParameter>
 							</overrideCompatibilityChangeParameters>
 						</parameter>
@@ -903,47 +939,121 @@
 				<plugin>
 					<groupId>org.apache.maven.plugins</groupId>
 					<artifactId>maven-shade-plugin</artifactId>
-					<version>3.2.1</version>
+					<version>3.5.1</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-enforcer-plugin</artifactId>
+					<version>3.4.1</version>
+					<executions>
+						<execution>
+							<id>enforce-maven-3</id>
+							<goals>
+								<goal>enforce</goal>
+							</goals>
+							<configuration>
+								<rules>
+									<requireMavenVersion>
+										<version>3.6.0</version>
+									</requireMavenVersion>
+								</rules>
+								<fail>true</fail>
+							</configuration>
+						</execution>
+						<execution>
+							<id>enforce-logging-dependencies</id>
+							<goals>
+								<goal>enforce</goal>
+							</goals>
+							<configuration>
+								<rules>
+									<bannedDependencies>
+										<excludes>
+											<exclude>commons-logging</exclude>
+											<exclude>log4j</exclude>
+											<exclude>org.apache.logging.log4j</exclude>
+											<exclude>org.springframework:spring-jcl</exclude>
+										</excludes>
+										<includes>
+											<include>org.apache.logging.log4j:log4j-to-slf4j</include>
+											<include>org.apache.logging.log4j:log4j-api</include>
+											<!-- elasticsearch-cluster-runner needs log4j-core -->
+											<include>org.apache.logging.log4j:log4j-core:*:*:test</include>
+											<!-- Solr embedded server apparently needs log4j-web -->
+											<include>org.apache.logging.log4j:log4j-web</include>
+										</includes>
+									</bannedDependencies>
+								</rules>
+								<fail>true</fail>
+							</configuration>
+						</execution>
+						<execution>
+							<id>enforce-javaee-provided</id>
+							<goals>
+								<goal>enforce</goal>
+							</goals>
+							<configuration>
+								<rules>
+									<bannedDependencies>
+										<excludes>
+											<exclude>javax*</exclude>
+										</excludes>
+										<includes>
+											<include>javax.servlet:javax.servlet-api:*:*:provided</include>
+											<include>javax.servlet.jsp:jsp-api:*:*:provided</include>
+											<include>javax.servlet:jstl:*:*:provided</include>
+											<!-- Allow test server dependencies -->
+											<include>javax.servlet:javax.servlet-api:*:*:test</include>
+										</includes>
+									</bannedDependencies>
+								</rules>
+								<fail>${enforce-javaee-provided.fail}</fail>
+							</configuration>
+						</execution>
+						<execution>
+							<id>enforce-ban-duplicate-classes</id>
+							<goals>
+								<goal>enforce</goal>
+							</goals>
+							<configuration>
+								<rules>
+									<banDuplicateClasses>
+										<ignoreClasses>
+											<!-- mockserver-junit-jupiter-no-dependencies contains these classes -->
+											<ignoreClass>org.junit.*</ignoreClass>
+											<!-- mockserver-junit-jupiter-no-dependencies contains these classes -->
+											<ignoreClass>org.slf4j.*</ignoreClass>
+											<!-- mockserver-junit-jupiter-no-dependencies contains these classes -->
+											<ignoreClass>org.opentest4j.*</ignoreClass>
+										</ignoreClasses>
+										<ignoreWhenIdentical>true</ignoreWhenIdentical>
+									</banDuplicateClasses>
+								</rules>
+								<fail>true</fail>
+							</configuration>
+						</execution>
+					</executions>
+					<dependencies>
+						<dependency>
+							<groupId>org.codehaus.mojo</groupId>
+							<artifactId>extra-enforcer-rules</artifactId>
+							<version>1.6.1</version>
+						</dependency>
+					</dependencies>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-install-plugin</artifactId>
+					<version>3.1.1</version>
+				</plugin>
+				<plugin>
+					<groupId>org.apache.maven.plugins</groupId>
+					<artifactId>maven-site-plugin</artifactId>
+					<version>4.0.0-M13</version>
 				</plugin>
 			</plugins>
 		</pluginManagement>
 		<plugins>
-			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>buildnumber-maven-plugin</artifactId>
-				<version>1.4</version>
-				<executions>
-					<execution>
-						<phase>validate</phase>
-						<goals>
-							<goal>create</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<shortRevisionLength>7</shortRevisionLength>
-				</configuration>
-			</plugin>
-			<plugin>
-				<groupId>org.codehaus.mojo</groupId>
-				<artifactId>animal-sniffer-maven-plugin</artifactId>
-				<version>1.16</version>
-				<executions>
-					<execution>
-						<phase>test</phase>
-						<goals>
-							<goal>check</goal>
-						</goals>
-					</execution>
-				</executions>
-				<configuration>
-					<signature>
-						<groupId>org.codehaus.mojo.signature</groupId>
-						<artifactId>java18</artifactId>
-						<version>1.0</version>
-					</signature>
-				</configuration>
-			</plugin>
 			<plugin>
 				<groupId>net.revelc.code.formatter</groupId>
 				<artifactId>formatter-maven-plugin</artifactId>
@@ -954,6 +1064,19 @@
 					<skipHtmlFormatting>true</skipHtmlFormatting>
 				</configuration>
 			</plugin>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<inherited>true</inherited>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+			</plugin>
+			<plugin>
+				<groupId>com.github.siom79.japicmp</groupId>
+				<artifactId>japicmp-maven-plugin</artifactId>
+			</plugin>
 		</plugins>
 		<extensions>
 			<extension>
@@ -963,18 +1086,6 @@
 			</extension>
 		</extensions>
 	</build>
-	<repositories>
-		<repository>
-			<releases>
-				<enabled>false</enabled>
-			</releases>
-			<snapshots>
-				<enabled>true</enabled>
-			</snapshots>
-			<id>oss-sonatype-snapshots</id>
-			<url>https://oss.sonatype.org/content/repositories/snapshots</url>
-		</repository>
-	</repositories>
 	<scm>
 		<connection>scm:git:git://github.com:eclipse/rdf4j.git</connection>
 		<developerConnection>scm:git:git@github.com:eclipse/rdf4j.git</developerConnection>

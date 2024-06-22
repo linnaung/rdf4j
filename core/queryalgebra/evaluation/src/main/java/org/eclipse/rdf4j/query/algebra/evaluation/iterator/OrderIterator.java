@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.iterator;
 
@@ -30,7 +33,6 @@ import java.util.stream.Stream;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
 import org.eclipse.rdf4j.common.iteration.DelayedIteration;
-import org.eclipse.rdf4j.common.iteration.Iteration;
 import org.eclipse.rdf4j.common.iteration.LimitIteration;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
@@ -41,13 +43,159 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
  * @author James Leigh
  * @author Arjohn Kampman
  */
-public class OrderIterator extends DelayedIteration<BindingSet, QueryEvaluationException> {
+public class OrderIterator extends DelayedIteration<BindingSet> {
+
+	/*-----------*
+	 * Variables *
+	 *-----------*/
+
+	private final CloseableIteration<BindingSet> iter;
+
+	private final Comparator<BindingSet> comparator;
+
+	private final long limit;
+
+	private final boolean distinct;
+
+	private final List<SerializedQueue<BindingSet>> serialized = new LinkedList<>();
+
+	/**
+	 * Number of items cached before internal collection is synced to disk. If set to 0, no disk-syncing is done and all
+	 * internal caching is kept in memory.
+	 */
+	private final long iterationSyncThreshold;
+
+	/*--------------*
+	 * Constructors *
+	 *--------------*/
+
+	public OrderIterator(CloseableIteration<BindingSet> iter, Comparator<BindingSet> comparator) {
+		this(iter, comparator, Long.MAX_VALUE, false);
+	}
+
+	public OrderIterator(CloseableIteration<BindingSet> iter, Comparator<BindingSet> comparator, long limit,
+			boolean distinct) {
+		this(iter, comparator, limit, distinct, Integer.MAX_VALUE);
+	}
+
+	public OrderIterator(CloseableIteration<BindingSet> iter, Comparator<BindingSet> comparator, long limit,
+			boolean distinct, long iterationSyncThreshold) {
+		this.iter = iter;
+		this.comparator = comparator;
+		this.limit = limit;
+		this.distinct = distinct;
+		this.iterationSyncThreshold = iterationSyncThreshold > 0 ? iterationSyncThreshold : Integer.MAX_VALUE;
+	}
+
+	/*---------*
+	 * Methods *
+	 *---------*/
+
+	@Override
+	protected CloseableIteration<BindingSet> createIteration() throws QueryEvaluationException {
+		BindingSet threshold = null;
+		List<BindingSet> list = new LinkedList<>();
+		int limit2 = limit >= Integer.MAX_VALUE / 2 ? Integer.MAX_VALUE : (int) limit * 2;
+		int syncThreshold = (int) Math.min(iterationSyncThreshold, Integer.MAX_VALUE);
+		try {
+			while (iter.hasNext()) {
+				if (list.size() >= syncThreshold && list.size() < limit) {
+					SerializedQueue<BindingSet> queue = new SerializedQueue<>("orderiter");
+					sort(list).forEach(queue::add);
+					serialized.add(queue);
+					decrement(list.size() - queue.size());
+					list = new ArrayList<>(list.size());
+					if (threshold == null && serialized.stream().mapToLong(SerializedQueue::size).sum() >= limit) {
+						Stream<BindingSet> stream = serialized.stream().map(SerializedQueue::peekLast);
+						threshold = stream.sorted(comparator).skip(serialized.size() - 1).findFirst().orElseThrow();
+					}
+				} else if (list.size() >= limit2 || !distinct && threshold == null && list.size() >= limit) {
+					List<BindingSet> sorted = new ArrayList<>(limit2);
+					sort(list).forEach(sorted::add);
+					decrement(list.size() - sorted.size());
+					list = sorted;
+					if (sorted.size() >= limit) {
+						threshold = sorted.get(sorted.size() - 1);
+					}
+				}
+				BindingSet next = iter.next();
+				if (threshold == null || comparator.compare(next, threshold) < 0) {
+					list.add(next);
+					increment();
+				}
+			}
+		} catch (IOException e) {
+			throw new QueryEvaluationException(e);
+		} finally {
+			iter.close();
+		}
+
+		List<Iterator<BindingSet>> iterators = new ArrayList<>(serialized.size() + 1);
+		serialized
+				.stream()
+				.map(SerializedQueue::iterator)
+				.forEach(iterators::add);
+
+		iterators.add(sort(list).iterator());
+
+		SortedIterators<BindingSet> iterator = new SortedIterators<>(comparator, distinct, iterators);
+
+		return new LimitIteration<>(new CloseableIteratorIteration<>(iterator), limit);
+	}
+
+	protected void increment() throws QueryEvaluationException {
+		// give subclasses a chance to stop query evaluation
+	}
+
+	protected void decrement(int amount) throws QueryEvaluationException {
+		// let subclasses know that the expected result size is smaller
+	}
+
+	private Stream<BindingSet> sort(Collection<BindingSet> collection) {
+		BindingSet[] array = collection.toArray(new BindingSet[collection.size()]);
+		Arrays.parallelSort(array, comparator);
+		Stream<BindingSet> stream = Stream.of(array);
+		if (distinct) {
+			stream = stream.distinct();
+		}
+		if (limit < Integer.MAX_VALUE) {
+			stream = stream.limit(limit);
+		}
+		return stream;
+	}
+
+	@Override
+	public void remove() throws QueryEvaluationException {
+		throw new UnsupportedOperationException();
+	}
+
+	@Override
+	protected void handleClose() throws QueryEvaluationException {
+		try {
+			super.handleClose();
+		} finally {
+			try {
+				iter.close();
+			} finally {
+				serialized.stream().map(queue -> {
+					try {
+						queue.close();
+						return null;
+					} catch (IOException e) {
+						return e;
+					}
+				}).filter(exec -> exec != null).findFirst().ifPresent(exec -> {
+					throw new QueryEvaluationException(exec);
+				});
+			}
+		}
+	}
 
 	private static class SerializedQueue<E extends Serializable> extends AbstractQueue<E> implements Closeable {
 
 		private final File file;
 
-		private ObjectOutputStream output;
+		private final ObjectOutputStream output;
 
 		private ObjectInputStream input;
 
@@ -134,9 +282,9 @@ public class OrderIterator extends DelayedIteration<BindingSet, QueryEvaluationE
 		@Override
 		public int size() {
 			if (next == null) {
-				return (int) size;
+				return size;
 			} else {
-				return (int) size + 1;
+				return size + 1;
 			}
 		}
 
@@ -209,7 +357,7 @@ public class OrderIterator extends DelayedIteration<BindingSet, QueryEvaluationE
 			while (iterators.get(i).hasNext()) {
 				E key = iterators.get(i).next();
 				if (!head.containsKey(key)) {
-					head.put(key, new LinkedList<>(Arrays.asList(i)));
+					head.put(key, new LinkedList<>(List.of(i)));
 					break;
 				} else if (!distinct) {
 					head.get(key).add(i);
@@ -220,144 +368,4 @@ public class OrderIterator extends DelayedIteration<BindingSet, QueryEvaluationE
 
 	}
 
-	/*-----------*
-	 * Variables *
-	 *-----------*/
-
-	private final CloseableIteration<BindingSet, QueryEvaluationException> iter;
-
-	private final Comparator<BindingSet> comparator;
-
-	private final long limit;
-
-	private final boolean distinct;
-
-	private final List<SerializedQueue<BindingSet>> serialized = new LinkedList<>();
-
-	/**
-	 * Number of items cached before internal collection is synced to disk. If set to 0, no disk-syncing is done and all
-	 * internal caching is kept in memory.
-	 */
-	private final long iterationSyncThreshold;
-
-	/*--------------*
-	 * Constructors *
-	 *--------------*/
-
-	public OrderIterator(CloseableIteration<BindingSet, QueryEvaluationException> iter,
-			Comparator<BindingSet> comparator) {
-		this(iter, comparator, Long.MAX_VALUE, false);
-	}
-
-	public OrderIterator(CloseableIteration<BindingSet, QueryEvaluationException> iter,
-			Comparator<BindingSet> comparator, long limit, boolean distinct) {
-		this(iter, comparator, limit, distinct, Integer.MAX_VALUE);
-	}
-
-	public OrderIterator(CloseableIteration<BindingSet, QueryEvaluationException> iter,
-			Comparator<BindingSet> comparator, long limit, boolean distinct, long iterationSyncThreshold) {
-		this.iter = iter;
-		this.comparator = comparator;
-		this.limit = limit;
-		this.distinct = distinct;
-		this.iterationSyncThreshold = iterationSyncThreshold > 0 ? iterationSyncThreshold : Integer.MAX_VALUE;
-	}
-
-	/*---------*
-	 * Methods *
-	 *---------*/
-
-	@Override
-	protected Iteration<BindingSet, QueryEvaluationException> createIteration() throws QueryEvaluationException {
-		BindingSet threshold = null;
-		List<BindingSet> list = new LinkedList<>();
-		int limit2 = limit >= Integer.MAX_VALUE / 2 ? Integer.MAX_VALUE : (int) limit * 2;
-		int syncThreshold = (int) Math.min(iterationSyncThreshold, Integer.MAX_VALUE);
-		try {
-			while (iter.hasNext()) {
-				if (list.size() >= syncThreshold && list.size() < limit) {
-					SerializedQueue<BindingSet> queue = new SerializedQueue<>("orderiter");
-					sort(list).forEach(bs -> queue.add(bs));
-					serialized.add(queue);
-					decrement(list.size() - queue.size());
-					list = new ArrayList<>(list.size());
-					if (threshold == null && serialized.stream().mapToLong(q -> q.size()).sum() >= limit) {
-						Stream<BindingSet> stream = serialized.stream().map(q -> q.peekLast());
-						threshold = stream.sorted(comparator).skip(serialized.size() - 1).findFirst().get();
-					}
-				} else if (list.size() >= limit2 || !distinct && threshold == null && list.size() >= limit) {
-					List<BindingSet> sorted = new ArrayList<>(limit2);
-					sort(list).forEach(bs -> sorted.add(bs));
-					decrement(list.size() - sorted.size());
-					list = sorted;
-					if (sorted.size() >= limit) {
-						threshold = sorted.get(sorted.size() - 1);
-					}
-				}
-				BindingSet next = iter.next();
-				if (threshold == null || comparator.compare(next, threshold) < 0) {
-					list.add(next);
-					increment();
-				}
-			}
-		} catch (IOException e) {
-			throw new QueryEvaluationException(e);
-		} finally {
-			iter.close();
-		}
-		SortedIterators<BindingSet> iterator;
-		List<Iterator<BindingSet>> iterators = new ArrayList<>(serialized.size() + 1);
-		serialized.forEach(queue -> iterators.add(queue.iterator()));
-		iterators.add(sort(list).iterator());
-		iterator = new SortedIterators<>(comparator, distinct, iterators);
-		return new LimitIteration<>(new CloseableIteratorIteration<>(iterator), limit);
-	}
-
-	protected void increment() throws QueryEvaluationException {
-		// give subclasses a chance to stop query evaluation
-	}
-
-	protected void decrement(int amount) throws QueryEvaluationException {
-		// let subclasses know that the expected result size is smaller
-	}
-
-	private Stream<BindingSet> sort(Collection<BindingSet> collection) {
-		BindingSet[] array = collection.toArray(new BindingSet[collection.size()]);
-		Arrays.parallelSort(array, comparator);
-		Stream<BindingSet> stream = Stream.of(array);
-		if (distinct) {
-			stream = stream.distinct();
-		}
-		if (limit < Integer.MAX_VALUE) {
-			stream = stream.limit(limit);
-		}
-		return stream;
-	}
-
-	@Override
-	public void remove() throws QueryEvaluationException {
-		throw new UnsupportedOperationException();
-	}
-
-	@Override
-	protected void handleClose() throws QueryEvaluationException {
-		try {
-			super.handleClose();
-		} finally {
-			try {
-				iter.close();
-			} finally {
-				serialized.stream().map(queue -> {
-					try {
-						queue.close();
-						return null;
-					} catch (IOException e) {
-						return e;
-					}
-				}).filter(exec -> exec != null).findFirst().ifPresent(exec -> {
-					throw new QueryEvaluationException(exec);
-				});
-			}
-		}
-	}
 }

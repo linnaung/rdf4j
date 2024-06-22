@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.sparql.federation;
 
@@ -11,10 +14,10 @@ import org.eclipse.rdf4j.common.iteration.AbstractCloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.EmptyIteration;
 import org.eclipse.rdf4j.common.iteration.LookAheadIteration;
-import org.eclipse.rdf4j.http.client.QueueCursor;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.impl.QueueCursor;
 
 /**
  * Base class for any join parallel join executor. Note that this class extends {@link LookAheadIteration} and thus any
@@ -23,7 +26,7 @@ import org.eclipse.rdf4j.query.algebra.TupleExpr;
  *
  * @author Andreas Schwarte
  */
-public abstract class JoinExecutorBase<T> extends LookAheadIteration<T, QueryEvaluationException> {
+public abstract class JoinExecutorBase<T> extends LookAheadIteration<T> {
 
 	/**
 	 * @deprecated No replacement, don't use static shared int variables.
@@ -35,9 +38,9 @@ public abstract class JoinExecutorBase<T> extends LookAheadIteration<T, QueryEva
 
 	protected final BindingSet bindings; // the bindings
 
-	protected final CloseableIteration<T, QueryEvaluationException> leftIter;
+	protected final CloseableIteration<T> leftIter;
 
-	protected volatile CloseableIteration<T, QueryEvaluationException> rightIter;
+	protected volatile CloseableIteration<T> rightIter;
 
 	/**
 	 * @deprecated Use {@link AbstractCloseableIteration#isClosed()} instead.
@@ -49,9 +52,9 @@ public abstract class JoinExecutorBase<T> extends LookAheadIteration<T, QueryEva
 	 */
 	protected volatile boolean finished = false;
 
-	protected final QueueCursor<CloseableIteration<T, QueryEvaluationException>> rightQueue = new QueueCursor<>(1024);
+	protected final QueueCursor<CloseableIteration<T>> rightQueue = new QueueCursor<>(1024);
 
-	protected JoinExecutorBase(CloseableIteration<T, QueryEvaluationException> leftIter, TupleExpr rightArg,
+	protected JoinExecutorBase(CloseableIteration<T> leftIter, TupleExpr rightArg,
 			BindingSet bindings) throws QueryEvaluationException {
 		this.leftIter = leftIter;
 		this.rightArg = rightArg;
@@ -63,6 +66,9 @@ public abstract class JoinExecutorBase<T> extends LookAheadIteration<T, QueryEva
 		try {
 			handleBindings();
 		} catch (Exception e) {
+			if (e instanceof InterruptedException) {
+				Thread.currentThread().interrupt();
+			}
 			toss(e);
 		} finally {
 			finished = true;
@@ -74,16 +80,16 @@ public abstract class JoinExecutorBase<T> extends LookAheadIteration<T, QueryEva
 	/**
 	 * Implementations must implement this method to handle bindings. Use the following as a template <code>
 	 * while (!closed && leftIter.hasNext()) {
-	 * 		// your code
+	 * // your code
 	 * }
 	 * </code> and add results to rightQueue. Note that addResult() is implemented synchronized and thus thread safe. In
 	 * case you can guarantee sequential access, it is also possible to directly access rightQueue
 	 */
 	protected abstract void handleBindings() throws Exception;
 
-	public void addResult(CloseableIteration<T, QueryEvaluationException> res) {
+	public void addResult(CloseableIteration<T> res) {
 		/* optimization: avoid adding empty results */
-		if (res instanceof EmptyIteration<?, ?>) {
+		if (res instanceof EmptyIteration) {
 			return;
 		}
 
@@ -96,7 +102,7 @@ public abstract class JoinExecutorBase<T> extends LookAheadIteration<T, QueryEva
 	}
 
 	public void done() {
-		; // no-op
+		// no-op
 	}
 
 	public void toss(Exception e) {
@@ -110,7 +116,7 @@ public abstract class JoinExecutorBase<T> extends LookAheadIteration<T, QueryEva
 		// if we see any weird behavior check here !!
 
 		while (rightIter != null || rightQueue.hasNext()) {
-			CloseableIteration<T, QueryEvaluationException> nextRightIter = rightIter;
+			CloseableIteration<T> nextRightIter = rightIter;
 			if (nextRightIter == null) {
 				nextRightIter = rightIter = rightQueue.next();
 			}
@@ -131,22 +137,18 @@ public abstract class JoinExecutorBase<T> extends LookAheadIteration<T, QueryEva
 	public void handleClose() throws QueryEvaluationException {
 		closed = true;
 		try {
-			super.handleClose();
+			rightQueue.close();
 		} finally {
 			try {
-				rightQueue.close();
+				CloseableIteration<T> toCloseRightIter = rightIter;
+				rightIter = null;
+				if (toCloseRightIter != null) {
+					toCloseRightIter.close();
+				}
 			} finally {
-				try {
-					CloseableIteration<T, QueryEvaluationException> toCloseRightIter = rightIter;
-					rightIter = null;
-					if (toCloseRightIter != null) {
-						toCloseRightIter.close();
-					}
-				} finally {
-					CloseableIteration<T, QueryEvaluationException> toCloseLeftIter = leftIter;
-					if (toCloseLeftIter != null) {
-						toCloseLeftIter.close();
-					}
+				CloseableIteration<T> toCloseLeftIter = leftIter;
+				if (toCloseLeftIter != null) {
+					toCloseLeftIter.close();
 				}
 			}
 		}

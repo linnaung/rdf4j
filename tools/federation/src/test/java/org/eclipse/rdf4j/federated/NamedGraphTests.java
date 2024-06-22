@@ -1,9 +1,12 @@
-/******************************************************************************* 
+/*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated;
 
@@ -50,11 +53,11 @@ public class NamedGraphTests extends SPARQLBaseTest {
 		}
 	}
 
-	private static TestVocabulary NS_1 = new TestVocabulary("http://namespace1.org/");
-	private static TestVocabulary NS_2 = new TestVocabulary("http://namespace2.org/");
-	private static TestVocabulary NS_3 = new TestVocabulary("http://namespace3.org/");
-	private static TestVocabulary NS_4 = new TestVocabulary("http://namespace4.org/");
-	private static TestVocabulary EX = new TestVocabulary("http://example.org/");
+	private static final TestVocabulary NS_1 = new TestVocabulary("http://namespace1.org/");
+	private static final TestVocabulary NS_2 = new TestVocabulary("http://namespace2.org/");
+	private static final TestVocabulary NS_3 = new TestVocabulary("http://namespace3.org/");
+	private static final TestVocabulary NS_4 = new TestVocabulary("http://namespace4.org/");
+	private static final TestVocabulary EX = new TestVocabulary("http://example.org/");
 
 	@BeforeEach
 	public void registerPrefixes() {

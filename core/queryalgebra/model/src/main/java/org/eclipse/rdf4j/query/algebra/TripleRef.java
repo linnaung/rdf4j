@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
 
@@ -13,39 +16,64 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-/** Triple lookup reference. Allow retrieval of RDF* triples **/
+import org.eclipse.rdf4j.common.order.AvailableStatementOrder;
+
+/**
+ * Triple lookup reference. Allow retrieval of RDF-star triples
+ **/
 public class TripleRef extends AbstractQueryModelNode implements TupleExpr {
 
-	private org.eclipse.rdf4j.query.algebra.Var exprVar;
-	private org.eclipse.rdf4j.query.algebra.Var subjectVar;
-	private org.eclipse.rdf4j.query.algebra.Var predicateVar;
-	private org.eclipse.rdf4j.query.algebra.Var objectVar;
+	private Var subjectVar;
+	private Var predicateVar;
+	private Var objectVar;
+	private Var exprVar;
 
-	public org.eclipse.rdf4j.query.algebra.Var getSubjectVar() {
+	public TripleRef() {
+	}
+
+	public TripleRef(Var subjectVar, Var predicateVar, Var objectVar, Var exprVar) {
+		assert subjectVar != null : "subject must not be null";
+		assert predicateVar != null : "predicate must not be null";
+		assert objectVar != null : "object must not be null";
+
+		subjectVar.setParentNode(this);
+		predicateVar.setParentNode(this);
+		objectVar.setParentNode(this);
+		if (exprVar != null) {
+			exprVar.setParentNode(this);
+		}
+
+		this.subjectVar = subjectVar;
+		this.predicateVar = predicateVar;
+		this.objectVar = objectVar;
+		this.exprVar = exprVar;
+	}
+
+	public Var getSubjectVar() {
 		return subjectVar;
 	}
 
-	public void setSubjectVar(org.eclipse.rdf4j.query.algebra.Var subject) {
+	public void setSubjectVar(Var subject) {
 		assert subject != null : "subject must not be null";
 		subject.setParentNode(this);
 		subjectVar = subject;
 	}
 
-	public org.eclipse.rdf4j.query.algebra.Var getPredicateVar() {
+	public Var getPredicateVar() {
 		return predicateVar;
 	}
 
-	public void setPredicateVar(org.eclipse.rdf4j.query.algebra.Var predicate) {
+	public void setPredicateVar(Var predicate) {
 		assert predicate != null : "predicate must not be null";
 		predicate.setParentNode(this);
 		predicateVar = predicate;
 	}
 
-	public org.eclipse.rdf4j.query.algebra.Var getObjectVar() {
+	public Var getObjectVar() {
 		return objectVar;
 	}
 
-	public void setObjectVar(org.eclipse.rdf4j.query.algebra.Var object) {
+	public void setObjectVar(Var object) {
 		assert object != null : "object must not be null";
 		object.setParentNode(this);
 		objectVar = object;
@@ -54,11 +82,11 @@ public class TripleRef extends AbstractQueryModelNode implements TupleExpr {
 	/**
 	 * Returns the context variable, if available.
 	 */
-	public org.eclipse.rdf4j.query.algebra.Var getExprVar() {
+	public Var getExprVar() {
 		return exprVar;
 	}
 
-	public void setExprVar(org.eclipse.rdf4j.query.algebra.Var context) {
+	public void setExprVar(Var context) {
 		if (context != null) {
 			context.setParentNode(this);
 		}
@@ -90,14 +118,14 @@ public class TripleRef extends AbstractQueryModelNode implements TupleExpr {
 		return bindingNames;
 	}
 
-	public List<org.eclipse.rdf4j.query.algebra.Var> getVarList() {
+	public List<Var> getVarList() {
 		return getVars(new ArrayList<>(4));
 	}
 
 	/**
 	 * Adds the variables of this statement pattern to the supplied collection.
 	 */
-	public <L extends Collection<org.eclipse.rdf4j.query.algebra.Var>> L getVars(L varCollection) {
+	public <L extends Collection<Var>> L getVars(L varCollection) {
 		if (subjectVar != null) {
 			varCollection.add(subjectVar);
 		}
@@ -133,22 +161,18 @@ public class TripleRef extends AbstractQueryModelNode implements TupleExpr {
 		if (exprVar != null) {
 			exprVar.visit(visitor);
 		}
-
-		super.visitChildren(visitor);
 	}
 
 	@Override
 	public void replaceChildNode(QueryModelNode current, QueryModelNode replacement) {
 		if (subjectVar == current) {
-			setSubjectVar((org.eclipse.rdf4j.query.algebra.Var) replacement);
+			setSubjectVar((Var) replacement);
 		} else if (predicateVar == current) {
-			setPredicateVar((org.eclipse.rdf4j.query.algebra.Var) replacement);
+			setPredicateVar((Var) replacement);
 		} else if (objectVar == current) {
-			setObjectVar((org.eclipse.rdf4j.query.algebra.Var) replacement);
+			setObjectVar((Var) replacement);
 		} else if (exprVar == current) {
-			setExprVar((org.eclipse.rdf4j.query.algebra.Var) replacement);
-		} else {
-			super.replaceChildNode(current, replacement);
+			setExprVar((Var) replacement);
 		}
 	}
 
@@ -195,4 +219,25 @@ public class TripleRef extends AbstractQueryModelNode implements TupleExpr {
 
 		return clone;
 	}
+
+	@Override
+	public Set<Var> getSupportedOrders(AvailableStatementOrder tripleSource) {
+		return Set.of();
+	}
+
+	@Override
+	public void setOrder(Var var) {
+		throw new UnsupportedOperationException("This TupleExpr does not support ordering");
+	}
+
+	@Override
+	public Var getOrder() {
+		throw new UnsupportedOperationException("Not implemented yet");
+	}
+
+	@Override
+	protected boolean shouldCacheCardinality() {
+		return true;
+	}
+
 }

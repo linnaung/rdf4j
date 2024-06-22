@@ -1,13 +1,17 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.Iri;
 
 /**
@@ -35,6 +39,12 @@ public class Dataset extends StandardQueryElementCollection<From> {
 	 * @return this
 	 */
 	public Dataset from(Iri... iris) {
+		addElements(SparqlBuilder::from, iris);
+
+		return this;
+	}
+
+	public Dataset from(IRI... iris) {
 		addElements(SparqlBuilder::from, iris);
 
 		return this;

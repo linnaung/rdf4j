@@ -1,16 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.triple;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Triple;
@@ -18,9 +21,9 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test rdf:predicate(a) function
@@ -31,21 +34,19 @@ public class TriplePredicateFunctionTest {
 
 	private TriplePredicateFunction function;
 
-	private ValueFactory f = SimpleValueFactory.getInstance();
+	private final ValueFactory f = SimpleValueFactory.getInstance();
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		function = new TriplePredicateFunction();
 	}
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@After
-	public void tearDown() throws Exception {
+	@AfterEach
+	public void tearDown() {
 	}
 
 	@Test
@@ -57,26 +58,24 @@ public class TriplePredicateFunctionTest {
 
 		Value value = function.evaluate(f, testValue);
 		assertNotNull(value);
-		assertTrue("expect IRI", value instanceof IRI);
-		assertEquals("expect same value", pred, value);
+		assertTrue(value instanceof IRI, "expect IRI");
+		assertEquals(pred, value, "expect same value");
 	}
 
-	@Test(expected = ValueExprEvaluationException.class)
+	@Test
 	public void testNegativeWrongArguments() {
 		IRI subj = f.createIRI("urn:a");
 		IRI pred = f.createIRI("urn:b");
 		IRI obj = f.createIRI("urn:c");
 		Triple testValue = f.createTriple(subj, pred, obj);
 
-		function.evaluate(f, testValue, subj);
-		fail("expect ValueExprEvaluationException");
+		assertThrows(ValueExprEvaluationException.class, () -> function.evaluate(f, testValue, subj));
 	}
 
-	@Test(expected = ValueExprEvaluationException.class)
+	@Test
 	public void testWrongArguments() {
 		IRI subj = f.createIRI("urn:a");
 
-		function.evaluate(f, subj);
-		fail("expect ValueExprEvaluationException");
+		assertThrows(ValueExprEvaluationException.class, () -> function.evaluate(f, subj));
 	}
 }

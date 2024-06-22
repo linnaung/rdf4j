@@ -1,25 +1,32 @@
 /*******************************************************************************
  * Copyright (c) 2016, 2017 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.examples.model;
+
+import static org.eclipse.rdf4j.model.util.Values.iri;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Set;
 
 import org.eclipse.rdf4j.examples.model.vocabulary.EX;
-import org.eclipse.rdf4j.model.*;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
 
 /**
  * RDF Tutorial example 10: Getting all values of a property for a particular subject.
- *
+ * <p>
  * In this example, we show how you can get retrieve all paintings that Van Gogh created.
  *
  * @author Jeen Broekstra
@@ -34,10 +41,8 @@ public class Example10PropertyValues {
 		InputStream input = Example10PropertyValues.class.getResourceAsStream("/" + filename);
 		Model model = Rio.parse(input, "", RDFFormat.TURTLE);
 
-		ValueFactory vf = SimpleValueFactory.getInstance();
-
 		// We want to find all information about the artist `ex:VanGogh`.
-		IRI vanGogh = vf.createIRI(EX.NAMESPACE, "VanGogh");
+		IRI vanGogh = iri(EX.NAMESPACE, "VanGogh");
 
 		// Retrieve all values of the `ex:creatorOf` property for Van Gogh. These will be
 		// resources that identify paintings by Van Gogh.

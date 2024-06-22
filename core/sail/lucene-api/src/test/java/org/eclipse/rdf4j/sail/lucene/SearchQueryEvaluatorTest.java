@@ -1,19 +1,23 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.lucene;
 
-import java.io.IOException;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -40,12 +44,7 @@ abstract class SearchQueryEvaluatorTest {
 		protected Set<String> wktFields = Collections.singleton(SearchFields.getPropertyField(GEO.AS_WKT));
 
 		@Override
-		public void initialize(Properties parameters) throws Exception {
-		}
-
-		@Override
-		public Collection<BindingSet> evaluate(QuerySpec query) throws SailException {
-			return null;
+		public void initialize(Properties parameters) {
 		}
 
 		@Override
@@ -54,15 +53,7 @@ abstract class SearchQueryEvaluatorTest {
 		}
 
 		@Override
-		public void beginReading() throws IOException {
-		}
-
-		@Override
-		public void endReading() throws IOException {
-		}
-
-		@Override
-		public void shutDown() throws IOException {
+		public void shutDown() {
 		}
 
 		@Override
@@ -76,39 +67,59 @@ abstract class SearchQueryEvaluatorTest {
 		}
 
 		@Override
-		public void begin() throws IOException {
+		public boolean isTypeStatement(Statement statement) {
+			return false;
 		}
 
 		@Override
-		public void commit() throws IOException {
+		public boolean isTypeFilteringEnabled() {
+			return false;
 		}
 
 		@Override
-		public void rollback() throws IOException {
+		public boolean isIndexedTypeStatement(Statement statement) {
+			return false;
 		}
 
 		@Override
-		public void addStatement(Statement statement) throws IOException {
+		public Map<IRI, Set<IRI>> getIndexedTypeMapping() {
+			return null;
 		}
 
 		@Override
-		public void removeStatement(Statement statement) throws IOException {
+		public void begin() {
 		}
 
 		@Override
-		public void addRemoveStatements(Collection<Statement> added, Collection<Statement> removed) throws IOException {
+		public void commit() {
 		}
 
 		@Override
-		public void clearContexts(Resource... contexts) throws IOException {
+		public void rollback() {
 		}
 
 		@Override
-		public void addDocuments(Resource subject, List<Statement> statements) throws IOException {
+		public void addStatement(Statement statement) {
 		}
 
 		@Override
-		public void clear() throws IOException {
+		public void removeStatement(Statement statement) {
+		}
+
+		@Override
+		public void addRemoveStatements(Collection<Statement> added, Collection<Statement> removed) {
+		}
+
+		@Override
+		public void clearContexts(Resource... contexts) {
+		}
+
+		@Override
+		public void addDocuments(Resource subject, List<Statement> statements) {
+		}
+
+		@Override
+		public void clear() {
 		}
 	}
 }

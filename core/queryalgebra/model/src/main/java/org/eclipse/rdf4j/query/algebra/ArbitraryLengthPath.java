@@ -1,15 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
 
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
+import org.eclipse.rdf4j.common.order.AvailableStatementOrder;
 import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
 
 /**
@@ -194,7 +199,6 @@ public class ArbitraryLengthPath extends AbstractQueryModelNode implements Tuple
 			contextVar.visit(visitor);
 		}
 
-		super.visitChildren(visitor);
 	}
 
 	@Override
@@ -207,8 +211,6 @@ public class ArbitraryLengthPath extends AbstractQueryModelNode implements Tuple
 			setObjectVar((Var) replacement);
 		} else if (contextVar == current) {
 			setContextVar((Var) replacement);
-		} else {
-			super.replaceChildNode(current, replacement);
 		}
 	}
 
@@ -230,7 +232,7 @@ public class ArbitraryLengthPath extends AbstractQueryModelNode implements Tuple
 		if (other instanceof ArbitraryLengthPath) {
 			ArbitraryLengthPath o = (ArbitraryLengthPath) other;
 			return subjectVar.equals(o.getSubjectVar()) && pathExpression.equals(o.getPathExpression())
-					&& objectVar.equals(o.getObjectVar()) && nullEquals(contextVar, o.getContextVar())
+					&& objectVar.equals(o.getObjectVar()) && Objects.equals(contextVar, o.getContextVar())
 					&& scope.equals(o.getScope());
 		}
 		return false;
@@ -263,4 +265,20 @@ public class ArbitraryLengthPath extends AbstractQueryModelNode implements Tuple
 
 		return clone;
 	}
+
+	@Override
+	public Set<Var> getSupportedOrders(AvailableStatementOrder tripleSource) {
+		return Set.of();
+	}
+
+	@Override
+	public void setOrder(Var var) {
+		throw new UnsupportedOperationException("Not implemented yet");
+	}
+
+	@Override
+	public Var getOrder() {
+		throw new UnsupportedOperationException("Not implemented yet");
+	}
+
 }

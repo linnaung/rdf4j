@@ -1,25 +1,27 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated;
 
 import java.util.Optional;
 
+import org.eclipse.rdf4j.collection.factory.api.CollectionFactory;
+import org.eclipse.rdf4j.collection.factory.impl.DefaultCollectionFactory;
 import org.eclipse.rdf4j.federated.cache.SourceSelectionCache;
+import org.eclipse.rdf4j.federated.cache.SourceSelectionCacheFactory;
 import org.eclipse.rdf4j.federated.cache.SourceSelectionMemoryCache;
-import org.eclipse.rdf4j.federated.evaluation.FederationEvalStrategy;
-import org.eclipse.rdf4j.federated.evaluation.SailFederationEvalStrategy;
-import org.eclipse.rdf4j.federated.evaluation.SparqlFederationEvalStrategy;
 import org.eclipse.rdf4j.federated.evaluation.concurrent.ControlledWorkerScheduler;
 import org.eclipse.rdf4j.federated.evaluation.concurrent.TaskWrapper;
+import org.eclipse.rdf4j.federated.evaluation.iterator.ConsumingIteration;
 import org.eclipse.rdf4j.federated.monitoring.QueryLog;
 import org.eclipse.rdf4j.federated.monitoring.QueryPlanLog;
-import org.eclipse.rdf4j.federated.write.DefaultWriteStrategyFactory;
-import org.eclipse.rdf4j.federated.write.WriteStrategyFactory;
 import org.eclipse.rdf4j.query.Operation;
 import org.eclipse.rdf4j.query.Query;
 
@@ -40,7 +42,7 @@ public class FedXConfig {
 
 	private int leftJoinWorkerThreads = 10;
 
-	private int boundJoinBlockSize = 15;
+	private int boundJoinBlockSize = 25;
 
 	private int enforceMaxQueryTime = 30;
 
@@ -58,16 +60,15 @@ public class FedXConfig {
 
 	private String sourceSelectionCacheSpec = null;
 
-	private Class<? extends FederationEvalStrategy> sailEvaluationStrategy = SailFederationEvalStrategy.class;
-
-	private Class<? extends FederationEvalStrategy> sparqlEvaluationStrategy = SparqlFederationEvalStrategy.class;
-
-	private Class<? extends WriteStrategyFactory> writeStrategyFactory = DefaultWriteStrategyFactory.class;
+	private SourceSelectionCacheFactory sourceSelectionCacheFactory = null;
 
 	private TaskWrapper taskWrapper = null;
 
 	private String prefixDeclarations = null;
 
+	private int consumingIterationMax = 1000;
+
+	private CollectionFactory cf = new DefaultCollectionFactory();
 	/* factory like setters */
 
 	/**
@@ -97,47 +98,6 @@ public class FedXConfig {
 	 */
 	public FedXConfig withLogQueries(boolean flag) {
 		this.isLogQueries = flag;
-		return this;
-	}
-
-	/**
-	 * Set the {@link FederationEvalStrategy} for SPARQL federations. See {@link #getSPARQLEvaluationStrategy()}.
-	 *
-	 * <p>
-	 * Can only be set before federation initialization.
-	 * </p>
-	 *
-	 * @param sparqlEvaluationStrategy
-	 * @return the current config
-	 */
-	public FedXConfig withSparqlEvaluationStrategy(Class<? extends FederationEvalStrategy> sparqlEvaluationStrategy) {
-		this.sparqlEvaluationStrategy = sparqlEvaluationStrategy;
-		return this;
-	}
-
-	/**
-	 * Set the {@link FederationEvalStrategy} for SAIL federations. See {@link #getSailEvaluationStrategy()}.
-	 *
-	 * <p>
-	 * Can only be set before federation initialization.
-	 * </p>
-	 *
-	 * @param sailEvaluationStrategy
-	 * @return the current config
-	 */
-	public FedXConfig withSailEvaluationStrategy(Class<? extends FederationEvalStrategy> sailEvaluationStrategy) {
-		this.sailEvaluationStrategy = sailEvaluationStrategy;
-		return this;
-	}
-
-	/**
-	 * Set the {@link WriteStrategyFactory} to be used.
-	 *
-	 * @param writeStrategyFactory
-	 * @return the current config
-	 */
-	public FedXConfig withWriteStrategyFactory(Class<? extends WriteStrategyFactory> writeStrategyFactory) {
-		this.writeStrategyFactory = writeStrategyFactory;
 		return this;
 	}
 
@@ -298,9 +258,21 @@ public class FedXConfig {
 	}
 
 	/**
+	 * The {@link SourceSelectionCacheFactory} to be used. If not set explicitly, the default in memory implementation
+	 * is used with the configued {@link #getSourceSelectionCacheSpec()}.
+	 *
+	 * @param factory the {@link SourceSelectionCacheFactory}
+	 * @return the current config
+	 */
+	public FedXConfig withSourceSelectionCacheFactory(SourceSelectionCacheFactory factory) {
+		this.sourceSelectionCacheFactory = factory;
+		return this;
+	}
+
+	/**
 	 * Sets a {@link TaskWrapper} which may be used for wrapping any background {@link Runnable}s. If no such wrapper is
 	 * explicitly configured, the unmodified task is returned. See {@link TaskWrapper} for more information.
-	 * 
+	 *
 	 * @param taskWrapper the {@link TaskWrapper}
 	 * @return the current config
 	 * @see TaskWrapper
@@ -444,6 +416,8 @@ public class FedXConfig {
 	 * Returns the configured {@link CacheBuilderSpec} (if any) for the {@link SourceSelectionMemoryCache}. If not
 	 * defined, the {@link SourceSelectionMemoryCache#DEFAULT_CACHE_SPEC} is used.
 	 *
+	 * If {@link #getSourceSelectionCacheFactory()} is configured, this setting is ignored.
+	 *
 	 * @return the {@link CacheBuilderSpec} or <code>null</code>
 	 */
 	public String getSourceSelectionCacheSpec() {
@@ -451,42 +425,13 @@ public class FedXConfig {
 	}
 
 	/**
-	 * Returns the class of the {@link FederationEvalStrategy} implementation that is used in the case of SAIL
-	 * implementations, e.g. for native stores.
-	 * <p>
-	 * Default {@link SailFederationEvalStrategy}
-	 * </p>
+	 * Returns the {@link SourceSelectionCacheFactory} (if any). If not defined, the {@link SourceSelectionCache} is
+	 * instantiated using the default implementation and respects {@link #getSourceSelectionCacheSpec()}.
 	 *
-	 * @return the evaluation strategy class
+	 * @return {@link SourceSelectionCacheFactory}
 	 */
-	public Class<? extends FederationEvalStrategy> getSailEvaluationStrategy() {
-		return sailEvaluationStrategy;
-	}
-
-	/**
-	 * Returns the class of the {@link FederationEvalStrategy} implementation that is used in the case of SPARQL
-	 * implementations, e.g. SPARQL repository or remote repository.
-	 * <p>
-	 * Default {@link SparqlFederationEvalStrategy}
-	 * </p>
-	 *
-	 * @return the evaluation strategy class
-	 */
-	public Class<? extends FederationEvalStrategy> getSPARQLEvaluationStrategy() {
-		return sparqlEvaluationStrategy;
-	}
-
-	/**
-	 * Returns the class of the {@link WriteStrategyFactory} implementation.
-	 *
-	 * <p>
-	 * Default: {@link DefaultWriteStrategyFactory}
-	 * </p>
-	 *
-	 * @return the {@link WriteStrategyFactory} class
-	 */
-	public Class<? extends WriteStrategyFactory> getWriteStrategyFactory() {
-		return writeStrategyFactory;
+	public SourceSelectionCacheFactory getSourceSelectionCacheFactory() {
+		return this.sourceSelectionCacheFactory;
 	}
 
 	/**
@@ -501,10 +446,48 @@ public class FedXConfig {
 	/**
 	 * Returns a {@link TaskWrapper} which may be used for wrapping any background {@link Runnable}s. If no such wrapper
 	 * is explicitly configured, the unmodified task is returned. See {@link TaskWrapper} for more information.
-	 * 
+	 *
 	 * @return the {@link TaskWrapper}, an empty {@link Optional} if none is explicitly configured
 	 */
 	public Optional<TaskWrapper> getTaskWrapper() {
 		return Optional.ofNullable(taskWrapper);
+	}
+
+	/**
+	 * Set the max number of results to be consumed by {@link ConsumingIteration}. See
+	 * {@link #getConsumingIterationMax()}.
+	 *
+	 * <p>
+	 * Can only be set before federation initialization.
+	 * </p>
+	 *
+	 * @param max
+	 * @return the current config
+	 */
+	public FedXConfig withConsumingIterationMax(int max) {
+		this.consumingIterationMax = max;
+		return this;
+	}
+
+	/**
+	 * Returns the max number of results to be consumed by {@link ConsumingIteration}
+	 */
+	public int getConsumingIterationMax() {
+		return consumingIterationMax;
+	}
+
+	/**
+	 * Set the CollectionFactory to be used by the federation
+	 *
+	 * <p>
+	 * Can only be set before federation initialization.
+	 * </p>
+	 *
+	 * @param cf
+	 * @return the current config
+	 */
+	public FedXConfig withCollectionFactory(CollectionFactory cf) {
+		this.cf = cf;
+		return this;
 	}
 }

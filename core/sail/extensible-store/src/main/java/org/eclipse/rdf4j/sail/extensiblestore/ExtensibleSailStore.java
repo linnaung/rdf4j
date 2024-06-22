@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.extensiblestore;
 
@@ -31,12 +34,12 @@ public class ExtensibleSailStore implements SailStore {
 	private static final Logger logger = LoggerFactory.getLogger(ExtensibleSailStore.class);
 	public static final int EVALUATION_STATISTICS_STALENESS_CHECK_INTERVAL = 1000 * 60;
 
-	private ExtensibleSailSource sailSource;
-	private ExtensibleSailSource sailSourceInferred;
+	private final ExtensibleSailSource sailSource;
+	private final ExtensibleSailSource sailSourceInferred;
 	private final EvaluationStatisticsEnum evaluationStatisticsEnum;
 	private ExtensibleEvaluationStatistics evaluationStatistics;
 	private Thread evaluationStatisticsMaintainerThread;
-	private DataStructureInterface dataStructure;
+	private final DataStructureInterface dataStructure;
 	private volatile boolean closed;
 
 	public ExtensibleSailStore(DataStructureInterface dataStructure,
@@ -117,7 +120,7 @@ public class ExtensibleSailStore implements SailStore {
 	}
 
 	private void addToStats(DynamicStatistics instance,
-			CloseableIteration<? extends ExtensibleStatement, SailException> statements) {
+			CloseableIteration<? extends ExtensibleStatement> statements) {
 
 		long estimatedSize = dataStructure.getEstimatedSize();
 

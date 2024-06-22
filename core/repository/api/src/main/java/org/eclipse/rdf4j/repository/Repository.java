@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository;
 
@@ -41,15 +44,6 @@ public interface Repository {
 	File getDataDir();
 
 	/**
-	 * Initializes this repository.
-	 *
-	 * @throws RepositoryException If the initialization failed.
-	 * @deprecated Use {@link #init()} instead.
-	 */
-	@Deprecated
-	void initialize() throws RepositoryException;
-
-	/**
 	 * Initializes this repository. A repository needs to be initialized before it can be used, however explicitly
 	 * calling this method is not necessary: the repository will automatically initialize itself if an operation is
 	 * executed on it that requires it to be initialized.
@@ -57,9 +51,7 @@ public interface Repository {
 	 * @throws RepositoryException If the initialization failed.
 	 * @since 2.5
 	 */
-	default void init() throws RepositoryException {
-		initialize();
-	}
+	void init() throws RepositoryException;
 
 	/**
 	 * Indicates if the Repository has been initialized. Note that the initialization status may change if the
@@ -91,7 +83,7 @@ public interface Repository {
 	 * 	// perform operations on the connection
 	 * }
 	 * </pre>
-	 *
+	 * <p>
 	 * Note that {@link RepositoryConnection} is not guaranteed to be thread-safe! The recommended pattern for
 	 * repository access in a multi-threaded application is to share the Repository object between threads, but have
 	 * each thread create and use its own {@link RepositoryConnection}s.

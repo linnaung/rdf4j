@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.lucene;
 
@@ -25,6 +28,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.apache.commons.lang3.math.NumberUtils;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -68,7 +72,7 @@ import org.slf4j.LoggerFactory;
  * SailRepository repository = new SailRepository(lucenesail);
  * repository.initialize();
  * </pre>
- *
+ * <p>
  * Example with storage in a RAM directory:
  *
  * <pre>
@@ -85,21 +89,16 @@ import org.slf4j.LoggerFactory;
  *
  * // create a Repository to access the sails
  * SailRepository repository = new SailRepository(lucenesail);
- * repository.initialize();
  * </pre>
  *
- * <h2>Asking full-text queries</h2> Text queries are expressed using the virtual properties of the LuceneSail. An
- * example query looks like this (SERQL): <code>
- * SELECT Subject, Score, Snippet
- * FROM {Subject} <http://www.openrdf.org/contrib/lucenesail#matches> {}
- * <http://www.w3.org/1999/02/22-rdf-syntax-ns#type> {<http://www.openrdf.org/contrib/lucenesail#LuceneQuery>};
- * <http://www.openrdf.org/contrib/lucenesail#query> {"my Lucene query"};
- * <http://www.openrdf.org/contrib/lucenesail#score> {Score};
- * <http://www.openrdf.org/contrib/lucenesail#snippet> {Snippet}</code>
+ * <h2>Asking full-text queries</h2> Text queries are expressed using the virtual properties of the LuceneSail.
+ * <p>
+ * In SPARQL:
  *
- * In SPARQL: <code>
- * SELECT ?subject ?score ?snippet ?resource WHERE {
- * ?subject <http://www.openrdf.org/contrib/lucenesail#matches> [
+ * <pre>{@code
+ * SELECT ?subject ?score ?snippet ?resource
+ * WHERE {
+ *   ?subject <http://www.openrdf.org/contrib/lucenesail#matches> [
  *      a <http://www.openrdf.org/contrib/lucenesail#LuceneQuery> ;
  *      <http://www.openrdf.org/contrib/lucenesail#query> "my Lucene query" ;
  *      <http://www.openrdf.org/contrib/lucenesail#score> ?score ;
@@ -107,7 +106,9 @@ import org.slf4j.LoggerFactory;
  *      <http://www.openrdf.org/contrib/lucenesail#resource> ?resource
  *   ]
  * }
- * </code> When defining queries, these properties <b>type and query are mandatory</b>. Also, the <b>matches relation is
+ * }</pre>
+ *
+ * When defining queries, these properties <b>type and query are mandatory</b>. Also, the <b>matches relation is
  * mandatory</b>. When one of these misses, the query will not be executed as expected. The failure behavior can be
  * configured, setting the Sail property "incompletequeryfail" to true will throw a SailException when such patterns are
  * found, this is the default behavior to help finding inaccurate queries. Set it to false to have warnings logged
@@ -148,25 +149,57 @@ import org.slf4j.LoggerFactory;
  * http\://xmlns.com/foaf/0.1/name=http\://www.w3.org/2000/01/rdf-schema#label
  * </pre>
  *
+ * <h2 name="indexidsyntax">Set and select Lucene sail by id</h2> The property {@link #INDEX_ID} is to configure the id
+ * of the index and filter every request without the search:indexid predicate, the request would be:
+ *
+ * <pre>{@code
+ * ?subj search:matches [
+ * 	      search:indexid my:lucene_index_id;
+ * 	      search:query "search terms...";
+ * 	      search:property my:property;
+ * 	      search:score ?score;
+ * 	      search:snippet ?snippet ] .
+ * }</pre>
+ * <p>
+ * If a LuceneSail is using another LuceneSail as a base sail, the evaluation mode should be set to
+ * {@link TupleFunctionEvaluationMode#NATIVE}.
+ *
+ * <h2 name="indexedtypelangsyntax">Defining the indexed Types/Languages</h2> The properties {@link #INDEXEDTYPES} and
+ * {@link #INDEXEDLANG} are to configure which fields to index by their language or type. {@link #INDEXEDTYPES} Syntax:
+ *
+ * <pre>
+ * # only index object of rdf:type ex:mytype1, rdf:type ex:mytype2 or ex:mytypedef ex:mytype3
+ * http\://www.w3.org/1999/02/22-rdf-syntax-ns#type=http://example.org/mytype1 http://example.org/mytype2
+ * http\://example.org/mytypedef=http://example.org/mytype3
+ * </pre>
+ * <p>
+ * {@link #INDEXEDLANG} Syntax:
+ *
+ * <pre>
+ * # syntax to index only French(fr) and English(en) literals
+ * fr en
+ * </pre>
+ *
  * <h2>Datatypes</h2> Datatypes are ignored in the LuceneSail.
  */
 public class LuceneSail extends NotifyingSailWrapper {
 
 	/*
 	 * FIXME: Add a proper reference to the ISWC paper in the Javadoc. Gunnar: only when/if the paper is accepted
-	 * Enrico: paper was rejected Leo: We need to resubmit it. FIXME: Add settings that instruct a LuceneSailConnection
-	 * or LuceneIndex which properties are to be handled in which way. This is conceptually similar to Lucene's Field
-	 * types: should properties be stored in the wrapped Sail (enabling retrieval through RDF queries), indexed in the
-	 * LuceneIndex (enabling full-text search using Lucene queries embedded in RDF graph queries) or both? Gunnar and
-	 * Leo: we had this in the old version, we might add later. Enrico: in beagle we set the default setting to index
-	 * AND store a field, so that when you extend the ontology you can be sure it is indexed and stored by the
-	 * lucenesail without touching it. For certain (very rare) predicates (like the full text of the resource) we then
-	 * explicitly turned off the store option. That would be a desired behaviour. In the old version an RDF file was
-	 * used, but it should be done differently, that is too hard-coded! can't that information be stored in the wrapped
-	 * sail itself? Annotate a predicate with the proper lucene values (store / index / storeAndIndex), if nothing is
-	 * given, take the default, and read this on starting the lucenesail. Leo: ok, default = index and store, agreed.
-	 * Leo: about configuration: RDF config is agreed, if passed as file, inside the wrapped sail, or in an extra sail
-	 * should all be possible.
+	 * Enrico: paper was rejected Leo: We need to resubmit it.
+	 *
+	 * FIXME: Add settings that instruct a LuceneSailConnection or LuceneIndex which properties are to be handled in
+	 * which way. This is conceptually similar to Lucene's Field types: should properties be stored in the wrapped Sail
+	 * (enabling retrieval through RDF queries), indexed in the LuceneIndex (enabling full-text search using Lucene
+	 * queries embedded in RDF graph queries) or both? Gunnar and Leo: we had this in the old version, we might add
+	 * later. Enrico: in beagle we set the default setting to index AND store a field, so that when you extend the
+	 * ontology you can be sure it is indexed and stored by the lucenesail without touching it. For certain (very rare)
+	 * predicates (like the full text of the resource) we then explicitly turned off the store option. That would be a
+	 * desired behaviour. In the old version an RDF file was used, but it should be done differently, that is too
+	 * hard-coded! can't that information be stored in the wrapped sail itself? Annotate a predicate with the proper
+	 * lucene values (store / index / storeAndIndex), if nothing is given, take the default, and read this on starting
+	 * the lucenesail. Leo: ok, default = index and store, agreed. Leo: about configuration: RDF config is agreed, if
+	 * passed as file, inside the wrapped sail, or in an extra sail should all be possible.
 	 */
 
 	/*
@@ -178,11 +211,14 @@ public class LuceneSail extends NotifyingSailWrapper {
 	 * etc. Gunnar: I would we restrict this to one. Enrico might have other requirements? Enrico: we need 1) an
 	 * arbitrary number of lucene expressions and 2) an arbitrary combination with ordinary structured queries (see
 	 * lucenesail paper, fig. 1 on page 6) Leo: combining lucene query with normal query is required, having multiple
-	 * lucene queries in one SPARQL query is a good idea, which should be doable. Lower priority. FIXME: We should
-	 * escape those chars in predicates/field names that have a special meaning in Lucene's query syntax, using ":" in a
-	 * field name might lead to problems (it will when you start to query on these fields). Enrico: yes, we escaped
-	 * those : sucessfully with a simple \, the only difficuilty was to figure out how many \ are needed (how often they
-	 * get unescaped until they arrive at Lucene) Leo noticed this. Gunnar asks: Does lucene not have a escape syntax?
+	 * lucene queries in one SPARQL query is a good idea, which should be doable. Lower priority.
+	 *
+	 * FIXME: We should escape those chars in predicates/field names that have a special meaning in Lucene's query
+	 * syntax, using ":" in a field name might lead to problems (it will when you start to query on these fields).
+	 * Enrico: yes, we escaped those : sucessfully with a simple \, the only difficuilty was to figure out how many \
+	 * are needed (how often they get unescaped until they arrive at Lucene) Leo noticed this. Gunnar asks: Does lucene
+	 * not have a escape syntax?
+	 *
 	 * FIXME: The getScore method is a convenient and efficient way of testing whether a given document matches a query,
 	 * as it adds the document URI to the Lucene query instead of firing the query and looping over the result set. The
 	 * problem with this method is that I am not sure whether adding the URI to the Lucene query will lead to a
@@ -190,14 +226,15 @@ public class LuceneSail extends NotifyingSailWrapper {
 	 * the search method with the scores reposted to its listener, or the getScore method, but not both. The order of
 	 * matching documents will probably be the same when sorting on score (field is indexed without normalization + only
 	 * unique values). Still, it is counterintuitive when a particular document is returned with a given score and a
-	 * getScore for that same URI gives a different score. FIXME: the code is very much NOT thread-safe, especially when
-	 * you are changing the index and querying it with LuceneSailConnection at the same time: the IndexReaders/Searchers
-	 * are closed after each statement addition or removal but they must also remain open while we are looping over
-	 * search results. Also, internal document numbers are used in the communication between LuceneIndex and
-	 * LuceneSailConnection, which is not a good idea. Some mechanism has to be introduced to support external querying
-	 * while the index is being modified (basically: make sure that a single search process keeps using the same
-	 * IndexSearcher). Gunnar and Leo: we are not sure if the original lucenesail was 100% threadsafe, but at least it
-	 * had "synchronized" everywhere :)
+	 * getScore for that same URI gives a different score.
+	 *
+	 * FIXME: the code is very much NOT thread-safe, especially when you are changing the index and querying it with
+	 * LuceneSailConnection at the same time: the IndexReaders/Searchers are closed after each statement addition or
+	 * removal but they must also remain open while we are looping over search results. Also, internal document numbers
+	 * are used in the communication between LuceneIndex and LuceneSailConnection, which is not a good idea. Some
+	 * mechanism has to be introduced to support external querying while the index is being modified (basically: make
+	 * sure that a single search process keeps using the same IndexSearcher). Gunnar and Leo: we are not sure if the
+	 * original lucenesail was 100% threadsafe, but at least it had "synchronized" everywhere :)
 	 * http://gnowsis.opendfki.de/repos/gnowsis/trunk/lucenesail/src/java/org/openrdf/sesame/sailimpl/
 	 * lucenesail/LuceneIndex.java This might be a big issue in Nepomuk... Enrico: do we have multiple threads? do we
 	 * need separate threads? Leo: we have separate threads, but we don't care much for now.
@@ -219,6 +256,21 @@ public class LuceneSail extends NotifyingSailWrapper {
 	 */
 	public static final String INDEXEDFIELDS = "indexedfields";
 
+	/**
+	 * Set the parameter "indexedtypes=..." to configure a selection of field type to index. Only the fields with the
+	 * specific type will be indexed. Syntax of indexedtypes - see <a href="#indexedtypelangsyntax">above</a>
+	 */
+	public static final String INDEXEDTYPES = "indexedtypes";
+
+	/**
+	 * Set the parameter "indexedlang=..." to configure a selection of field language to index. Only the fields with the
+	 * specific language will be indexed. Syntax of indexedlang - see <a href="#indexedtypelangsyntax">above</a>
+	 */
+	public static final String INDEXEDLANG = "indexedlang";
+	/**
+	 * See {@link org.eclipse.rdf4j.sail.lucene.TypeBacktraceMode}
+	 */
+	public static final String INDEX_TYPE_BACKTRACE_MODE = "indexBacktraceMode";
 	/**
 	 * Set the key "lucenedir=&lt;path&gt;" as sail parameter to configure the Lucene Directory on the filesystem where
 	 * to store the lucene index.
@@ -256,12 +308,24 @@ public class LuceneSail extends NotifyingSailWrapper {
 	 */
 	public static final String INDEX_CLASS_KEY = "index";
 
-	public static final String DEFAULT_INDEX_CLASS = "org.eclipse.rdf4j.sail.lucene.LuceneIndex";
+	/**
+	 * Set this key to configure the filtering of queries, if this parameter is set, the match object should contain the
+	 * search:indexid parameter, see the syntax <a href="#indexidsyntax">above</a>
+	 */
+	public static final String INDEX_ID = "indexid";
+
+	public static final String DEFAULT_INDEX_CLASS = "org.eclipse.rdf4j.sail.lucene.impl.LuceneIndex";
 
 	/**
 	 * Set this key as sail parameter to configure the Lucene analyzer class implementation to use for text analysis.
 	 */
 	public static final String ANALYZER_CLASS_KEY = "analyzer";
+
+	/**
+	 * Set this key as sail parameter to configure the Lucene analyzer class implementation used for query analysis. In
+	 * most cases this should be set to the same value as {@link #ANALYZER_CLASS_KEY}
+	 */
+	public static final String QUERY_ANALYZER_CLASS_KEY = "queryAnalyzer";
 
 	/**
 	 * Set this key as sail parameter to configure {@link org.apache.lucene.search.similarities.Similarity} class
@@ -282,6 +346,11 @@ public class LuceneSail extends NotifyingSailWrapper {
 	public static final String EVALUATION_MODE_KEY = "evaluationMode";
 
 	/**
+	 * Set this key as sail parameter to influence the fuzzy prefix length.
+	 */
+	public static final String FUZZY_PREFIX_LENGTH_KEY = "fuzzyPrefixLength";
+
+	/**
 	 * The LuceneIndex holding the indexed literals.
 	 */
 	private volatile SearchIndex luceneIndex;
@@ -294,6 +363,8 @@ public class LuceneSail extends NotifyingSailWrapper {
 
 	private volatile TupleFunctionEvaluationMode evaluationMode = TupleFunctionEvaluationMode.TRIPLE_SOURCE;
 
+	private volatile TypeBacktraceMode indexBacktraceMode = TypeBacktraceMode.DEFAULT_TYPE_BACKTRACE_MODE;
+
 	private TupleFunctionRegistry tupleFunctionRegistry = TupleFunctionRegistry.getInstance();
 
 	private FederatedServiceResolver serviceResolver = new SPARQLServiceResolver();
@@ -301,6 +372,8 @@ public class LuceneSail extends NotifyingSailWrapper {
 	private Set<IRI> indexedFields;
 
 	private Map<IRI, IRI> indexedFieldsMapping;
+
+	private IRI indexId = null;
 
 	private IndexableStatementFilter filter = null;
 
@@ -353,8 +426,8 @@ public class LuceneSail extends NotifyingSailWrapper {
 	}
 
 	@Override
-	public void initialize() throws SailException {
-		super.initialize();
+	public void init() throws SailException {
+		super.init();
 		if (parameters.containsKey(INDEXEDFIELDS)) {
 			String indexedfieldsString = parameters.getProperty(INDEXEDFIELDS);
 			Properties prop = new Properties();
@@ -378,6 +451,10 @@ public class LuceneSail extends NotifyingSailWrapper {
 			}
 		}
 
+		if (parameters.containsKey(INDEX_ID)) {
+			indexId = getValueFactory().createIRI(parameters.getProperty(INDEX_ID));
+		}
+
 		try {
 			if (parameters.containsKey(REINDEX_QUERY_KEY)) {
 				setReindexQuery(parameters.getProperty(REINDEX_QUERY_KEY));
@@ -387,6 +464,9 @@ public class LuceneSail extends NotifyingSailWrapper {
 			}
 			if (parameters.containsKey(EVALUATION_MODE_KEY)) {
 				setEvaluationMode(TupleFunctionEvaluationMode.valueOf(parameters.getProperty(EVALUATION_MODE_KEY)));
+			}
+			if (parameters.containsKey(FUZZY_PREFIX_LENGTH_KEY)) {
+				setFuzzyPrefixLength(NumberUtils.toInt(parameters.getProperty(FUZZY_PREFIX_LENGTH_KEY), 0));
 			}
 			if (luceneIndex == null) {
 				initializeLuceneIndex();
@@ -478,6 +558,26 @@ public class LuceneSail extends NotifyingSailWrapper {
 		this.evaluationMode = mode;
 	}
 
+	/**
+	 * See {@link #INDEX_TYPE_BACKTRACE_MODE} parameter.
+	 */
+	public TypeBacktraceMode getIndexBacktraceMode() {
+		return indexBacktraceMode;
+	}
+
+	/**
+	 * See {@link #INDEX_TYPE_BACKTRACE_MODE} parameter.
+	 */
+	public void setIndexBacktraceMode(TypeBacktraceMode mode) {
+		Objects.requireNonNull(mode);
+		this.setParameter(INDEX_TYPE_BACKTRACE_MODE, mode.name());
+		this.indexBacktraceMode = mode;
+	}
+
+	public void setFuzzyPrefixLength(int fuzzyPrefixLength) {
+		setParameter(FUZZY_PREFIX_LENGTH_KEY, String.valueOf(fuzzyPrefixLength));
+	}
+
 	public TupleFunctionRegistry getTupleFunctionRegistry() {
 		return tupleFunctionRegistry;
 	}
@@ -500,78 +600,82 @@ public class LuceneSail extends NotifyingSailWrapper {
 	 * Starts a reindexation process of the whole sail. Basically, this will delete and add all data again, a
 	 * long-lasting process.
 	 *
-	 * @throws IOException
+	 * @throws SailException If the Sail could not be reindex
 	 */
-	public void reindex() throws Exception {
-		// clear
-		logger.info("Reindexing sail: clearing...");
-		luceneIndex.clear();
-		logger.info("Reindexing sail: adding...");
-
-		luceneIndex.begin();
+	public void reindex() throws SailException {
 		try {
-			// iterate
-			SailRepository repo = new SailRepository(new NotifyingSailWrapper(getBaseSail()) {
+			// clear
+			logger.info("Reindexing sail: clearing...");
+			luceneIndex.clear();
+			logger.info("Reindexing sail: adding...");
 
-				@Override
-				public void init() {
-					// don't re-initialize the Sail when we initialize the repo
-				}
+			try {
+				luceneIndex.begin();
+				// iterate
+				SailRepository repo = new SailRepository(new NotifyingSailWrapper(getBaseSail()) {
 
-				@Override
-				public void shutDown() {
-					// don't shutdown the underlying sail
-					// when we shutdown the repo.
-				}
-			});
-			try (SailRepositoryConnection connection = repo.getConnection()) {
-				TupleQuery query = connection.prepareTupleQuery(QueryLanguage.SPARQL, reindexQuery);
-				try (TupleQueryResult res = query.evaluate()) {
-					Resource current = null;
-					ValueFactory vf = getValueFactory();
-					List<Statement> statements = new ArrayList<>();
-					while (res.hasNext()) {
-						BindingSet set = res.next();
-						Resource r = (Resource) set.getValue("s");
-						IRI p = (IRI) set.getValue("p");
-						Value o = set.getValue("o");
-						Resource c = (Resource) set.getValue("c");
-						if (current == null) {
-							current = r;
-						} else if (!current.equals(r)) {
+					@Override
+					public void init() {
+						// don't re-initialize the Sail when we initialize the repo
+					}
+
+					@Override
+					public void shutDown() {
+						// don't shutdown the underlying sail
+						// when we shutdown the repo.
+					}
+				});
+				try (SailRepositoryConnection connection = repo.getConnection()) {
+					TupleQuery query = connection.prepareTupleQuery(QueryLanguage.SPARQL, reindexQuery);
+					try (TupleQueryResult res = query.evaluate()) {
+						Resource current = null;
+						ValueFactory vf = getValueFactory();
+						List<Statement> statements = new ArrayList<>();
+						while (res.hasNext()) {
+							BindingSet set = res.next();
+							Resource r = (Resource) set.getValue("s");
+							IRI p = (IRI) set.getValue("p");
+							Value o = set.getValue("o");
+							Resource c = (Resource) set.getValue("c");
+							if (current == null) {
+								current = r;
+							} else if (!current.equals(r)) {
+								if (logger.isDebugEnabled()) {
+									logger.debug("reindexing resource " + current);
+								}
+								// commit
+								luceneIndex.addDocuments(current, statements);
+
+								// re-init
+								current = r;
+								statements.clear();
+							}
+							statements.add(vf.createStatement(r, p, o, c));
+						}
+
+						// make sure to index statements for last resource
+						if (current != null && !statements.isEmpty()) {
 							if (logger.isDebugEnabled()) {
 								logger.debug("reindexing resource " + current);
 							}
 							// commit
 							luceneIndex.addDocuments(current, statements);
-
-							// re-init
-							current = r;
-							statements.clear();
 						}
-						statements.add(vf.createStatement(r, p, o, c));
 					}
-
-					// make sure to index statements for last resource
-					if (current != null && !statements.isEmpty()) {
-						if (logger.isDebugEnabled()) {
-							logger.debug("reindexing resource " + current);
-						}
-						// commit
-						luceneIndex.addDocuments(current, statements);
-					}
+				} finally {
+					repo.shutDown();
 				}
-			} finally {
-				repo.shutDown();
-			}
-			// commit the changes
-			luceneIndex.commit();
+				// commit the changes
+				luceneIndex.commit();
 
-			logger.info("Reindexing sail: done.");
+				logger.info("Reindexing sail: done.");
+			} catch (Exception e) {
+				logger.error("Rolling back", e);
+				luceneIndex.rollback();
+				throw e;
+			}
 		} catch (Exception e) {
-			logger.error("Rolling back", e);
-			luceneIndex.rollback();
-			throw e;
+			throw new SailException("Could not reindex LuceneSail: " + e.getMessage(), e);
 		}
 	}
 
@@ -613,7 +717,7 @@ public class LuceneSail extends NotifyingSailWrapper {
 	}
 
 	protected Collection<SearchQueryInterpreter> getSearchQueryInterpreters() {
-		return Arrays.<SearchQueryInterpreter>asList(new QuerySpecBuilder(incompleteQueryFails),
+		return Arrays.<SearchQueryInterpreter>asList(new QuerySpecBuilder(incompleteQueryFails, indexId),
 				new DistanceQuerySpecBuilder(luceneIndex), new GeoRelationQuerySpecBuilder(luceneIndex));
 	}
 }

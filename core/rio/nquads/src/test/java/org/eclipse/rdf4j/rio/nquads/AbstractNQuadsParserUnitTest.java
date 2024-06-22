@@ -1,14 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.nquads;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -32,10 +38,9 @@ import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
 import org.eclipse.rdf4j.rio.helpers.NTriplesParserSettings;
 import org.eclipse.rdf4j.rio.helpers.SimpleParseLocationListener;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * JUnit test for the N-Quads parser that uses the tests that are available
@@ -47,27 +52,27 @@ public abstract class AbstractNQuadsParserUnitTest {
 	 * Constants *
 	 *-----------*/
 
-	private static String NQUADS_TEST_URL = "http://www.w3.org/2000/10/rdf-tests/rdfcore/ntriples/test.nt";
+	private static final String NQUADS_TEST_URL = "http://www.w3.org/2000/10/rdf-tests/rdfcore/ntriples/test.nt";
 
-	private static String NQUADS_TEST_FILE = "/testcases/nquads/test1.nq";
+	private static final String NQUADS_TEST_FILE = "/testcases/nquads/test1.nq";
 
-	private static String NTRIPLES_TEST_URL = "http://www.w3.org/2000/10/rdf-tests/rdfcore/ntriples/test.nt";
+	private static final String NTRIPLES_TEST_URL = "http://www.w3.org/2000/10/rdf-tests/rdfcore/ntriples/test.nt";
 
-	private static String NTRIPLES_TEST_FILE = "/testcases/ntriples/test.nt";
+	private static final String NTRIPLES_TEST_FILE = "/testcases/ntriples/test.nt";
 
 	private RDFParser parser;
 
 	private TestRDFHandler rdfHandler;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		parser = createRDFParser();
 		rdfHandler = new TestRDFHandler();
 		parser.setRDFHandler(this.rdfHandler);
 	}
 
-	@After
-	public void tearDown() throws Exception {
+	@AfterEach
+	public void tearDown() {
 		parser = null;
 	}
 
@@ -111,7 +116,7 @@ public abstract class AbstractNQuadsParserUnitTest {
 				"<http://s> <http://p> <http://o> <http://g>".getBytes());
 		try {
 			parser.parse(bais, "http://test.base.uri");
-			Assert.fail("Expected exception when not inserting a trailing period at the end of a statement.");
+			fail("Expected exception when not inserting a trailing period at the end of a statement.");
 		} catch (RDFParseException rdfpe) {
 			// FIXME: Enable this test when first line number is 1 in parser
 			// instead of -1
@@ -135,9 +140,9 @@ public abstract class AbstractNQuadsParserUnitTest {
 						.getBytes());
 		try {
 			parser.parse(bais, "http://base-uri");
-			Assert.fail("Expected exception when there is non-whitespace characters after a period.");
+			fail("Expected exception when there is non-whitespace characters after a period.");
 		} catch (RDFParseException rdfpe) {
-			Assert.assertEquals(1, rdfpe.getLineNumber());
+			assertEquals(1, rdfpe.getLineNumber());
 			// FIXME: Enable column numbers when parser supports them
 			// Assert.assertEquals(44, rdfpe.getColumnNumber());
 		}
@@ -157,9 +162,9 @@ public abstract class AbstractNQuadsParserUnitTest {
 						.getBytes());
 		try {
 			parser.parse(bais, "http://base-uri");
-			Assert.fail("Expected exception when there is non-whitespace characters after a period.");
+			fail("Expected exception when there is non-whitespace characters after a period.");
 		} catch (RDFParseException rdfpe) {
-			Assert.assertEquals(1, rdfpe.getLineNumber());
+			assertEquals(1, rdfpe.getLineNumber());
 			// FIXME: Enable column numbers when parser supports them
 			// Assert.assertEquals(44, rdfpe.getColumnNumber());
 		}
@@ -184,7 +189,7 @@ public abstract class AbstractNQuadsParserUnitTest {
 		final TestRDFHandler rdfHandler = new TestRDFHandler();
 		parser.setRDFHandler(rdfHandler);
 		parser.parse(bais, "http://test.base.uri");
-		Assert.assertEquals(rdfHandler.getStatements().size(), 0);
+		assertEquals(rdfHandler.getStatements().size(), 0);
 	}
 
 	/**
@@ -198,13 +203,13 @@ public abstract class AbstractNQuadsParserUnitTest {
 		final TestRDFHandler rdfHandler = new TestRDFHandler();
 		parser.setRDFHandler(rdfHandler);
 		parser.parse(bais, "http://test.base.uri");
-		assertThat(rdfHandler.getStatements()).hasSize(1);
+		assertEquals(1, rdfHandler.getStatements().size());
 		final Statement statement = rdfHandler.getStatements().iterator().next();
-		Assert.assertEquals("http://www.v/dat/4b", statement.getSubject().stringValue());
-		Assert.assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
-		Assert.assertTrue(statement.getObject() instanceof IRI);
-		Assert.assertEquals("http://sin/value/2", statement.getObject().stringValue());
-		Assert.assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
+		assertEquals("http://www.v/dat/4b", statement.getSubject().stringValue());
+		assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
+		assertTrue(statement.getObject() instanceof IRI);
+		assertEquals("http://sin/value/2", statement.getObject().stringValue());
+		assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
 	}
 
 	/**
@@ -220,11 +225,11 @@ public abstract class AbstractNQuadsParserUnitTest {
 		parser.parse(bais, "http://test.base.uri");
 		assertThat(rdfHandler.getStatements()).hasSize(1);
 		final Statement statement = rdfHandler.getStatements().iterator().next();
-		Assert.assertTrue(statement.getSubject() instanceof BNode);
-		Assert.assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
-		Assert.assertTrue(statement.getObject() instanceof IRI);
-		Assert.assertEquals("http://sin/value/2", statement.getObject().stringValue());
-		Assert.assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
+		assertTrue(statement.getSubject() instanceof BNode);
+		assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
+		assertTrue(statement.getObject() instanceof IRI);
+		assertEquals("http://sin/value/2", statement.getObject().stringValue());
+		assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
 	}
 
 	/**
@@ -240,11 +245,11 @@ public abstract class AbstractNQuadsParserUnitTest {
 		parser.parse(bais, "http://test.base.uri");
 		assertThat(rdfHandler.getStatements()).hasSize(1);
 		final Statement statement = rdfHandler.getStatements().iterator().next();
-		Assert.assertTrue(statement.getSubject() instanceof BNode);
-		Assert.assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
-		Assert.assertTrue(statement.getObject() instanceof Literal);
-		Assert.assertEquals("2010-05-02", statement.getObject().stringValue());
-		Assert.assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
+		assertTrue(statement.getSubject() instanceof BNode);
+		assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
+		assertTrue(statement.getObject() instanceof Literal);
+		assertEquals("2010-05-02", statement.getObject().stringValue());
+		assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
 	}
 
 	/**
@@ -259,14 +264,14 @@ public abstract class AbstractNQuadsParserUnitTest {
 		parser.setRDFHandler(rdfHandler);
 		parser.parse(bais, "http://test.base.uri");
 		final Statement statement = rdfHandler.getStatements().iterator().next();
-		Assert.assertEquals("http://www.v/dat/4b2-21", statement.getSubject().stringValue());
-		Assert.assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
-		Assert.assertTrue(statement.getObject() instanceof Literal);
+		assertEquals("http://www.v/dat/4b2-21", statement.getSubject().stringValue());
+		assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
+		assertTrue(statement.getObject() instanceof Literal);
 		Literal object = (Literal) statement.getObject();
-		Assert.assertEquals("2010-05-02", object.stringValue());
-		Assert.assertEquals("en", object.getLanguage().orElse(null));
-		Assert.assertEquals(RDF.LANGSTRING, object.getDatatype());
-		Assert.assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
+		assertEquals("2010-05-02", object.stringValue());
+		assertEquals("en", object.getLanguage().orElse(null));
+		assertEquals(RDF.LANGSTRING, object.getDatatype());
+		assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
 	}
 
 	/**
@@ -277,19 +282,19 @@ public abstract class AbstractNQuadsParserUnitTest {
 		final ByteArrayInputStream bais = new ByteArrayInputStream(
 				("<http://www.v/dat/4b2-21> " + "<http://www.w3.org/20/ica#dtend> "
 						+ "\"2010\"^^<http://www.w3.org/2001/XMLSchema#integer> " + "<http://sin.siteserv.org/def/>.")
-								.getBytes());
+						.getBytes());
 		final TestRDFHandler rdfHandler = new TestRDFHandler();
 		parser.setRDFHandler(rdfHandler);
 		parser.parse(bais, "http://test.base.uri");
 		final Statement statement = rdfHandler.getStatements().iterator().next();
-		Assert.assertEquals("http://www.v/dat/4b2-21", statement.getSubject().stringValue());
-		Assert.assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
-		Assert.assertTrue(statement.getObject() instanceof Literal);
+		assertEquals("http://www.v/dat/4b2-21", statement.getSubject().stringValue());
+		assertEquals("http://www.w3.org/20/ica#dtend", statement.getPredicate().stringValue());
+		assertTrue(statement.getObject() instanceof Literal);
 		Literal object = (Literal) statement.getObject();
-		Assert.assertEquals("2010", object.stringValue());
-		Assert.assertFalse(object.getLanguage().isPresent());
-		Assert.assertEquals("http://www.w3.org/2001/XMLSchema#integer", object.getDatatype().toString());
-		Assert.assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
+		assertEquals("2010", object.stringValue());
+		assertFalse(object.getLanguage().isPresent());
+		assertEquals("http://www.w3.org/2001/XMLSchema#integer", object.getDatatype().toString());
+		assertEquals("http://sin.siteserv.org/def/", statement.getContext().stringValue());
 	}
 
 	/**
@@ -306,11 +311,11 @@ public abstract class AbstractNQuadsParserUnitTest {
 		parser.setRDFHandler(rdfHandler);
 		try {
 			parser.parse(bais, "http://test.base.uri");
-			Assert.fail("Expected exception when passing in a datatype using an N3 style prefix");
+			fail("Expected exception when passing in a datatype using an N3 style prefix");
 		} catch (RDFParseException rdfpe) {
-			Assert.assertEquals(1, rdfpe.getLineNumber());
+			assertEquals(1, rdfpe.getLineNumber());
 			// FIXME: Enable column numbers when parser supports them
-			// Assert.assertEquals(69, rdfpe.getColumnNumber());
+			// assertEquals(69, rdfpe.getColumnNumber());
 		}
 	}
 
@@ -350,9 +355,9 @@ public abstract class AbstractNQuadsParserUnitTest {
 
 		rdfHandler.assertHandler(1);
 		final Value object = rdfHandler.getStatements().iterator().next().getObject();
-		Assert.assertTrue(object instanceof Literal);
+		assertTrue(object instanceof Literal);
 		final String literalContent = ((Literal) object).getLabel();
-		Assert.assertEquals("Line text 1\nLine text 2", literalContent);
+		assertEquals("Line text 1\nLine text 2", literalContent);
 	}
 
 	/**
@@ -374,24 +379,24 @@ public abstract class AbstractNQuadsParserUnitTest {
 		final Statement statement = rdfHandler.getStatements().iterator().next();
 
 		final Resource subject = statement.getSubject();
-		Assert.assertTrue(subject instanceof IRI);
+		assertTrue(subject instanceof IRI);
 		final String subjectURI = subject.toString();
-		Assert.assertEquals("http://s/はむ", subjectURI);
+		assertEquals("http://s/はむ", subjectURI);
 
 		final Resource predicate = statement.getPredicate();
-		Assert.assertTrue(predicate instanceof IRI);
+		assertTrue(predicate instanceof IRI);
 		final String predicateURI = predicate.toString();
-		Assert.assertEquals("http://p/はむ", predicateURI);
+		assertEquals("http://p/はむ", predicateURI);
 
 		final Value object = statement.getObject();
-		Assert.assertTrue(object instanceof IRI);
+		assertTrue(object instanceof IRI);
 		final String objectURI = object.toString();
-		Assert.assertEquals("http://o/はむ", objectURI);
+		assertEquals("http://o/はむ", objectURI);
 
 		final Resource graph = statement.getContext();
-		Assert.assertTrue(graph instanceof IRI);
+		assertTrue(graph instanceof IRI);
 		final String graphURI = graph.toString();
-		Assert.assertEquals("http://g/はむ", graphURI);
+		assertEquals("http://g/はむ", graphURI);
 	}
 
 	@Test
@@ -406,7 +411,7 @@ public abstract class AbstractNQuadsParserUnitTest {
 
 		rdfHandler.assertHandler(1);
 		final Literal obj = (Literal) rdfHandler.getStatements().iterator().next().getObject();
-		Assert.assertEquals(INPUT_LITERAL_PLAIN, obj.getLabel());
+		assertEquals(INPUT_LITERAL_PLAIN, obj.getLabel());
 	}
 
 	@Test
@@ -415,11 +420,11 @@ public abstract class AbstractNQuadsParserUnitTest {
 				"<http://s> <http://p> \"\\u123X\" <http://g> .".getBytes());
 		try {
 			parser.parse(bais, "http://test.base.uri");
-			Assert.fail("Expected exception when an incorrect unicode character is included");
+			fail("Expected exception when an incorrect unicode character is included");
 		} catch (RDFParseException rdfpe) {
-			Assert.assertEquals(1, rdfpe.getLineNumber());
+			assertEquals(1, rdfpe.getLineNumber());
 			// FIXME: Enable column numbers when parser supports them
-			// Assert.assertEquals(30, rdfpe.getColumnNumber());
+			// assertEquals(30, rdfpe.getColumnNumber());
 		}
 	}
 
@@ -432,13 +437,13 @@ public abstract class AbstractNQuadsParserUnitTest {
 				"<http://a> <http://b> \"\\\" <http://c> .".getBytes());
 		try {
 			parser.parse(bais, "http://test.base.uri");
-			Assert.fail("Expected exception when a literal is not closed");
+			fail("Expected exception when a literal is not closed");
 		} catch (RDFParseException rdfpe) {
 			// FIXME: Enable this test when first line number is 1 in parser
 			// instead of -1
-			// Assert.assertEquals(1, rdfpe.getLineNumber());
+			// assertEquals(1, rdfpe.getLineNumber());
 			// FIXME: Enable column numbers when parser supports them
-			// Assert.assertEquals(39, rdfpe.getColumnNumber());
+			// assertEquals(39, rdfpe.getColumnNumber());
 		}
 	}
 
@@ -457,7 +462,7 @@ public abstract class AbstractNQuadsParserUnitTest {
 		parser.parse(br, "http://test.base.uri");
 
 		rdfHandler.assertHandler(6);
-		parseLocationListerner.assertListener(9, 1);
+		parseLocationListerner.assertListener(8, 1);
 	}
 
 	/**
@@ -474,7 +479,7 @@ public abstract class AbstractNQuadsParserUnitTest {
 				"http://test.base.uri");
 
 		rdfHandler.assertHandler(400);
-		parseLocationListener.assertListener(401, 1);
+		parseLocationListener.assertListener(400, 1);
 	}
 
 	@Test
@@ -486,7 +491,7 @@ public abstract class AbstractNQuadsParserUnitTest {
 						+ "<http://dbpedia.org/property/mandatofine> "
 						+ "\"1380.0\"^^<http://www.w3.org/2001/XMLSchema#int> "
 						+ "<http://it.wikipedia.org/wiki/Camillo_Benso,_conte_di_Cavour#absolute-line=20> .")
-								.getBytes());
+						.getBytes());
 		parser.getParserConfig().set(BasicParserSettings.VERIFY_DATATYPE_VALUES, false);
 		parser.getParserConfig().set(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES, false);
 		parser.parse(bais, "http://base-uri");
@@ -501,17 +506,17 @@ public abstract class AbstractNQuadsParserUnitTest {
 						+ "<http://dbpedia.org/property/mandatofine> "
 						+ "\"1380.0\"^^<http://www.w3.org/2001/XMLSchema#int> "
 						+ "<http://it.wikipedia.org/wiki/Camillo_Benso,_conte_di_Cavour#absolute-line=20> .")
-								.getBytes());
+						.getBytes());
 		parser.getParserConfig().set(BasicParserSettings.VERIFY_DATATYPE_VALUES, true);
 		parser.getParserConfig().set(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES, true);
 		try {
 			parser.parse(bais, "http://test.base.uri");
-			Assert.fail("Expected exception when passing in a datatype using an N3 style prefix");
+			fail("Expected exception when passing in a datatype using an N3 style prefix");
 		} catch (RDFParseException rdfpe) {
 			// FIXME: Fix line numbers for validation errors during the line
-			// Assert.assertEquals(1, rdfpe.getLineNumber());
+			// assertEquals(1, rdfpe.getLineNumber());
 			// FIXME: Enable column numbers when parser supports them
-			// Assert.assertEquals(152, rdfpe.getColumnNumber());
+			// assertEquals(152, rdfpe.getColumnNumber());
 		}
 	}
 
@@ -529,7 +534,7 @@ public abstract class AbstractNQuadsParserUnitTest {
 			fail("Did not find expected exception");
 		} catch (RDFParseException rdfpe) {
 			// FIXME: Fix line numbers for validation errors during the line
-			// Assert.assertEquals(1, rdfpe.getLineNumber());
+			// assertEquals(1, rdfpe.getLineNumber());
 		}
 	}
 
@@ -542,14 +547,14 @@ public abstract class AbstractNQuadsParserUnitTest {
 						// error.
 						"<http://s1> <http://p1> <http://o1> <http://g1> .\n").getBytes());
 
-		parser.getParserConfig().set(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES, false);
+		parser.getParserConfig().set(NTriplesParserSettings.FAIL_ON_INVALID_LINES, false);
 
 		try {
 			parser.parse(bais, "http://test.base.uri");
-			Assert.fail("Expected exception when encountering an invalid line");
+			fail("Expected exception when encountering an invalid line");
 		} catch (RDFParseException rdfpe) {
-			Assert.assertEquals(2, rdfpe.getLineNumber());
-			// Assert.assertEquals(50, rdfpe.getColumnNumber());
+			assertEquals(2, rdfpe.getLineNumber());
+			// assertEquals(50, rdfpe.getColumnNumber());
 		}
 	}
 
@@ -564,18 +569,18 @@ public abstract class AbstractNQuadsParserUnitTest {
 		final TestRDFHandler rdfHandler = new TestRDFHandler();
 		parser.setRDFHandler(rdfHandler);
 
-		parser.getParserConfig().set(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES, false);
-		parser.getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES);
+		parser.getParserConfig().set(NTriplesParserSettings.FAIL_ON_INVALID_LINES, false);
+		parser.getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_INVALID_LINES);
 
 		parser.parse(bais, "http://base-uri");
 		rdfHandler.assertHandler(2);
 		final Collection<Statement> statements = rdfHandler.getStatements();
 		int i = 0;
 		for (Statement nextStatement : statements) {
-			Assert.assertEquals("http://s" + i, nextStatement.getSubject().stringValue());
-			Assert.assertEquals("http://p" + i, nextStatement.getPredicate().stringValue());
-			Assert.assertEquals("http://o" + i, nextStatement.getObject().stringValue());
-			Assert.assertEquals("http://g" + i, nextStatement.getContext().stringValue());
+			assertEquals("http://s" + i, nextStatement.getSubject().stringValue());
+			assertEquals("http://p" + i, nextStatement.getPredicate().stringValue());
+			assertEquals("http://o" + i, nextStatement.getObject().stringValue());
+			assertEquals("http://g" + i, nextStatement.getContext().stringValue());
 			i++;
 		}
 	}
@@ -596,7 +601,7 @@ public abstract class AbstractNQuadsParserUnitTest {
 						+ "<http://dbpedia.org/property/mandatofine> "
 						+ "\"1380.0\"^^<http://dbpedia.org/invalid/datatype/second> "
 						+ "<http://it.wikipedia.org/wiki/Camillo_Benso,_conte_di_Cavour#absolute-line=20> .")
-								.getBytes());
+						.getBytes());
 		parser.parse(bais, "http://base-uri");
 		rdfHandler.assertHandler(1);
 	}
@@ -604,8 +609,8 @@ public abstract class AbstractNQuadsParserUnitTest {
 	private class TestParseLocationListener extends SimpleParseLocationListener {
 
 		private void assertListener(int row, int col) {
-			Assert.assertEquals("Unexpected last row", row, this.getLineNo());
-			Assert.assertEquals("Unexpected last col", col, this.getColumnNo());
+			assertEquals(row, this.getLineNo(), "Unexpected last row");
+			assertEquals(col, this.getColumnNo(), "Unexpected last col");
 		}
 
 	}
@@ -629,14 +634,14 @@ public abstract class AbstractNQuadsParserUnitTest {
 		}
 
 		public void assertHandler(int expected) {
-			Assert.assertTrue("Never started.", started);
-			Assert.assertTrue("Never ended.", ended);
-			Assert.assertEquals("Unexpected number of statements.", expected, getStatements().size());
+			assertTrue(started, "Never started.");
+			assertTrue(ended, "Never ended.");
+			assertEquals(expected, getStatements().size(), "Unexpected number of statements.");
 		}
 	}
 
 	@Test
-	public void testSupportedSettings() throws Exception {
+	public void testSupportedSettings() {
 		assertThat(parser.getSupportedSettings()).hasSize(14);
 	}
 

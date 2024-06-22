@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.solr;
 
@@ -16,6 +19,7 @@ import static org.junit.Assert.fail;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
@@ -32,6 +36,7 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
@@ -41,10 +46,16 @@ import org.eclipse.rdf4j.sail.lucene.SearchDocument;
 import org.eclipse.rdf4j.sail.lucene.SearchFields;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.junit.After;
+import org.junit.AfterClass;
 import org.junit.Before;
+import org.junit.BeforeClass;
 import org.junit.Test;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 public class SolrIndexTest {
+
+	private static final Logger logger = LoggerFactory.getLogger(SolrIndexTest.class);
 
 	private static final String DATA_DIR = "target/test-data";
 
@@ -82,6 +93,23 @@ public class SolrIndexTest {
 	SolrIndex index;
 	SolrClient client;
 
+	private static String toRestoreSolrHome = null;
+
+	@BeforeClass
+	public static void setUpClass() throws Exception {
+		toRestoreSolrHome = System.getProperty("solr.solr.home");
+		PropertiesReader reader = new PropertiesReader("maven-config.properties");
+		String testSolrHome = reader.getProperty("test.solr.home");
+		logger.debug("setting solr home to {}", testSolrHome);
+		System.setProperty("solr.solr.home", testSolrHome);
+	}
+
+	@AfterClass
+	public static void tearDownClass() {
+		System.setProperty("solr.solr.home", toRestoreSolrHome == null ? "" : toRestoreSolrHome);
+		toRestoreSolrHome = null;
+	}
+
 	@Before
 	public void setUp() throws Exception {
 		index = new SolrIndex();
@@ -94,7 +122,10 @@ public class SolrIndexTest {
 	@After
 	public void tearDown() throws Exception {
 		index.shutDown();
+
 		FileUtils.deleteDirectory(new File(DATA_DIR));
+		org.eclipse.rdf4j.common.concurrent.locks.Properties.setLockTrackingEnabled(false);
+
 	}
 
 	@Test
@@ -267,7 +298,6 @@ public class SolrIndexTest {
 
 		// create a Repository wrapping the LuceneSail
 		SailRepository repository = new SailRepository(sail);
-		repository.initialize();
 
 		try ( // now add the statements through the repo
 				// add statements with context
@@ -319,7 +349,6 @@ public class SolrIndexTest {
 
 		// create a Repository wrapping the LuceneSail
 		SailRepository repository = new SailRepository(sail);
-		repository.initialize();
 
 		try ( // now add the statements through the repo
 				// add statements with context
@@ -360,6 +389,19 @@ public class SolrIndexTest {
 		Literal literal2 = fac.createLiteral("hi there, too", XSD.STRING);
 		Literal literal3 = fac.createLiteral("1.0");
 		Literal literal4 = fac.createLiteral("1.0", XSD.FLOAT);
+
+		assertEquals("Is the first literal accepted?", true, index.accept(literal1));
+		assertEquals("Is the second literal accepted?", true, index.accept(literal2));
+		assertEquals("Is the third literal accepted?", true, index.accept(literal3));
+		assertEquals("Is the fourth literal accepted?", false, index.accept(literal4));
+	}
+
+	@Test
+	public void testRejectedCoreDatatypes() {
+		Literal literal1 = fac.createLiteral("hi there");
+		Literal literal2 = fac.createLiteral("hi there, too", CoreDatatype.XSD.STRING);
+		Literal literal3 = fac.createLiteral("1.0");
+		Literal literal4 = fac.createLiteral("1.0", CoreDatatype.XSD.FLOAT);
 
 		assertEquals("Is the first literal accepted?", true, index.accept(literal1));
 		assertEquals("Is the second literal accepted?", true, index.accept(literal2));
@@ -413,5 +455,20 @@ public class SolrIndexTest {
 			}
 		}
 
+	}
+
+	static class PropertiesReader {
+		private final Properties properties;
+
+		public PropertiesReader(String propertyFileName) throws IOException {
+			InputStream is = getClass().getClassLoader()
+					.getResourceAsStream(propertyFileName);
+			this.properties = new Properties();
+			this.properties.load(is);
+		}
+
+		public String getProperty(String propertyName) {
+			return this.properties.getProperty(propertyName);
+		}
 	}
 }

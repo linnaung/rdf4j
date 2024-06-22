@@ -6,18 +6,18 @@ autonumbering: true
 ---
 The SHapes Constraint Language (SHACL) is a language for validating RDF graphs.
 <!--more-->
-This documentation is for RDF4J 2.5 and onwards, as the SHACL engine was experimental until this release.
+This documentation is for RDF4J 2.5 and onwards, as the SHACL Engine was experimental until this release.
 
-## How does the SHACL engine work
+## Understanding the RDF4J SHACL Engine
 
-The SHACL engine works by analyzing the changes made in a transaction and creating a set of validation
+The SHACL Engine works by analyzing the changes made in a transaction and creating a set of validation
 plans (similar to query plans) and executing these as part of the transaction `commit()` call.
 
-In many cases the SHACL engine can validate your changes based on your changes alone.
-In some cases your changes may affect or be affected by data already in the database, in which case the
-engine will query the database for that particular data.
+The SHACL Engine can often validate your changes based solely on the changes themselves. However, 
+there are times when your alterations may have an impact on, or be influenced by, pre-existing data in 
+the database. In these cases, the engine retrieves the related data from the database.
 
-Here is an example of when data in the database affects the validation plans:
+Let's consider an example to understand how the current data in the database can influence the validation plans:
 
 ```turtle
 ex:PersonShape
@@ -25,29 +25,31 @@ ex:PersonShape
     sh:targetClass ex:Person ;
     sh:property [
         sh:path ex:age ;
-        sh:datatype xsd:integer ;
+        sh:datatype xsd:int ;
+        sh:message "A person's age must be an integer (xsd:int)." ;
     ] .
 ```
 
-Initial data in the database.
+Here is the initial data in the database:
 
 ```
 ex:pete a ex:Person.
 ```
-Data added by a transaction.
+
+Next, a transaction adds the following data:
 
 ```
 ex:pete ex:age "eighteen".
 ```
 
-For this example the SHACL engine will match the predicate `ex:age` with `ex:PersonShape` and realise that `ex:pete`
-might already be defined as a `ex:Person` in the database. The validation plan will then include checking if `ex:pete`
-is type `ex:Person`.
+In this scenario, the SHACL Engine will match the predicate `ex:age` with `ex:PersonShape` and realize that `ex:pete` may be already defined as an `ex:Person` in the database. As a result, the validation plan will include a check to confirm if `ex:pete` is indeed categorized as `ex:Person`.
 
 ## How to load and update SHACL shapes
 
-The ShaclSail uses a reserved graph (`http://rdf4j.org/schema/rdf4j#SHACLShapeGraph`) for storing the SHACL shapes.
+By default, the ShaclSail uses a reserved graph (`http://rdf4j.org/schema/rdf4j#SHACLShapeGraph`) for storing the SHACL shapes.
 Utilize a normal connection to load your shapes into this graph. SPARQL is not supported.
+
+The [Shapes Graph](#shapes-graph) section explains how to store your shapes in a different named graph.  
 
 ```java
 ShaclSail shaclSail = new ShaclSail(new MemoryStore());
@@ -102,36 +104,70 @@ An always-up-to-date list of features can be found by calling the static method 
 
 As of writing this documentation the following features are supported.
 
+
 - `sh:targetClass`
 - `sh:targetNode`
 - `sh:targetSubjectsOf`
 - `sh:targetObjectsOf`
-- `sh:path`
-- `sh:inversePath`
+- `sh:target` for use with DASH targets and `sh:SPARQLTarget`
+
+
+- `sh:path`, `sh:inversePath`, `sh:alternativePath` and sequence paths
+
+
+- `sh:node`
 - `sh:property`
-- `sh:or`
+
+
 - `sh:and`
+- `sh:or`
 - `sh:not`
+
+
 - `sh:minCount`
 - `sh:maxCount`
+
+
+- `sh:qualifiedMinCount`
+- `sh:qualifiedMaxCount`
+- `sh:qualifiedValueShape`
+
+
+- `sh:nodeKind`
 - `sh:minLength`
 - `sh:maxLength`
 - `sh:pattern` and `sh:flags`
-- `sh:nodeKind`
 - `sh:languageIn`
-- `sh:uniqueLang`
 - `sh:datatype`
 - `sh:class`
+- `sh:hasValue`
+- `sh:in`
 - `sh:minExclusive`
 - `sh:minInclusive`
 - `sh:maxExclusive`
 - `sh:maxInclusive`
-- `sh:in`
+- `sh:uniqueLang`
+
+
+- `sh:sparql`
+- `sh:select`
+- `sh:prefixes`
+- `sh:prefix`
+- `sh:namespace`
+- `sh:declare`
+
+
 - `sh:deactivated`
-- `sh:hasValue`
+- `sh:severity`
+- `sh:message`
+
+
+- `sh:shapesGraph`
+
+
 - `dash:hasValueIn`
-- `sh:target` for use with DASH targets
 - `rsx:targetShape`
+
 
 DASH and RSX features need to be explicitly enabled, for instance with `setDashDataShapes(true)` and
 `setEclipseRdf4jShaclExtensions(true)`. These are currently experimental features. For more information
@@ -140,9 +176,7 @@ about the RSX features, see the [RSX section](#rsx---eclipse-rdf4j-shacl-extensi
 Implicit `sh:targetClass` is supported for nodes that are `rdfs:Class` and either of `sh:PropertyShape` or `sh:NodeShape`. Validation for all nodes,
 equivalent to `owl:Thing` or `rdfs:Resource` in an environment with a reasoner, can be enabled by setting `setUndefinedTargetValidatesAllSubjects(true)`.
 
-`sh:path` is limited to single predicate paths, eg. `ex:age` or a single inverse path. Sequence paths, alternative paths and the like are not supported.
-
-Nested `sh:property` is not supported.
+`sh:path`supports single predicate paths, e.g. `ex:age`, inverse paths, sequence paths and alternate paths.
 
 ## Validation results
 
@@ -153,10 +187,9 @@ try {
     connection.commit();
 } catch (RepositoryException exception) {
     Throwable cause = exception.getCause();
-    if (cause instanceof ShaclSailValidationException) {
-        ValidationReport validationReport = ((ShaclSailValidationException) cause).getValidationReport();
-        Model validationReportModel = ((ShaclSailValidationException) cause).validationReportAsModel();
-        // use validationReport or validationReportModel to understand validation violations
+    if (cause instanceof ValidationException) {
+        Model validationReportModel = ((ValidationException) cause).validationReportAsModel();
+        // use validationReportModel to understand validation violations
 
         Rio.write(validationReportModel, System.out, RDFFormat.TURTLE);
     }
@@ -174,16 +207,20 @@ The `validationReportModel` follows the report format specified by the W3C SHACL
     sh:result [
         a sh:ValidationResult ;
         sh:value "eighteen";
-        sh:focusNode <http://example.com/ns#pete> ;
-        sh:resultPath <http://example.com/ns#age> ;
+        sh:focusNode ex:pete ;
+        sh:resultPath ex:age ;
         sh:sourceConstraintComponent sh:DatatypeConstraintComponent ;
-        sh:sourceShape <http://example.com/ns#PersonShapeAgeProperty> ;
+        sh:resultSeverity sh:Violation;
+        sh:resultMessage "A person's age must be a number (xsd:int).";
+        sh:sourceShape [ a sh:PropertyShape;
+            sh:message "A persons age must be a number (xsd:int).";
+            sh:path ex:age;
+            sh:datatype xsd:int
+        ]
     ] .
 ```
 
 The `ValidationReport` class provides the same information as the validationReportModel, but as a Java object with getters for accessing the report data.
-
-There is no support for `sh:severity`, all violations will trigger an exception.
 
 ### Limiting the validation report
 
@@ -192,27 +229,27 @@ Limiting the size of the report can be useful to speed up validation and to redu
 
 Limitations can either be configured directly in the ShaclSail or through the configuration files.
 
- - `setValidationResultsLimitTotal(1000)` limits the total number of validation results per report to 1000.
+ - `setValidationResultsLimitTotal(1000)` limits the total number of validation results per report to 1000. (1 000 000 by default)
      - `<http://rdf4j.org/config/sail/shacl#validationResultsLimitTotal>`
- - `setValidationResultsLimitPerConstraint(10)` limits the number of validation results per constraint component to 10
+ - `setValidationResultsLimitPerConstraint(10)` limits the number of validation results per constraint component to 10. (1000 by default)
      - `<http://rdf4j.org/config/sail/shacl#validationResultsLimitPerConstraint>`
 
- Use -1 to remove a limit and 0 to validate but return an empty validation report. -1 is the default.
+ Use -1 to remove a limit and 0 to validate but return an empty validation report. 
 
  A truncated validation report will have `isTruncated()` return true and the model will have `rdf4j:truncated true`.
 
 ### Retrieving violated shapes
 
-Since all shapes are stored in the SHACL shapes graph, the actual shape that was violated can be retrieved from the
-ShaclSail when a transaction fails.
+The validation report contains the portions of the source shape responsible for the violation. As the SHACL 
+shapes graph stores all shapes, you can obtain the entire violated shape from the ShaclSail when a transaction fails.
 
 ```java
 try {
     connection.commit();
 } catch (RepositoryException exception) {
     Throwable cause = exception.getCause();
-    if (cause instanceof ShaclSailValidationException) {
-        Model validationReportModel = ((ShaclSailValidationException) cause).validationReportAsModel();
+    if (cause instanceof ValidationException) {
+        Model validationReportModel = ((ValidationException) cause).validationReportAsModel();
 
         validationReportModel
             .filter(null, SHACL.SOURCE_SHAPE, null);
@@ -246,7 +283,7 @@ ex:PersonShape
     sh:targetClass ex:Person ;
     sh:property [
         sh:path ex:age ;
-        sh:datatype xsd:integer ;
+        sh:datatype xsd:int ;
     ] .
 ```
 
@@ -263,7 +300,7 @@ ex:pete ex:age "eighteen".
 
 Neither of these transactions will by themselves cause the validation to fail, but together they will.
 
-Typically in order to handle this scenario a user would need to use SERIALIZABLE transactions, which are slow and
+Typically, in order to handle this scenario a user would need to use SERIALIZABLE transactions, which are slow and
 prone to failure. The ShaclSail instead uses locking to run transactions one-after-the-other if the isolation level is set to
 SNAPSHOT. This is typically 2-4x faster than using SERIALIZABLE.
 
@@ -275,19 +312,24 @@ It is possible to disable this type of validation with `setSerializableValidatio
 The ShaclSail is built for performance. Each transaction is analyzed so that only the minimal set of shapes need to be
 validated, and for each of those shapes only the least amount of data is retrieved in order to perform the validation.
 
-Parallel validation further increases performance. This can be disabled with `setParallelValidation(false)`.
-
-The initial commit to an empty ShaclSail is further optimized if the underlying sail is a MemoryStore.
+Parallel validation further increases performance and is enabled by default. This can be disabled with `setParallelValidation(false)`.
 
 Some workloads will not fit in memory and need to be validated while stored on disk. This can be achieved by using a
-NativeStore and using the new transaction settings introduced in 3.3.0.
+NativeStore and specifying the `Bulk` transaction setting. 
 
  - `ShaclSail.TransactionSettings.ValidationApproach.Auto`: Let the ShaclSail choose the best approach.
  - `ShaclSail.TransactionSettings.ValidationApproach.Bulk`: Optimized for large transactions, disables caching and parallel validation and runs a full validation step at the end of the transaction.
  - `ShaclSail.TransactionSettings.ValidationApproach.Disabled`: Disable validation.
 
 Disabling validation for a transaction may leave your data in an invalid state. Running a transaction with bulk validation will force a full validation.
-This is a useful approach if you need to use multiple transactions to bulk load your data.
+This is a useful approach if you need to use multiple transactions to bulk load your data. You can always skip this if you are certain that your changes are valid. 
+
+There are also a set of experimental transaction settings for hinting about performance aspects of the validation.
+- `ShaclSail.TransactionSettings.PerformanceHint.CacheEnabled`: Enable the cache that stores intermediate results so these only need to be computed once.
+- `ShaclSail.TransactionSettings.PerformanceHint.CacheDisabled`: Disable the cache.
+- `ShaclSail.TransactionSettings.PerformanceHint.ParallelValidation`: Run validation in parallel (multithreaded).
+- `ShaclSail.TransactionSettings.PerformanceHint.SerialValidation`:  Run validation in serial (single threaded).
+
 
 ```java
 ShaclSail shaclSail = new ShaclSail(new NativeStore(new File(...), "spoc,ospc,psoc"));
@@ -295,36 +337,142 @@ SailRepository sailRepository = new SailRepository(shaclSail);
 
 try (SailRepositoryConnection connection = sailRepository.getConnection()) {
 
-	connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Bulk);
+      connection.begin(
+          IsolationLevels.NONE, 
+          ShaclSail.TransactionSettings.ValidationApproach.Bulk, 
+          ShaclSail.TransactionSettings.PerformanceHint.CacheDisabled, 
+          ShaclSail.TransactionSettings.PerformanceHint.SerialValidation
+      );    
+        
+//    You can enable parallel validation and the intermediate cache for better performance if you have sufficient memory 
+//    connection.begin(
+//        IsolationLevels.NONE, 
+//        ShaclSail.TransactionSettings.ValidationApproach.Bulk, 
+//        ShaclSail.TransactionSettings.PerformanceHint.CacheEnabled, 
+//        ShaclSail.TransactionSettings.PerformanceHint.ParallelValidation
+//    );    
+    
+    // load shapes
+    try (InputStream inputStream = new FileInputStream("shacl.ttl")) {
+        connection.add(inputStream, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+    }
 
-	// load shapes
-	try (InputStream inputStream = new FileInputStream("shacl.ttl")) {
-		connection.add(inputStream, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
-	}
+    // load data
+    try (InputStream inputStream = new BufferedInputStream(new FileInputStream("data.ttl"))) {
+        connection.add(inputStream, "", RDFFormat.TURTLE);
+    }
 
-	// load data
-	try (InputStream inputStream = new BufferedInputStream(new FileInputStream("data.ttl"))) {
-		connection.add(inputStream, "", RDFFormat.TURTLE);
-	}
-
-	// commit transaction and catch any exception
-	try {
-		connection.commit();
-	} catch (RepositoryException e){
-		if(e.getCause() instanceof ValidationException){
-			Model model = ((ValidationException) e.getCause()).validationReportAsModel();
-			Rio.write(model, System.out, RDFFormat.TURTLE);
-		}
-	}
+    // commit transaction and catch any exception
+    try {
+        connection.commit();
+    } catch (RepositoryException e){
+        if(e.getCause() instanceof ValidationException){
+            Model model = ((ValidationException) e.getCause()).validationReportAsModel();
+            Rio.write(model, System.out, RDFFormat.TURTLE);
+        }
+    }
 
 }
 
 sailRepository.shutDown();
 ```
 
+### Automatic bulk validation
+Large transactions will take up significant amounts of memory because the transactional validation needs to track and analyze the transactional 
+changes in order to decide what needs to be validated. Very large transactions could exceed the amount of memory available and cause the 
+JVM to crash.
+
+As of 4.0.0 transactions will automatically be switched to bulk validation if they exceed a set limit. 
+
+- `setTransactionalValidationLimit(1000)` will make transactions switch to bulk validation if the transaction size is more than 1000 statements. Default is 500 000.
+   - `<http://rdf4j.org/config/sail/shacl#transactionalValidationLimit>`
+
+Automatic bulk validation is not compatible with serializable validation.
+
 ## Reasoning
-By default the ShaclSail supports the simple rdfs:subClassOf reasoning required by the W3C recommendation. There is no
+By default, the ShaclSail supports the simple `rdfs:subClassOf` reasoning required by the SHACL W3C recommendation. There is no
 support for `sh:entailment`, however the entire reasoner can be disabled with `setRdfsSubClassReasoning(false)`.
+
+## Shapes graph
+
+When shapes are used to validate the contents of a database it makes sense to consider them part of the database schema and as such 
+keep them seperated from each other. This separation is achieved by storing shapes in a reserved graph 
+(`http://rdf4j.org/schema/rdf4j#SHACLShapeGraph`) which is hidden unless specifically named when loading or removing data.
+
+As of 4.0.0 the ShaclSail can be configured to load shapes from other graphs (both named graphs and the default graph).
+- `setShapesGraphs(Set.of(RDF4J.SHACL_SHAPE_GRAPH, Values.iri("http://example.org/myShapeGraph"))` will read shapes from both the normal reserved graph and the named graph `http://example.org/myShapeGraph`.
+    - `<http://rdf4j.org/config/sail/shacl#shapesGraph>`
+
+    
+Shapes stored in the reserved graph (`http://rdf4j.org/schema/rdf4j#SHACLShapeGraph`) are used to validate the union of all triples
+in the default graph and any other named graph. The ShaclSail relies on `sh:shapesGraph` statements to understand how shapes stored
+in other graphs should be used for validation.
+
+SHACL uses the term shapes graph to refer to an RDF graph where the shapes are defined, and the term data graph to refer to an RDF
+graph where the data to be validated is stored. Data graphs and shapes graphs are linked together using `sh:shapesGraph` statements
+which are used by the ShaclSail to decide which shapes should be used to validate which graphs.
+
+For security and performance the ShaclSail ignores `sh:shapesGraph` statements that are not in a graph that has been configured for 
+shapes, as explained above. This means that you can always trust data you load into your database to not tamper with your shapes or
+with which shapes are used for validation, as long as you limit which graphs your load the data into.
+
+### Example
+
+```trig
+ex:shapesGraph1 {
+    ex:PersonShape
+        a sh:NodeShape  ;
+        sh:targetClass ex:Person ;       
+}  
+
+
+ex:shapesGraph2 {
+    ex:PersonShape       
+        sh:property [
+            sh:path ex:age ;
+            sh:datatype xsd:int ;
+        ] .
+
+    ex:dataGraph sh:shapesGraph ex:shapesGraph1, ex:shapesGraph2.         
+}
+
+
+ex:shapesGraph3 {
+    ex:PersonShape       
+        sh:property [
+            sh:path ex:age ;
+            sh:minCount 1;
+        ] .
+}
+```
+
+The above shapes will result in all the data in `ex:dataGraph` being validated against the shapes defined in the union
+of both `ex:shapesGraph1` and `ex:shapesGraph2`. The shape defined in `ex:shapesGraph3` is effectively ignored. 
+
+The following data is valid.
+
+```trig
+ex:dataGraph {
+    ex:steve a ex:Person.
+    
+    ex:jane a ex:Person;
+        ex:age 40.
+}  
+```
+
+While the following data is invalid.
+
+```trig
+ex:dataGraph {    
+    ex:john a ex:Person;
+        ex:age "seventy two".
+}  
+```
+
+It is also possible to validate the data in the default (unnamed) graph. Use `rdf4j:nil` to refer to the default graph. 
+
+To validate all the data in your database, e.g. the union of the default graph and all named graphs, you simply need to put your shapes in the `rdf4j:SHACLShapeGraph`.
+
 
 ## RSX - Eclipse RDF4J SHACL Extensions
 RDF4J has seen a need to develop its own extension the W3C SHACL Recommendation in order to support new
@@ -339,7 +487,7 @@ The RSX specification will be published soon together with the limited support f
 
 ## Logging and debugging
 
-By default there is no logging enabled in the ShaclSail. There are four methods for enabling logging:
+By default, there is no logging enabled in the ShaclSail. There are four methods for enabling logging:
 
 - `shaclSail.setLogValidationPlans(true);`
 - `shaclSail.setGlobalLogValidationExecution(true);`
@@ -354,13 +502,13 @@ First step to debugging and understanding an unexpected violation is to enable `
 
 Validation plans are logged as Graphviz DOT. Validations plans are a form of query plan.
 
-Here is the validation plan for the example above: [Link](https://dreampuf.github.io/GraphvizOnline/#digraph%20%20%7B%0Alabelloc%3Dt%3B%0Afontsize%3D30%3B%0Alabel%3D%22DatatypePropertyShape%22%3B%0A1866229258%20%5Blabel%3D%22Base%20sail%22%20nodeShape%3Dpentagon%20fillcolor%3Dlightblue%20style%3Dfilled%5D%3B%0A1555990397%20%5Blabel%3D%22Added%20statements%22%20nodeShape%3Dpentagon%20fillcolor%3Dlightblue%20style%3Dfilled%5D%3B%0A1544078442%20%5Blabel%3D%22Removed%20statements%22%20nodeShape%3Dpentagon%20fillcolor%3Dlightblue%20style%3Dfilled%5D%3B%0A1337866219%20%5Blabel%3D%22Previous%20state%20connection%22%20nodeShape%3Dpentagon%20fillcolor%3Dlightblue%20style%3Dfilled%5D%3B%0A1291367132%20%5Blabel%3D%22DirectTupleFromFilter%22%5D%3B%0A1887699190%20%5Blabel%3D%22DatatypeFilter%7Bdatatype%3Dhttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23integer%7D%22%5D%3B%0A1479140596%20-%3E%201887699190%0A1887699190%20-%3E%201291367132%20%5Blabel%3D%22false%20values%22%5D%0A1479140596%20%5Blabel%3D%22UnionNode%22%5D%3B%0A1108889615%20-%3E%201479140596%0A1108889615%20%5Blabel%3D%22UnionNode%22%5D%3B%0A1275028674%20-%3E%201108889615%0A455888635%20%5Blabel%3D%22BufferedSplitter%22%5D%3B%0A204805934%20-%3E%20455888635%0A204805934%20%5Blabel%3D%22TrimTuple%7BnewLength%3D1%7D%22%5D%3B%0A204322447%20-%3E%20204805934%0A204322447%20%5Blabel%3D%22Select%7Bquery%3D%E2%80%99select%20*%20where%20%7B%20BIND(rdf%3Atype%20as%20%3Fb)%20%5Cn%20BIND(%3Chttp%3A%2F%2Fexample.com%2Fns%23Person%3E%20as%20%3Fc)%20%5Cn%20%3Fa%20%3Fb%20%3Fc.%7D%20order%20by%20%3Fa'%7D%22%5D%3B%0A1555990397%20-%3E%20204322447%0A1275028674%20%5Blabel%3D%22InnerJoin%22%5D%3B%0A455888635%20-%3E%201275028674%20%5Blabel%3D%22left%22%5D%3B%0A1019484860%20-%3E%201275028674%20%5Blabel%3D%22right%22%5D%3B%0A1019484860%20%5Blabel%3D%22DirectTupleFromFilter%22%5D%3B%0A1164365897%20%5Blabel%3D%22DatatypeFilter%7Bdatatype%3Dhttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23integer%7D%22%5D%3B%0A1640899500%20-%3E%201164365897%0A1164365897%20-%3E%201019484860%20%5Blabel%3D%22false%20values%22%5D%0A1640899500%20%5Blabel%3D%22Select%7Bquery%3D%E2%80%99select%20*%20where%20%7B%20%3Fa%20%3Chttp%3A%2F%2Fexample.com%2Fns%23age%3E%20%3Fc.%20%7D%20order%20by%20%3Fa'%7D%22%5D%3B%0A1555990397%20-%3E%201640899500%0A1275028674%20-%3E%203565780%20%5Blabel%3D%22discardedRight%22%5D%3B%0A473666452%20-%3E%201108889615%0A473666452%20%5Blabel%3D%22ExternalTypeFilterNode%7BfilterOnType%3Dhttp%3A%2F%2Fexample.com%2Fns%23Person%7D%22%5D%3B%0A3565780%20-%3E%20473666452%0A1337866219%20-%3E%20473666452%20%5Blabel%3D%22filter%20source%22%5D%0A3565780%20%5Blabel%3D%22BufferedTupleFromFilter%22%5D%3B%0A1865219266%20-%3E%201479140596%0A1865219266%20%5Blabel%3D%22BulkedExternalInnerJoin%7Bpredicate%3Dnull%2C%20query%3D'%3Fa%20%3Chttp%3A%2F%2Fexample.com%2Fns%23age%3E%20%3Fc.%20'%7D%22%5D%3B%0A455888635%20-%3E%201865219266%20%5Blabel%3D%22left%22%5D%0A1337866219%20-%3E%201865219266%20%5Blabel%3D%22right%22%5D%0A%7D%0A8)
+Here is the validation plan for the example above: [Link](https://dreampuf.github.io/GraphvizOnline/#digraph%20%20%7B%0Alabelloc%3Dt%3B%0Afontsize%3D30%3B%0Alabel%3D%22DatatypePropertyShape%22%3B%0A1866229258%20%5Blabel%3D%22Base%20sail%22%20nodeShape%3Dpentagon%20fillcolor%3Dlightblue%20style%3Dfilled%5D%3B%0A1555990397%20%5Blabel%3D%22Added%20statements%22%20nodeShape%3Dpentagon%20fillcolor%3Dlightblue%20style%3Dfilled%5D%3B%0A1544078442%20%5Blabel%3D%22Removed%20statements%22%20nodeShape%3Dpentagon%20fillcolor%3Dlightblue%20style%3Dfilled%5D%3B%0A1337866219%20%5Blabel%3D%22Previous%20state%20connection%22%20nodeShape%3Dpentagon%20fillcolor%3Dlightblue%20style%3Dfilled%5D%3B%0A1291367132%20%5Blabel%3D%22DirectTupleFromFilter%22%5D%3B%0A1887699190%20%5Blabel%3D%22DatatypeFilter%7Bdatatype%3Dhttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23int%7D%22%5D%3B%0A1479140596%20-%3E%201887699190%0A1887699190%20-%3E%201291367132%20%5Blabel%3D%22false%20values%22%5D%0A1479140596%20%5Blabel%3D%22UnionNode%22%5D%3B%0A1108889615%20-%3E%201479140596%0A1108889615%20%5Blabel%3D%22UnionNode%22%5D%3B%0A1275028674%20-%3E%201108889615%0A455888635%20%5Blabel%3D%22BufferedSplitter%22%5D%3B%0A204805934%20-%3E%20455888635%0A204805934%20%5Blabel%3D%22TrimTuple%7BnewLength%3D1%7D%22%5D%3B%0A204322447%20-%3E%20204805934%0A204322447%20%5Blabel%3D%22Select%7Bquery%3D%E2%80%99select%20*%20where%20%7B%20BIND(rdf%3Atype%20as%20%3Fb)%20%5Cn%20BIND(%3Chttp%3A%2F%2Fexample.com%2Fns%23Person%3E%20as%20%3Fc)%20%5Cn%20%3Fa%20%3Fb%20%3Fc.%7D%20order%20by%20%3Fa'%7D%22%5D%3B%0A1555990397%20-%3E%20204322447%0A1275028674%20%5Blabel%3D%22InnerJoin%22%5D%3B%0A455888635%20-%3E%201275028674%20%5Blabel%3D%22left%22%5D%3B%0A1019484860%20-%3E%201275028674%20%5Blabel%3D%22right%22%5D%3B%0A1019484860%20%5Blabel%3D%22DirectTupleFromFilter%22%5D%3B%0A1164365897%20%5Blabel%3D%22DatatypeFilter%7Bdatatype%3Dhttp%3A%2F%2Fwww.w3.org%2F2001%2FXMLSchema%23int%7D%22%5D%3B%0A1640899500%20-%3E%201164365897%0A1164365897%20-%3E%201019484860%20%5Blabel%3D%22false%20values%22%5D%0A1640899500%20%5Blabel%3D%22Select%7Bquery%3D%E2%80%99select%20*%20where%20%7B%20%3Fa%20%3Chttp%3A%2F%2Fexample.com%2Fns%23age%3E%20%3Fc.%20%7D%20order%20by%20%3Fa'%7D%22%5D%3B%0A1555990397%20-%3E%201640899500%0A1275028674%20-%3E%203565780%20%5Blabel%3D%22discardedRight%22%5D%3B%0A473666452%20-%3E%201108889615%0A473666452%20%5Blabel%3D%22ExternalTypeFilterNode%7BfilterOnType%3Dhttp%3A%2F%2Fexample.com%2Fns%23Person%7D%22%5D%3B%0A3565780%20-%3E%20473666452%0A1337866219%20-%3E%20473666452%20%5Blabel%3D%22filter%20source%22%5D%0A3565780%20%5Blabel%3D%22BufferedTupleFromFilter%22%5D%3B%0A1865219266%20-%3E%201479140596%0A1865219266%20%5Blabel%3D%22BulkedExternalInnerJoin%7Bpredicate%3Dnull%2C%20query%3D'%3Fa%20%3Chttp%3A%2F%2Fexample.com%2Fns%23age%3E%20%3Fc.%20'%7D%22%5D%3B%0A455888635%20-%3E%201865219266%20%5Blabel%3D%22left%22%5D%0A1337866219%20-%3E%201865219266%20%5Blabel%3D%22right%22%5D%0A%7D%0A8)
 
 The structure of this log and its contents may change in the future, without warning.
 
 ### Log validation execution
 
-The execution of the validation plan shows what data was requested during the exeuction and how that data was joined together and filtered.
+The execution of the validation plan shows what data was requested during the execution and how that data was joined together and filtered.
 
 Enabling this logging will enable it for all ShaclSails on all threads.
 
@@ -395,8 +543,8 @@ Following on from the example above:
 
 
     1. [main] INFO  SHACL not valid. The following experimental debug results were produced:
-    2. 	NodeShape: http://example.com/ns#PersonShape
-    3. 		Tuple{line=[http://example.com/ns#pete, "eighteen"], propertyShapes= DatatypePropertyShape <_:node1d285h2ktx1>} -cause->  [ Tuple{line=[http://example.com/ns#pete, http://www.w3.org/1999/02/22-rdf-syntax-ns#type, http://example.com/ns#Person]} ]
+    2.     NodeShape: http://example.com/ns#PersonShape
+    3.         Tuple{line=[http://example.com/ns#pete, "eighteen"], propertyShapes= DatatypePropertyShape <_:node1d285h2ktx1>} -cause->  [ Tuple{line=[http://example.com/ns#pete, http://www.w3.org/1999/02/22-rdf-syntax-ns#type, http://example.com/ns#Person]} ]
 
 
 Line 2 shows the shape that triggered this violation. Line 3 shows the ultimate tuple produced and which PropertyShape produced the exception followed by a cause listing other tuples that caused the violation. In this case the existing type statement.
@@ -408,6 +556,7 @@ The structure of this log and its contents may change in the future, without war
 ```java
 import ch.qos.logback.classic.Level;
 import ch.qos.logback.classic.Logger;
+import org.eclipse.rdf4j.common.exception.ValidationException;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -415,9 +564,10 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
+import org.eclipse.rdf4j.rio.WriterConfig;
+import org.eclipse.rdf4j.rio.helpers.BasicWriterSettings;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.eclipse.rdf4j.sail.shacl.ShaclSail;
-import org.eclipse.rdf4j.sail.shacl.ShaclSailValidationException;
 import org.eclipse.rdf4j.sail.shacl.results.ValidationReport;
 import org.slf4j.LoggerFactory;
 
@@ -430,12 +580,11 @@ public class ShaclSampleCode {
 
         ShaclSail shaclSail = new ShaclSail(new MemoryStore());
 
-        //Logger root = (Logger) LoggerFactory.getLogger(ShaclSail.class.getName());
-        //root.setLevel(Level.INFO);
+//        Logger root = (Logger) LoggerFactory.getLogger(ShaclSail.class.getName());
+//        root.setLevel(Level.INFO);
+//
+//        shaclSail.setPerformanceLogging(true);
 
-        //shaclSail.setLogValidationPlans(true);
-        //shaclSail.setGlobalLogValidationExecution(true);
-        //shaclSail.setLogValidationViolations(true);
 
         SailRepository sailRepository = new SailRepository(shaclSail);
         sailRepository.init();
@@ -454,13 +603,23 @@ public class ShaclSampleCode {
                     "ex:PersonShape",
                     "  a sh:NodeShape  ;",
                     "  sh:targetClass foaf:Person ;",
-                    "  sh:property ex:PersonShapeProperty .",
+                    "  sh:property ex:PersonAgeIntShape, ex:PersonMustHaveAge, ex:PersonCanNotHaveMultipleAge  .",
 
-                    "ex:PersonShapeProperty ",
+                    "ex:PersonAgeIntShape ",
                     "  sh:path foaf:age ;",
-                    "  sh:datatype xsd:int ;",
-                    "  sh:maxCount 1 ;",
-                    "  sh:minCount 1 ."
+                    "  sh:message \"A person's age must be a number (xsd:int).\" ;",
+                    "  sh:datatype xsd:int .",
+
+                    "ex:PersonMustHaveAge ",
+                    "  sh:path foaf:age ;",
+                    "  sh:message \"A must have an age.\" ;",
+                    "  sh:minCount 1 .",
+
+                    "ex:PersonCanNotHaveMultipleAge ",
+                    "  sh:path foaf:age ;",
+                    "  sh:message \"A person can only have one age.\" ;",
+                    "  sh:maxCount 1 ."
+
                 ));
 
             connection.add(shaclRules, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
@@ -484,12 +643,15 @@ public class ShaclSampleCode {
                 connection.commit();
             } catch (RepositoryException exception) {
                 Throwable cause = exception.getCause();
-                if (cause instanceof ShaclSailValidationException) {
-                    ValidationReport validationReport = ((ShaclSailValidationException) cause).getValidationReport();
-                    Model validationReportModel = ((ShaclSailValidationException) cause).validationReportAsModel();
-                    // use validationReport or validationReportModel to understand validation violations
+                if (cause instanceof ValidationException) {
+                    Model validationReportModel = ((ValidationException) cause).validationReportAsModel();
 
-                    Rio.write(validationReportModel, System.out, RDFFormat.TURTLE);
+                    WriterConfig writerConfig = new WriterConfig()
+                        .set(BasicWriterSettings.INLINE_BLANK_NODES, true)
+                        .set(BasicWriterSettings.XSD_STRING_TO_PLAIN_LITERAL, true)
+                        .set(BasicWriterSettings.PRETTY_PRINT, true);
+
+                    Rio.write(validationReportModel, System.out, RDFFormat.TURTLE, writerConfig);
                 }
                 throw exception;
             }

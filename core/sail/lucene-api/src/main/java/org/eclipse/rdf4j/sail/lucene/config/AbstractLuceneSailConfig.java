@@ -1,12 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.lucene.config;
 
+import static org.eclipse.rdf4j.model.util.Values.iri;
+import static org.eclipse.rdf4j.model.util.Values.literal;
 import static org.eclipse.rdf4j.sail.lucene.config.LuceneSailConfigSchema.INDEX_DIR;
 
 import java.util.Properties;
@@ -16,25 +21,18 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.util.Configurations;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 import org.eclipse.rdf4j.sail.config.AbstractDelegatingSailImplConfig;
 import org.eclipse.rdf4j.sail.config.SailConfigException;
 import org.eclipse.rdf4j.sail.config.SailImplConfig;
 
 public abstract class AbstractLuceneSailConfig extends AbstractDelegatingSailImplConfig {
-	/*-----------*
-	 * Variables *
-	 *-----------*/
+
+	private static final String PARAMETER_PREFIX = "lucene.";
 
 	private String indexDir;
-
-	private Properties parameters = new Properties();
-
-	/*--------------*
-	 * Constructors *
-	 *--------------*/
+	private final Properties parameters = new Properties();
 
 	protected AbstractLuceneSailConfig(String type) {
 		super(type);
@@ -82,14 +80,13 @@ public abstract class AbstractLuceneSailConfig extends AbstractDelegatingSailImp
 	public Resource export(Model m) {
 		Resource implNode = super.export(m);
 
-		ValueFactory vf = SimpleValueFactory.getInstance();
-		m.setNamespace("sl", LuceneSailConfigSchema.NAMESPACE);
+		m.setNamespace(CONFIG.NS);
 		if (indexDir != null) {
-			m.add(implNode, INDEX_DIR, SimpleValueFactory.getInstance().createLiteral(indexDir));
+			m.add(implNode, CONFIG.Lucene.indexDir, literal(indexDir));
 		}
 
 		for (String key : getParameterNames()) {
-			m.add(implNode, vf.createIRI(LuceneSailConfigSchema.NAMESPACE, key), vf.createLiteral(getParameter(key)));
+			m.add(implNode, iri(CONFIG.NAMESPACE, PARAMETER_PREFIX + key), literal(getParameter(key)));
 		}
 
 		return implNode;
@@ -99,14 +96,19 @@ public abstract class AbstractLuceneSailConfig extends AbstractDelegatingSailImp
 	public void parse(Model graph, Resource implNode) throws SailConfigException {
 		super.parse(graph, implNode);
 
-		Literal indexDirLit = Models.objectLiteral(graph.getStatements(implNode, INDEX_DIR, null))
-				.orElseThrow(() -> new SailConfigException("no value found for " + INDEX_DIR));
+		Literal indexDirLit = Configurations.getLiteralValue(graph, implNode, CONFIG.Lucene.indexDir, INDEX_DIR)
+				.orElseThrow(() -> new SailConfigException("no value found for " + CONFIG.Lucene.indexDir));
 
 		setIndexDir(indexDirLit.getLabel());
+
 		for (Statement stmt : graph.getStatements(implNode, null, null)) {
-			if (stmt.getPredicate().getNamespace().equals(LuceneSailConfigSchema.NAMESPACE)) {
-				if (stmt.getObject() instanceof Literal) {
+			if (stmt.getPredicate().getNamespace().equals(CONFIG.NAMESPACE)
+					|| stmt.getPredicate().getNamespace().equals(LuceneSailConfigSchema.NAMESPACE)) {
+				if (stmt.getObject().isLiteral()) {
 					String key = stmt.getPredicate().getLocalName();
+					if (key.startsWith(PARAMETER_PREFIX)) {
+						key = key.substring(PARAMETER_PREFIX.length());
+					}
 					setParameter(key, stmt.getObject().stringValue());
 				}
 			}

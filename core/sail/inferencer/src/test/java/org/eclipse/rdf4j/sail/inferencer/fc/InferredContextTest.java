@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 package org.eclipse.rdf4j.sail.inferencer.fc;
 
 import static org.junit.Assert.assertEquals;
@@ -10,9 +20,8 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
-import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class InferredContextTest {
 
@@ -25,8 +34,6 @@ public class InferredContextTest {
 	@Test
 	public void testInferrecContextNull() {
 		SchemaCachingRDFSInferencer sail = new SchemaCachingRDFSInferencer(new MemoryStore());
-
-		sail.initialize();
 		sail.setAddInferredStatementsToDefaultContext(true);
 
 		try (SchemaCachingRDFSInferencerConnection connection = sail.getConnection()) {
@@ -44,8 +51,6 @@ public class InferredContextTest {
 	@Test
 	public void testInferrecContextNoNull() {
 		SchemaCachingRDFSInferencer sail = new SchemaCachingRDFSInferencer(new MemoryStore());
-
-		sail.initialize();
 		sail.setAddInferredStatementsToDefaultContext(false);
 
 		try (SchemaCachingRDFSInferencerConnection connection = sail.getConnection()) {
@@ -55,7 +60,7 @@ public class InferredContextTest {
 
 			assertTrue(connection.hasStatement(bNode, RDF.TYPE, RDFS.RESOURCE, true, context));
 
-			try (CloseableIteration<? extends Statement, SailException> statements = connection.getStatements(bNode,
+			try (CloseableIteration<? extends Statement> statements = connection.getStatements(bNode,
 					RDF.TYPE, RDFS.RESOURCE, true)) {
 				while (statements.hasNext()) {
 					Statement next = statements.next();

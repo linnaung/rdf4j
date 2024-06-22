@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function;
 
@@ -50,5 +53,17 @@ public interface Function {
 	 */
 	default Value evaluate(TripleSource tripleSource, Value... args) throws ValueExprEvaluationException {
 		return evaluate(tripleSource.getValueFactory(), args);
+	}
+
+	/**
+	 * UUID() and STRUUID() must return a different result for each invocation.
+	 *
+	 * @return if each invocation must return a different result.
+	 * @see https://www.w3.org/TR/sparql11-query/#func-uuid
+	 * @see https://www.w3.org/TR/sparql11-query/#func-struuid
+	 * @see https://www.w3.org/TR/sparql11-query/#func-numerics
+	 */
+	default boolean mustReturnDifferentResult() {
+		return false;
 	}
 }

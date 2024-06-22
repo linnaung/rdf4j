@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.base;
 
@@ -13,8 +16,8 @@ import java.io.InputStream;
 import java.io.Reader;
 import java.net.URL;
 
-import org.eclipse.rdf4j.IsolationLevel;
-import org.eclipse.rdf4j.common.iteration.Iteration;
+import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.TransactionSetting;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
@@ -77,17 +80,17 @@ public class RepositoryConnectionWrapper extends AbstractRepositoryConnection
 	/**
 	 * If false then the following add methods will call {@link #addWithoutCommit(Resource, IRI, Value, Resource[])}.
 	 *
+	 * @return <code>true</code> to delegate add methods, <code>false</code> to call
+	 *         {@link #addWithoutCommit(Resource, IRI, Value, Resource[])}
+	 * @throws RepositoryException
 	 * @see #add(Iterable, Resource...)
-	 * @see #add(Iteration, Resource...)
+	 * @see #add(CloseableIteration, Resource...)
 	 * @see #add(Statement, Resource...)
 	 * @see #add(File, String, RDFFormat, Resource...)
 	 * @see #add(InputStream, String, RDFFormat, Resource...)
 	 * @see #add(Reader, String, RDFFormat, Resource...)
 	 * @see #add(Resource, IRI, Value, Resource...)
 	 * @see #add(URL, String, RDFFormat, Resource...)
-	 * @return <code>true</code> to delegate add methods, <code>false</code> to call
-	 *         {@link #addWithoutCommit(Resource, IRI, Value, Resource[])}
-	 * @throws RepositoryException
 	 */
 	protected boolean isDelegatingAdd() throws RepositoryException {
 		return true;
@@ -97,13 +100,13 @@ public class RepositoryConnectionWrapper extends AbstractRepositoryConnection
 	 * If false then the following has/export/isEmpty methods will call
 	 * {@link #getStatements(Resource, IRI, Value, boolean, Resource[])}.
 	 *
+	 * @return <code>true</code> to delegate read methods, <code>false</code> to call
+	 *         {@link #getStatements(Resource, IRI, Value, boolean, Resource[])}
+	 * @throws RepositoryException
 	 * @see #exportStatements(Resource, IRI, Value, boolean, RDFHandler, Resource...)
 	 * @see #hasStatement(Statement, boolean, Resource...)
 	 * @see #hasStatement(Resource, IRI, Value, boolean, Resource...)
 	 * @see #isEmpty()
-	 * @return <code>true</code> to delegate read methods, <code>false</code> to call
-	 *         {@link #getStatements(Resource, IRI, Value, boolean, Resource[])}
-	 * @throws RepositoryException
 	 */
 	protected boolean isDelegatingRead() throws RepositoryException {
 		return true;
@@ -113,14 +116,14 @@ public class RepositoryConnectionWrapper extends AbstractRepositoryConnection
 	 * If false then the following remove methods will call
 	 * {@link #removeWithoutCommit(Resource, IRI, Value, Resource[])}.
 	 *
-	 * @see #clear(Resource...)
-	 * @see #remove(Iterable, Resource...)
-	 * @see #remove(Iteration, Resource...)
-	 * @see #remove(Statement, Resource...)
-	 * @see #remove(Resource, IRI, Value, Resource...)
 	 * @return <code>true</code> to delegate remove methods, <code>false</code> to call
 	 *         {@link #removeWithoutCommit(Resource, IRI, Value, Resource...)}
 	 * @throws RepositoryException
+	 * @see #clear(Resource...)
+	 * @see #remove(Iterable, Resource...)
+	 * @see #remove(CloseableIteration, Resource...)
+	 * @see #remove(Statement, Resource...)
+	 * @see #remove(Resource, IRI, Value, Resource...)
 	 */
 	protected boolean isDelegatingRemove() throws RepositoryException {
 		return true;
@@ -164,8 +167,8 @@ public class RepositoryConnectionWrapper extends AbstractRepositoryConnection
 	}
 
 	@Override
-	public <E extends Exception> void add(Iteration<? extends Statement, E> statementIter, Resource... contexts)
-			throws RepositoryException, E {
+	public void add(CloseableIteration<? extends Statement> statementIter, Resource... contexts)
+			throws RepositoryException {
 		if (isDelegatingAdd()) {
 			getDelegate().add(statementIter, contexts);
 		} else {
@@ -289,10 +292,10 @@ public class RepositoryConnectionWrapper extends AbstractRepositoryConnection
 	}
 
 	/**
-	 * @deprecated since 2.0. Use {@link #isActive()} instead.
+	 * @deprecated Use {@link #isActive()} instead.
 	 */
 	@Override
-	@Deprecated
+	@Deprecated(since = "2.0")
 	public boolean isAutoCommit() throws RepositoryException {
 		return getDelegate().isAutoCommit();
 	}
@@ -355,8 +358,9 @@ public class RepositoryConnectionWrapper extends AbstractRepositoryConnection
 	}
 
 	@Override
-	public <E extends Exception> void remove(Iteration<? extends Statement, E> statementIter, Resource... contexts)
-			throws RepositoryException, E {
+	public void remove(CloseableIteration<? extends Statement> statementIter,
+			Resource... contexts)
+			throws RepositoryException {
 		if (isDelegatingRemove()) {
 			getDelegate().remove(statementIter, contexts);
 		} else {
@@ -435,7 +439,7 @@ public class RepositoryConnectionWrapper extends AbstractRepositoryConnection
 	 */
 	protected void exportStatements(RepositoryResult<Statement> stIter, RDFHandler handler)
 			throws RepositoryException, RDFHandlerException {
-		try {
+		try (stIter) {
 			handler.startRDF();
 			try ( // Export namespace information
 					RepositoryResult<Namespace> nsIter = getNamespaces()) {
@@ -449,8 +453,6 @@ public class RepositoryConnectionWrapper extends AbstractRepositoryConnection
 				handler.handleStatement(stIter.next());
 			}
 			handler.endRDF();
-		} finally {
-			stIter.close();
 		}
 	}
 

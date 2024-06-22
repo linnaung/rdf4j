@@ -1,21 +1,28 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.config;
 
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.repository.Repository;
 
 /**
+ * A {@link RepositoryImplConfig} represents configuration details specific to a particular implementation of the
+ * {@link Repository} interface.
+ *
  * @author Arjohn Kampman
  */
 public interface RepositoryImplConfig {
 
-	public String getType();
+	String getType();
 
 	/**
 	 * Validates this configuration. A {@link RepositoryConfigException} is thrown when the configuration is invalid.
@@ -23,7 +30,7 @@ public interface RepositoryImplConfig {
 	 *
 	 * @throws RepositoryConfigException If the configuration is invalid.
 	 */
-	public void validate() throws RepositoryConfigException;
+	void validate() throws RepositoryConfigException;
 
 	/**
 	 * Export this {@link RepositoryImplConfig} to its RDF representation
@@ -32,7 +39,7 @@ public interface RepositoryImplConfig {
 	 *              representation of this {@link RepositoryImplConfig}.
 	 * @return the subject {@link Resource} that identifies this {@link RepositoryImplConfig} in the Model.
 	 */
-	public Resource export(Model model);
+	Resource export(Model model);
 
 	/**
 	 * Reads the properties of this {@link RepositoryImplConfig} from the supplied Model and sets them accordingly.
@@ -41,6 +48,6 @@ public interface RepositoryImplConfig {
 	 * @param resource the subject {@link Resource} that identifies the {@link RepositoryImplConfig} in the Model.
 	 * @throws RepositoryConfigException if the configuration data could not be read from the supplied Model.
 	 */
-	public void parse(Model model, Resource resource) throws RepositoryConfigException;
+	void parse(Model model, Resource resource) throws RepositoryConfigException;
 
 }

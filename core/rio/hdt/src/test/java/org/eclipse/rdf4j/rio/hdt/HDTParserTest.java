@@ -1,14 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.hdt;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.InputStream;
 
@@ -18,18 +21,17 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
- *
  * @author Bart Hanssens
  */
 public class HDTParserTest {
 	private RDFParser parser;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		parser = Rio.createParser(RDFFormat.HDT);
 		parser.setParseLocationListener((line, col) -> System.err.println("byte " + line));
 	}
@@ -50,13 +52,13 @@ public class HDTParserTest {
 		try (InputStream is = HDTParserTest.class.getResourceAsStream("/test.hdt")) {
 			parser.setRDFHandler(new StatementCollector(m));
 			parser.parse(is, "");
-			assertEquals("Number of statements does not match", 43, m.size());
+			assertEquals(43, m.size(), "Number of statements does not match");
 		} catch (Exception e) {
 			fail(e.getMessage());
 		}
 
 		orig.removeAll(m);
-		assertEquals("HDT model does not match original NT file", 0, orig.size());
+		assertEquals(0, orig.size(), "HDT model does not match original NT file");
 	}
 
 	@Test
@@ -66,7 +68,7 @@ public class HDTParserTest {
 		try (InputStream is = HDTParserTest.class.getResourceAsStream("/test-pos.hdt")) {
 			parser.setRDFHandler(new StatementCollector(m));
 			parser.parse(is, "");
-			assertEquals("Number of statements does not match", 43, m.size());
+			assertEquals(43, m.size(), "Number of statements does not match");
 			fail("Unsupported not caught");
 		} catch (Exception e) {
 			assertEquals(e.getMessage(), "Triples section: order 4, but only SPO order is supported");

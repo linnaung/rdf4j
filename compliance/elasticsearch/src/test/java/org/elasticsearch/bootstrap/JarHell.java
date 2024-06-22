@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 package org.elasticsearch.bootstrap;
 
 import java.net.URL;
@@ -14,10 +24,10 @@ public class JarHell {
 	private JarHell() {
 	}
 
-	public static void checkJarHell() throws Exception {
+	public static void checkJarHell() {
 	}
 
-	public static void checkJarHell(URL urls[]) throws Exception {
+	public static void checkJarHell(URL urls[]) {
 	}
 
 	public static void checkVersionFormat(String targetVersion) {

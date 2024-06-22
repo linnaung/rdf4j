@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2017 Eclipse RDF4J contributors and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model;
 
@@ -24,7 +27,7 @@ public interface NamespaceAware {
 	 *
 	 * @return A {@link Set} containing the {@link Namespace} objects that are available.
 	 */
-	public Set<Namespace> getNamespaces();
+	Set<Namespace> getNamespaces();
 
 	/**
 	 * Gets the namespace that is associated with the specified prefix, if any. If multiple namespaces match the given
@@ -34,7 +37,7 @@ public interface NamespaceAware {
 	 * @return The namespace name that is associated with the specified prefix, or {@link Optional#empty()} if there is
 	 *         no such namespace.
 	 */
-	public default Optional<Namespace> getNamespace(String prefix) {
+	default Optional<Namespace> getNamespace(String prefix) {
 		return getNamespaces().stream().filter(t -> t.getPrefix().equals(prefix)).findAny();
 	}
 

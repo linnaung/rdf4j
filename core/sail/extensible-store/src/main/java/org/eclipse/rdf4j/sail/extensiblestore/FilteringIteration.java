@@ -1,16 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.extensiblestore;
 
 import org.eclipse.rdf4j.common.annotation.Experimental;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.common.iteration.Iteration;
 import org.eclipse.rdf4j.common.iteration.LookAheadIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
@@ -22,29 +24,16 @@ import org.eclipse.rdf4j.sail.extensiblestore.valuefactory.ExtensibleStatement;
  * IRI predicate, Value object, Resource... context).
  */
 @Experimental
-public class FilteringIteration<E extends ExtensibleStatement, X extends Exception> extends LookAheadIteration<E, X> {
+public class FilteringIteration<E extends ExtensibleStatement, X extends Exception> extends LookAheadIteration<E> {
 
-	final Iteration<E, X> wrappedIteration;
-	CloseableIteration<E, X> closeableWrappedIteration;
-
+	private final CloseableIteration<E> wrappedIteration;
 	private final Resource subject;
 	private final IRI predicate;
 	private final Value object;
 	private final boolean inferred;
 	private final Resource[] context;
 
-	public FilteringIteration(CloseableIteration<E, X> wrappedIteration, Resource subject, IRI predicate, Value object,
-			boolean inferred, Resource... context) {
-		this.wrappedIteration = wrappedIteration;
-		this.closeableWrappedIteration = wrappedIteration;
-		this.subject = subject;
-		this.predicate = predicate;
-		this.object = object;
-		this.inferred = inferred;
-		this.context = context;
-	}
-
-	public FilteringIteration(Iteration<E, X> wrappedIteration, Resource subject, IRI predicate, Value object,
+	public FilteringIteration(CloseableIteration<E> wrappedIteration, Resource subject, IRI predicate, Value object,
 			boolean inferred, Resource... context) {
 		this.wrappedIteration = wrappedIteration;
 		this.subject = subject;
@@ -55,7 +44,7 @@ public class FilteringIteration<E extends ExtensibleStatement, X extends Excepti
 	}
 
 	@Override
-	protected E getNextElement() throws X {
+	protected E getNextElement() {
 
 		while (wrappedIteration.hasNext()) {
 			E next = wrappedIteration.next();
@@ -86,12 +75,8 @@ public class FilteringIteration<E extends ExtensibleStatement, X extends Excepti
 	}
 
 	@Override
-	protected void handleClose() throws X {
-		super.handleClose();
-		if (closeableWrappedIteration != null) {
-			assert (wrappedIteration == closeableWrappedIteration);
-			closeableWrappedIteration.close();
-		}
+	protected void handleClose() {
+		wrappedIteration.close();
 	}
 
 	private static boolean containsContext(Resource[] haystack, Resource needle) {

@@ -1,14 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2016 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation;
 
 import java.util.Optional;
+import java.util.function.Supplier;
 
+import org.eclipse.rdf4j.collection.factory.api.CollectionFactory;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.EvaluationStatistics;
 
@@ -25,6 +30,7 @@ public interface EvaluationStrategyFactory {
 	 * @param threshold the number of query solutions that the EvaluationStrategy can cache in main memory before
 	 *                  attempting disk sync.
 	 */
+	@Deprecated
 	void setQuerySolutionCacheThreshold(long threshold);
 
 	/**
@@ -78,6 +84,15 @@ public interface EvaluationStrategyFactory {
 	 * @param trackResultSize true to enable tracking.
 	 */
 	default void setTrackResultSize(boolean trackResultSize) {
+		// no-op for backwards compatibility
+	}
+
+	/**
+	 * Set the collection factory to use.
+	 *
+	 * @param collectionFactory
+	 */
+	default void setCollectionFactory(Supplier<CollectionFactory> collectionFactory) {
 		// no-op for backwards compatibility
 	}
 

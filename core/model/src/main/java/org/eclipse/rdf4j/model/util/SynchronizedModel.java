@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.model.util;
@@ -22,7 +25,6 @@ import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.URI;
 import org.eclipse.rdf4j.model.Value;
 
 class SynchronizedModel implements Model {
@@ -59,19 +61,7 @@ class SynchronizedModel implements Model {
 	}
 
 	@Override
-	@Deprecated
-	synchronized public boolean contains(Resource subj, URI pred, Value obj, Resource... contexts) {
-		return delegate.contains(subj, pred, obj, contexts);
-	}
-
-	@Override
 	synchronized public boolean add(Resource subj, IRI pred, Value obj, Resource... contexts) {
-		return delegate.add(subj, pred, obj, contexts);
-	}
-
-	@Override
-	@Deprecated
-	synchronized public boolean add(Resource subj, URI pred, Value obj, Resource... contexts) {
 		return delegate.add(subj, pred, obj, contexts);
 	}
 
@@ -86,19 +76,7 @@ class SynchronizedModel implements Model {
 	}
 
 	@Override
-	@Deprecated
-	synchronized public boolean remove(Resource subj, URI pred, Value obj, Resource... contexts) {
-		return delegate.remove(subj, pred, obj, contexts);
-	}
-
-	@Override
 	synchronized public Model filter(Resource subj, IRI pred, Value obj, Resource... contexts) {
-		return delegate.filter(subj, pred, obj, contexts);
-	}
-
-	@Override
-	@Deprecated
-	synchronized public Model filter(Resource subj, URI pred, Value obj, Resource... contexts) {
 		return delegate.filter(subj, pred, obj, contexts);
 	}
 

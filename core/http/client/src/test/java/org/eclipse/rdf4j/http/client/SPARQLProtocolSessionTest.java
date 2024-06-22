@@ -1,30 +1,30 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.client;
 
-import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
-import static com.github.tomakehurst.wiremock.client.WireMock.anyRequestedFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.containing;
-import static com.github.tomakehurst.wiremock.client.WireMock.post;
-import static com.github.tomakehurst.wiremock.client.WireMock.stubFor;
-import static com.github.tomakehurst.wiremock.client.WireMock.urlEqualTo;
-import static com.github.tomakehurst.wiremock.client.WireMock.verify;
-import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.wireMockConfig;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockserver.model.ConnectionOptions.connectionOptions;
+import static org.mockserver.model.HttpRequest.request;
+import static org.mockserver.model.HttpResponse.response;
 
 import java.io.ByteArrayOutputStream;
-import java.util.HashMap;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Locale;
 
+import org.apache.commons.io.IOUtils;
 import org.apache.http.Header;
 import org.apache.http.HeaderElement;
 import org.apache.http.HeaderIterator;
@@ -42,29 +42,25 @@ import org.eclipse.rdf4j.query.resultio.TupleQueryResultFormat;
 import org.eclipse.rdf4j.query.resultio.sparqljson.SPARQLStarResultsJSONWriter;
 import org.eclipse.rdf4j.query.resultio.sparqlxml.SPARQLStarResultsXMLWriter;
 import org.eclipse.rdf4j.rio.RDFFormat;
-import org.junit.Before;
-import org.junit.ClassRule;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
-
-import com.github.tomakehurst.wiremock.junit.WireMockRule;
+import org.mockserver.client.MockServerClient;
+import org.mockserver.junit.jupiter.MockServerExtension;
+import org.mockserver.matchers.Times;
+import org.mockserver.model.MediaType;
 
 /**
  * Unit tests for {@link SPARQLProtocolSession}
  *
  * @author Jeen Broekstra
  */
+@ExtendWith(MockServerExtension.class)
 public class SPARQLProtocolSessionTest {
-
-	@ClassRule
-	public static WireMockRule wireMockRule = new WireMockRule(wireMockConfig().dynamicPort());
-
 	SPARQLProtocolSession sparqlSession;
 
-	String testHeader = "X-testing-header";
-	String testValue = "foobar";
-
-	String serverURL = "http://localhost:" + wireMockRule.port() + "/rdf4j-server";
+	String serverURL;
 	String repositoryID = "test";
 
 	SPARQLProtocolSession createProtocolSession() {
@@ -72,23 +68,129 @@ public class SPARQLProtocolSessionTest {
 		session.setQueryURL(Protocol.getRepositoryLocation(serverURL, repositoryID));
 		session.setUpdateURL(
 				Protocol.getStatementsLocation(Protocol.getRepositoryLocation(serverURL, repositoryID)));
-		HashMap<String, String> additionalHeaders = new HashMap<>();
-		additionalHeaders.put(testHeader, testValue);
-		session.setAdditionalHttpHeaders(additionalHeaders);
 		return session;
 	}
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp(MockServerClient client) {
+		serverURL = "http://localhost:" + client.getPort() + "/rdf4j-server";
 		sparqlSession = createProtocolSession();
 	}
 
 	@Test
-	public void testTupleQuery_NoPassthrough() throws Exception {
-		stubFor(post(urlEqualTo("/rdf4j-server/repositories/test"))
-				.willReturn(aResponse().withStatus(200)
-						.withHeader("Content-Type", TupleQueryResultFormat.SPARQL.getDefaultMIMEType())
-						.withBodyFile("repository-list.xml")));
+	public void testConnectionTimeoutRetry(MockServerClient client) throws Exception {
+		// Simulate that the server wants to close the connection after idle timeout
+		// But instead of just shutting down the connection it sends `408` once and then
+		// shuts down the connection.
+		client.when(
+				request()
+						.withMethod("POST")
+						.withPath("/rdf4j-server/repositories/test"),
+				Times.once()
+		)
+				.respond(
+						response()
+								.withStatusCode(408)
+								.withConnectionOptions(connectionOptions().withCloseSocket(true))
+				);
+		// When the request is retried (with a refreshed connection) server sends `200`
+		client.when(
+				request()
+						.withMethod("POST")
+						.withPath("/rdf4j-server/repositories/test"),
+				Times.once()
+		)
+				.respond(
+						response()
+								.withBody(readFileToString("repository-list.xml"))
+								.withContentType(MediaType.parse(TupleQueryResultFormat.SPARQL.getDefaultMIMEType()))
+				);
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		TupleQueryResultHandler handler = Mockito.spy(new SPARQLStarResultsJSONWriter(out));
+		// We only send the query once, internally the retry handler makes sure the first 408 response causes
+		// a retry. From user perspective it just looks like everything went fine, the closed connection is gracefully
+		// refreshed.
+		sparqlSession.sendTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o}", null, null, true, -1, handler);
+		assertThat(out.toString()).startsWith("{");
+	}
+
+	@Test
+	public void testConnectionPoolTimeoutRetry(MockServerClient client) throws Exception {
+		// Let 2 connections succeed, this is just so we can fill the connection pool with more than one connection
+		client.when(
+				request()
+						.withMethod("POST")
+						.withPath("/rdf4j-server/repositories/test"),
+				Times.exactly(2)
+		)
+				.respond(
+						response()
+								.withBody(readFileToString("repository-list.xml"))
+								.withContentType(MediaType.parse(TupleQueryResultFormat.SPARQL.getDefaultMIMEType()))
+				);
+
+		// Next, simulate that both connections in the pool were idled out on the server and upon sending a request
+		// on them the server returns a 408 for both of them
+		client.when(
+				request()
+						.withMethod("POST")
+						.withPath("/rdf4j-server/repositories/test"),
+				Times.exactly(2)
+		)
+				.respond(
+						response()
+								.withStatusCode(408)
+								.withConnectionOptions(connectionOptions().withCloseSocket(true))
+				);
+
+		// When both connections in the pool were cleaned up the next try goes through ok
+		client.when(
+				request()
+						.withMethod("POST")
+						.withPath("/rdf4j-server/repositories/test"),
+				Times.once()
+		)
+				.respond(
+						response()
+								.withBody(readFileToString("repository-list.xml"))
+								.withContentType(MediaType.parse(TupleQueryResultFormat.SPARQL.getDefaultMIMEType()))
+				);
+
+		// First fill the pool with 2 connections
+		ByteArrayOutputStream out1 = new ByteArrayOutputStream();
+		TupleQueryResultHandler handler1 = Mockito.spy(new SPARQLStarResultsJSONWriter(out1));
+		sparqlSession.sendTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o}", null, null, true, -1,
+				handler1);
+		ByteArrayOutputStream out2 = new ByteArrayOutputStream();
+		TupleQueryResultHandler handler2 = Mockito.spy(new SPARQLStarResultsJSONWriter(out2));
+		sparqlSession.sendTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o}", null, null, true, -1,
+				handler2);
+		assertThat(out1.toString()).startsWith("{");
+		assertThat(out2.toString()).startsWith("{");
+
+		// When trying another `sendTupleQuery` the 2 pooled connections fail with a 408. Both are cleaned up
+		// and finally a fresh connection is opened and goes through successfully
+		ByteArrayOutputStream out3 = new ByteArrayOutputStream();
+		TupleQueryResultHandler handler3 = Mockito.spy(new SPARQLStarResultsJSONWriter(out3));
+		sparqlSession.sendTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o}", null, null, true, -1,
+				handler3);
+		assertThat(out3.toString()).startsWith("{");
+	}
+
+	@Test
+	public void testTupleQuery_NoPassthrough(MockServerClient client) throws Exception {
+		client.when(
+				request()
+						.withMethod("POST")
+						.withPath("/rdf4j-server/repositories/test"),
+				Times.once()
+		)
+				.respond(
+						response()
+								.withBody(readFileToString("repository-list.xml"))
+								.withContentType(MediaType.parse(TupleQueryResultFormat.SPARQL.getDefaultMIMEType()))
+				);
 
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		TupleQueryResultHandler handler = Mockito.spy(new SPARQLStarResultsJSONWriter(out));
@@ -102,18 +204,51 @@ public class SPARQLProtocolSessionTest {
 	}
 
 	@Test
-	public void testTupleQuery_Passthrough() throws Exception {
-		stubFor(post(urlEqualTo("/rdf4j-server/repositories/test"))
-				.willReturn(aResponse().withStatus(200)
-						.withHeader("Content-Type", TupleQueryResultFormat.SPARQL.getDefaultMIMEType())
-						.withBodyFile("repository-list.xml")));
+	public void testTupleQuery_Passthrough(MockServerClient client) throws Exception {
+		client.when(
+				request()
+						.withMethod("POST")
+						.withPath("/rdf4j-server/repositories/test"),
+				Times.once()
+		)
+				.respond(
+						response()
+								.withBody(readFileToString("repository-list.xml"))
+								.withContentType(MediaType.parse(TupleQueryResultFormat.SPARQL.getDefaultMIMEType()))
+				);
 
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		SPARQLStarResultsXMLWriter handler = Mockito.spy(new SPARQLStarResultsXMLWriter(out));
 		sparqlSession.sendTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o}", null, null, true, -1, handler);
 
-		// SPARQL* XML sink should accept SPARQL/XML data and pass directly to OutputStream
+		// SPARQL-star XML sink should accept SPARQL/XML data and pass directly to OutputStream
 		verify(handler, never()).startQueryResult(anyList());
+
+		// check that the OutputStream received content in XML format
+		assertThat(out.toString()).startsWith("<");
+	}
+
+	@Test
+	public void testTupleQuery_Passthrough_ConfiguredFalse(MockServerClient client) throws Exception {
+		client.when(
+				request()
+						.withMethod("POST")
+						.withPath("/rdf4j-server/repositories/test"),
+				Times.once()
+		)
+				.respond(
+						response()
+								.withBody(readFileToString("repository-list.xml"))
+								.withContentType(MediaType.parse(TupleQueryResultFormat.SPARQL.getDefaultMIMEType()))
+				);
+
+		ByteArrayOutputStream out = new ByteArrayOutputStream();
+		SPARQLStarResultsXMLWriter handler = Mockito.spy(new SPARQLStarResultsXMLWriter(out));
+		sparqlSession.setPassThroughEnabled(false);
+		sparqlSession.sendTupleQuery(QueryLanguage.SPARQL, "SELECT * WHERE { ?s ?p ?o}", null, null, true, -1, handler);
+
+		// If not passed through, the QueryResultWriter methods should have been invoked
+		verify(handler, times(1)).startQueryResult(anyList());
 
 		// check that the OutputStream received content in XML format
 		assertThat(out.toString()).startsWith("<");
@@ -334,7 +469,7 @@ public class SPARQLProtocolSessionTest {
 		};
 	}
 
-	private void verifyHeader(String path) {
-		verify(anyRequestedFor(urlEqualTo(path)).withHeader(testHeader, containing(testValue)));
+	protected String readFileToString(String fileName) throws IOException {
+		return IOUtils.resourceToString("__files/" + fileName, StandardCharsets.UTF_8, getClass().getClassLoader());
 	}
 }

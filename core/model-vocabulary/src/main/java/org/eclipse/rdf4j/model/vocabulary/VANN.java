@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.vocabulary;
 
@@ -17,10 +20,14 @@ import org.eclipse.rdf4j.model.Namespace;
  */
 public class VANN {
 
-	/** The VANN namespace: http://purl.org/vocab/vann/ */
+	/**
+	 * The VANN namespace: http://purl.org/vocab/vann/
+	 */
 	public static final String NAMESPACE = "http://purl.org/vocab/vann/";
 
-	/** Recommended prefix for the VANN namespace: "vann" */
+	/**
+	 * Recommended prefix for the VANN namespace: "vann"
+	 */
 	public static final String PREFIX = "vann";
 
 	/**

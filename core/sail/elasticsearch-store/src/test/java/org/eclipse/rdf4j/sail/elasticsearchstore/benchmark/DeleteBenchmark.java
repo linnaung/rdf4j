@@ -1,19 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.elasticsearchstore.benchmark;
 
-import java.io.File;
 import java.io.IOException;
 import java.util.concurrent.TimeUnit;
 
-import org.assertj.core.util.Files;
-import org.eclipse.rdf4j.IsolationLevels;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
@@ -21,6 +22,7 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.sail.elasticsearchstore.ElasticsearchStore;
 import org.eclipse.rdf4j.sail.elasticsearchstore.TestHelpers;
+import org.eclipse.rdf4j.sail.extensiblestore.ExtensibleStore;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -33,8 +35,6 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.TearDown;
 import org.openjdk.jmh.annotations.Warmup;
-
-import pl.allegro.tech.embeddedelasticsearch.EmbeddedElastic;
 
 /**
  * @author Håvard Ottestad
@@ -51,34 +51,27 @@ public class DeleteBenchmark {
 	// @Param({ "100", "1000", "10000" })
 	public int NUMBER_OF_STATEMENTS = 10000;
 
-	private static EmbeddedElastic embeddedElastic;
-
-	private static File installLocation = Files.newTemporaryFolder();
-
 	private SailRepository elasticsearchStore;
 
 	@Setup(Level.Trial)
-	public void beforeClass() throws IOException, InterruptedException {
+	public void beforeClass() {
 		// JMH does not correctly set JAVA_HOME. Change the JAVA_HOME below if you the following error:
 		// [EmbeddedElsHandler] INFO p.a.t.e.ElasticServer - could not find java; set JAVA_HOME or ensure java is in
 		// PATH
-		embeddedElastic = TestHelpers.startElasticsearch(installLocation,
-				"/Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home");
+		TestHelpers.openClient();
 
 		elasticsearchStore = new SailRepository(
-				new ElasticsearchStore("localhost", embeddedElastic.getTransportTcpPort(), "cluster1", "testindex",
-						false));
+				new ElasticsearchStore("localhost", TestHelpers.PORT, TestHelpers.CLUSTER, "testindex",
+						ExtensibleStore.Cache.NONE));
 
 		System.gc();
 
 	}
 
 	@TearDown(Level.Trial)
-	public void afterClass() {
-
+	public void afterClass() throws IOException {
 		elasticsearchStore.shutDown();
-		TestHelpers.stopElasticsearch(embeddedElastic, installLocation);
-
+		TestHelpers.closeClient();
 	}
 
 	@Setup(Level.Invocation)

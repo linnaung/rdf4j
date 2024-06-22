@@ -1,17 +1,23 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.graphpattern;
+
+import java.util.function.Consumer;
 
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.sparqlbuilder.constraint.propertypath.builder.EmptyPropertyPathBuilder;
 import org.eclipse.rdf4j.sparqlbuilder.core.Projectable;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.RdfBlankNode.PropertiesBlankNode;
@@ -36,9 +42,7 @@ public class GraphPatterns {
 	 * @param subject
 	 * @param predicate
 	 * @param objects
-	 *
 	 * @return a new {@link TriplePattern}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynTriples"> Triple pattern syntax</a>
 	 */
 	public static TriplePattern tp(RdfSubject subject, RdfPredicate predicate, RdfObject... objects) {
@@ -55,9 +59,7 @@ public class GraphPatterns {
 	 * @param subject   the triple pattern subject
 	 * @param predicate the triple pattern predicate as a {@link IRI}
 	 * @param objects   the triples pattern object(s)
-	 *
 	 * @return a new {@link TriplePattern}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynTriples"> Triple pattern syntax</a>
 	 */
 	public static TriplePattern tp(RdfSubject subject, IRI predicate, RdfObject... objects) {
@@ -74,9 +76,7 @@ public class GraphPatterns {
 	 * @param subject   the triple pattern subject
 	 * @param predicate the triple pattern predicate as a {@link IRI}
 	 * @param objects   the triples pattern object(s)
-	 *
 	 * @return a new {@link TriplePattern}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynTriples"> Triple pattern syntax</a>
 	 */
 	public static TriplePattern tp(Resource subject, RdfPredicate predicate, RdfObject... objects) {
@@ -96,9 +96,7 @@ public class GraphPatterns {
 	 * @param subject   the triple pattern subject as a {@link Resource}
 	 * @param predicate the triple pattern predicate as a {@link IRI}
 	 * @param objects   the triples pattern object(s)
-	 *
 	 * @return a new {@link TriplePattern}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynTriples"> Triple pattern syntax</a>
 	 */
 	public static TriplePattern tp(Resource subject, IRI predicate, RdfObject... objects) {
@@ -114,9 +112,7 @@ public class GraphPatterns {
 	 *
 	 * @param subject
 	 * @param lists
-	 *
 	 * @return a new {@link TriplePattern}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynTriples"> Triple pattern syntax</a>
 	 */
 	public static TriplePattern tp(RdfSubject subject, RdfPredicateObjectList... lists) {
@@ -127,9 +123,7 @@ public class GraphPatterns {
 	 * Create a triple pattern from a property-list blank node
 	 *
 	 * @param bnode the PropertiesBlankNode instance to convert to a triple pattern
-	 *
 	 * @return the triple pattern represented by the expansion of this blank node
-	 *
 	 * @see <a href="https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynBlankNodes"> blank node syntax</a>
 	 */
 	public static TriplePattern tp(PropertiesBlankNode bnode) {
@@ -137,11 +131,26 @@ public class GraphPatterns {
 	}
 
 	/**
+	 * Create a triple pattern from a property path and a list of objects.
+	 *
+	 * @param subject                the subject
+	 * @param propertyPathConfigurer an object that accepts an {@link EmptyPropertyPathBuilder} and uses it to create a
+	 *                               property path
+	 * @param objects                the object(s) of the triple(s)
+	 * @return the triple pattern
+	 */
+	public static TriplePattern tp(RdfSubject subject, Consumer<EmptyPropertyPathBuilder> propertyPathConfigurer,
+			RdfObject... objects) {
+		EmptyPropertyPathBuilder builder = new EmptyPropertyPathBuilder();
+		propertyPathConfigurer.accept(builder);
+		return new TriplesSameSubject(subject, builder.build(), objects);
+	}
+
+	/**
 	 * Create a group graph pattern containing the given graph patterns
 	 *
 	 * @param patterns the patterns to include in the group graph a pattern
 	 * @return a new group graph pattern
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#GroupPatterns">SPARQL Group Graph
 	 *      Pattern</a>
 	 */
@@ -160,7 +169,6 @@ public class GraphPatterns {
 	 *
 	 * @param patterns the patterns to include in the union
 	 * @return a new alternative graph pattern
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#alternatives"> SPARQL Alternative Graph
 	 *      Patterns</a>
 	 */
@@ -186,7 +194,6 @@ public class GraphPatterns {
 	 *
 	 * @param patterns the patterns to include in the optional graph pattern
 	 * @return a new optional graph pattern
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#optionals"> SPARQL Optional Graph
 	 *      Patterns</a>
 	 */
@@ -221,7 +228,6 @@ public class GraphPatterns {
 	 *
 	 * @param projectables the elements to include in the projection of the subquery
 	 * @return a new subquery
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#subqueries"> SPARQL Subquery</a>
 	 */
 	public static SubSelect select(Projectable... projectables) {

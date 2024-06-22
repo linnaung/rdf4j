@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.queryrender.sparql;
 
@@ -18,15 +21,16 @@ import org.eclipse.rdf4j.query.algebra.Count;
 import org.eclipse.rdf4j.query.algebra.Datatype;
 import org.eclipse.rdf4j.query.algebra.Exists;
 import org.eclipse.rdf4j.query.algebra.FunctionCall;
+import org.eclipse.rdf4j.query.algebra.IRIFunction;
 import org.eclipse.rdf4j.query.algebra.In;
 import org.eclipse.rdf4j.query.algebra.IsBNode;
 import org.eclipse.rdf4j.query.algebra.IsLiteral;
+import org.eclipse.rdf4j.query.algebra.IsNumeric;
 import org.eclipse.rdf4j.query.algebra.IsResource;
 import org.eclipse.rdf4j.query.algebra.IsURI;
 import org.eclipse.rdf4j.query.algebra.Label;
 import org.eclipse.rdf4j.query.algebra.Lang;
 import org.eclipse.rdf4j.query.algebra.LangMatches;
-import org.eclipse.rdf4j.query.algebra.Like;
 import org.eclipse.rdf4j.query.algebra.LocalName;
 import org.eclipse.rdf4j.query.algebra.MathExpr;
 import org.eclipse.rdf4j.query.algebra.Max;
@@ -81,7 +85,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Bound theOp) throws Exception {
@@ -91,21 +95,21 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Var theVar) throws Exception {
 		if (theVar.isAnonymous() && !theVar.hasValue()) {
 			mBuffer.append("?").append(BaseTupleExprRenderer.scrubVarName(theVar.getName()));
 		} else if (theVar.hasValue()) {
-			mBuffer.append(RenderUtils.getSPARQLQueryString(theVar.getValue()));
+			mBuffer.append(RenderUtils.toSPARQL(theVar.getValue()));
 		} else {
 			mBuffer.append("?").append(theVar.getName());
 		}
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(BNodeGenerator theGen) throws Exception {
@@ -113,7 +117,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(MathExpr theOp) throws Exception {
@@ -125,7 +129,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Compare theOp) throws Exception {
@@ -137,7 +141,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Exists theOp) throws Exception {
@@ -147,7 +151,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(In theOp) throws Exception {
@@ -171,7 +175,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(CompareAll theOp) throws Exception {
@@ -185,19 +189,20 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(ValueConstant theVal) throws Exception {
-		mBuffer.append(RenderUtils.getSPARQLQueryString(theVal.getValue()));
+		mBuffer.append(RenderUtils.toSPARQL(theVal.getValue()));
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(FunctionCall theOp) throws Exception {
-		mBuffer.append("<").append(theOp.getURI()).append(">(");
+		mBuffer.append(knownFunctionsUriReduction(theOp.getURI())).append("(");
+
 		boolean aFirst = true;
 		for (ValueExpr aArg : theOp.getArgs()) {
 			if (!aFirst) {
@@ -212,7 +217,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(CompareAny theOp) throws Exception {
@@ -226,7 +231,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Regex theOp) throws Exception {
@@ -242,7 +247,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(LangMatches theOp) throws Exception {
@@ -254,7 +259,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(SameTerm theOp) throws Exception {
@@ -266,7 +271,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(And theAnd) throws Exception {
@@ -274,7 +279,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Or theOr) throws Exception {
@@ -282,7 +287,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Not theNot) throws Exception {
@@ -292,7 +297,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Count theOp) throws Exception {
@@ -300,7 +305,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Datatype theOp) throws Exception {
@@ -308,7 +313,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(IsBNode theOp) throws Exception {
@@ -316,7 +321,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(IsLiteral theOp) throws Exception {
@@ -324,7 +329,15 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void meet(IsNumeric theOp) throws Exception {
+		unaryMeet("isNumeric", theOp);
+	}
+
+	/**
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(IsResource theOp) throws Exception {
@@ -337,7 +350,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(IsURI theOp) throws Exception {
@@ -345,7 +358,15 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
+	 */
+	@Override
+	public void meet(IRIFunction theOp) throws Exception {
+		unaryMeet("IRI", theOp);
+	}
+
+	/**
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Label theOp) throws Exception {
@@ -353,7 +374,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Lang theOp) throws Exception {
@@ -361,19 +382,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
-	 */
-	@Override
-	public void meet(Like theOp) throws Exception {
-		theOp.getArg().visit(this);
-		mBuffer.append(" like \"").append(theOp.getPattern()).append("\"");
-		if (!theOp.isCaseSensitive()) {
-			mBuffer.append(" ignore case");
-		}
-	}
-
-	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(LocalName theOp) throws Exception {
@@ -381,7 +390,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Min theOp) throws Exception {
@@ -389,7 +398,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Max theOp) throws Exception {
@@ -397,7 +406,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Namespace theOp) throws Exception {
@@ -405,7 +414,7 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(Str theOp) throws Exception {
@@ -424,5 +433,127 @@ final class SparqlValueExprRenderer extends AbstractQueryModelVisitor<Exception>
 		mBuffer.append(" ").append(theOpStr).append("(");
 		theOp.getArg().visit(this);
 		mBuffer.append(")");
+	}
+
+	private String knownFunctionsUriReduction(String functionUri) {
+		switch (functionUri.toLowerCase()) {
+		// Functional Forms
+
+		// Functions on RDF Terms
+		case "strdt":
+			return "strdt";
+
+		case "strlang":
+			return "strlang";
+
+		case "uuid":
+			return "uuid";
+
+		case "struuid":
+			return "struuid";
+
+		// Functions on Strings
+		case "http://www.w3.org/2005/xpath-functions#string-length":
+			return "strlen";
+
+		case "http://www.w3.org/2005/xpath-functions#substring":
+			return "substr";
+
+		case "http://www.w3.org/2005/xpath-functions#upper-case":
+			return "ucase";
+
+		case "http://www.w3.org/2005/xpath-functions#lower-case":
+			return "lcase";
+
+		case "http://www.w3.org/2005/xpath-functions#starts-with":
+			return "strstarts";
+
+		case "http://www.w3.org/2005/xpath-functions#ends-with":
+			return "strends";
+
+		case "http://www.w3.org/2005/xpath-functions#contains":
+			return "contains";
+
+		case "http://www.w3.org/2005/xpath-functions#substring-before":
+			return "strbefore";
+
+		case "http://www.w3.org/2005/xpath-functions#substring-after":
+			return "strafter";
+
+		case "http://www.w3.org/2005/xpath-functions#encode-for-uri":
+			return "encode_for_uri";
+
+		case "http://www.w3.org/2005/xpath-functions#concat":
+			return "concat";
+
+		case "http://www.w3.org/2005/xpath-functions#matches":
+			return "regex";
+
+		case "http://www.w3.org/2005/xpath-functions#replace":
+			return "replace";
+
+		// Functions on Numerics
+		case "http://www.w3.org/2005/xpath-functions#numeric-abs":
+			return "abs";
+
+		case "http://www.w3.org/2005/xpath-functions#numeric-round":
+			return "round";
+
+		case "http://www.w3.org/2005/xpath-functions#numeric-ceil":
+			return "ceil";
+
+		case "http://www.w3.org/2005/xpath-functions#numeric-floor":
+			return "floor";
+
+		case "rand":
+			return "rand";
+
+		// Functions on Dates and Times
+		case "now":
+			return "now";
+
+		case "http://www.w3.org/2005/xpath-functions#year-from-datetime":
+			return "year";
+
+		case "http://www.w3.org/2005/xpath-functions#month-from-datetime":
+			return "month";
+
+		case "http://www.w3.org/2005/xpath-functions#day-from-datetime":
+			return "day";
+
+		case "http://www.w3.org/2005/xpath-functions#hours-from-datetime":
+			return "hours";
+
+		case "http://www.w3.org/2005/xpath-functions#minutes-from-datetime":
+			return "minutes";
+
+		case "http://www.w3.org/2005/xpath-functions#seconds-from-datetime":
+			return "seconds";
+
+		case "http://www.w3.org/2005/xpath-functions#timezone-from-datetime":
+			return "timezone";
+
+		case "tz":
+			return "tz";
+
+		// Hash Functions
+		case "md5":
+			return "md5";
+
+		case "sha1":
+			return "sha1";
+
+		case "sha256":
+			return "sha256";
+
+		case "sha384":
+			return "sha384";
+
+		case "sha512":
+			return "sha512";
+
+		default:
+			return "<" + functionUri + ">";
+		}
 	}
 }

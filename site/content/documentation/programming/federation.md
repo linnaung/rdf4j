@@ -4,8 +4,6 @@ weight: 7
 toc: true
 autonumbering: true
 ---
-(new in RDF4J 3.1)
-
 FedX provides transparent federation of multiple SPARQL endpoints under a single virtual endpoint.
 <!--more-->
 As an example, a knowledge graph such as Wikidata can be queried in a federation with endpoints that are linked to Wikidata as an integration hub. In a federated SPARQL query in FedX, one no longer needs to explicitly address specific endpoints using SERVICE clauses. Instead, FedX automatically selects relevant sources, sends statement patterns to these sources for evaluation, and joins the individual results. FedX seamlessly integrates into RDF4J using the Repository API and can be used as a drop-in component in existing applications including the RDF4J Workbench.
@@ -112,12 +110,12 @@ The following snippet depicts an example repository configuration that defines a
 # RDF4J configuration template for a FedX Repository
 #
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
-@prefix rep: <http://www.openrdf.org/config/repository#>.
+@prefix config: <tag:rdf4j.org,2023:config/>.
 @prefix fedx: <http://rdf4j.org/config/federation#>.
 
-[] a rep:Repository ;
-   rep:repositoryImpl [
-      rep:repositoryType "fedx:FedXRepository" ;
+[] a config:Repository ;
+   config:rep.impl [
+      config:rep.type "fedx:FedXRepository" ;
       fedx:member [
          fedx:store "ResolvableRepository" ;
          fedx:repositoryName "my-repository-1"
@@ -127,7 +125,7 @@ The following snippet depicts an example repository configuration that defines a
          fedx:repositoryName "my-repository-2"
       ]
    ];
-   rep:repositoryID "my-federation" ;
+   config:rep.id "my-federation" ;
    rdfs:label "FedX Federation" .
 ```
 
@@ -138,11 +136,11 @@ In order to deploy a FedX configuration the repository configuration template ne
 
 FedX is implemented as a RDF4J Repository. To initialize FedX and the underlying federation SAIL, we provide the FedXFactory class, which provides various methods for intuitive configuration. In the following, we present various Java code snippets that illustrate how FedX can be used in an application.
 
-Basically, FedX can be used and accessed using the SAIL architecture (see the [RDF4J SAIL documentation](http://docs.rdf4j.org/sail/) for details). The Repository can be obtained from any FedXFactory initialization method. Besides using the Repository interface for creating queries, we also provide a _QueryManager_ class to conveniently create queries. The advantage of the _QueryManager_ over using the _RepositoryConnection_ to create queries, is that preconfigured PREFIX declarations are added automatically to the query, i.e. the user can use common prefixes (such as rdf, foaf, etc.) without the need to specify them in the prologue of the query. See PREFIX Declarations for a detailed documentation.
+Basically, FedX can be used and accessed using the SAIL architecture (see the [RDF4J SAIL documentation](http://docs.rdf4j.org/sail/) for details). The Repository can be obtained from any FedXFactory initialization method. Besides using the Repository interface for creating queries, we also provide a _QueryManager_ class to conveniently create queries. The advantage of the _QueryManager_ over using the _RepositoryConnection_ to create queries, is that preconfigured PREFIX declarations are added automatically to the query, i.e. the user can use common prefixes (such as rdf, foaf, etc.) without the need to specify them in the prologue of the query. See [PREFIX Declarations](#prefix-declarations) for a detailed documentation.
 
 **Example 1: Using a simple SPARQL Federation as a Repository**
 
-In the following example, we configure a federation with the publicly available DBpedia and SemanticWebDogFood SPARQL endpoints. Please refer to Configuring FedX for details.
+In the following example, we configure a federation with the publicly available DBpedia and SemanticWebDogFood SPARQL endpoints. Please refer to [FedX configuration](#fedx-configuration) for details.
 
 ```java
 Repository repo = FedXFactory.createSparqlFederation(Arrays.asList(
@@ -299,17 +297,51 @@ FedX provides various means for configuration. Configuration settings can be def
 ### Available Properties
 
 |Property | Description |
-|prefixDeclarations | Path to prefix declarations file, see PREFIX Declarations |
-|cacheLocation | Location where the memory cache gets persisted at shutdown, default _cache.db_ |
+|---------|-------------|
+|prefixDeclarations | Path to prefix declarations file, see [PREFIX Declarations](#prefix-declarations) |
+|sourceSelectionCacheSpec | Cache specification for the `SourceSelectionMemoryCache`, default _maximumSize=1000,expireAfterWrite=6h_ |
 |joinWorkerThreads | The number of join worker threads for parallelization, default _20_ |
 |unionWorkerThreads | The number of union worker threads for parallelization, default _20_ |
-|boundJoinBlockSize | Block size for bound joins, default _15_ |
+|leftJoinWorkerThreads | The number of left join worker threads for parallelization, default _10_ |
+|boundJoinBlockSize | Block size for bound joins, default _25_ |
 |enforceMaxQueryTime | Max query time in seconds, 0 to disable, default _30_ |
 |enableServiceAsBoundJoin | Flag for evaluating a SERVICE expression (contacting non-federation members) using vectored evaluation, default _true_. For today's endpoints it is more efficient to disable vectored evaluation of SERVICE |
+|includeInferredDefault | whether include inferred statements should be considered, default _true_ |
+|consumingIterationMax | the max number of results to be consumed by `ConsumingIteration`, default _1000_ |
 |debugQueryPlan | Print the optimized query execution plan to stdout, default _false_ |
 |enableMonitoring | Flag to enable/disable monitoring features, default _false_ |
 |logQueryPlan | Flag to enable/disable query plan logging via Java class _QueryPlanLog_, default _false_ |
 |logQueries | Flag to enable/disable query logging via _QueryLog_, default _false_. The _QueryLog_ facility allows to log all queries to a file |
+
+#### Overriding via configuration template
+
+The aforementioned properties can also be set using a configuration template, via the `fedx:config` property, e.g.:
+
+```turtle
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.
+@prefix rep: <http://www.openrdf.org/config/repository#>.
+@prefix config: <tag:rdf4j.org,2023:config/>.
+@prefix fedx: <http://rdf4j.org/config/federation#>.
+
+[] a rep:Repository ;
+ rep:repositoryImpl [
+   rep:repositoryType "fedx:FedXRepository" ;
+   fedx:member [
+      fedx:store "ResolvableRepository" ;
+      fedx:repositoryName "endpoint1"
+   ],
+   [
+      fedx:store "ResolvableRepository" ;
+      fedx:repositoryName "endpoint2"
+   ]
+   fedx:config [
+      fedx:sourceSelectionCacheSpec "maximumSize=0" ;
+      fedx:enforceMaxQueryTime 30 ;
+   ]
+ ];
+ rep:repositoryID "fedx" ;
+ rdfs:label "FedX Federation" .
+```
 
 ### Query timeouts
 
@@ -353,7 +385,7 @@ qm.addPrefixDeclaration("dbpedia", "http://dbpedia.org/ontology/");
 
 ## Member configuration
 
-Federation members can be added to a federation either directly as a list of endpoints, or using a data configuration file (see section FedX in Java applications). In a data configuration the federation members are specified using turtle syntax.
+Federation members can be added to a federation either directly as a list of endpoints, or using a data configuration file (see section [FedX in Java applications](#fedx-in-java-applications)). In a data configuration the federation members are specified using turtle syntax.
 
 
 ### Example 1: SPARQL Federation:

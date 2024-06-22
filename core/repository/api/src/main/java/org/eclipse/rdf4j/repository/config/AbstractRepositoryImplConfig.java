@@ -1,21 +1,29 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.config;
 
+import static org.eclipse.rdf4j.model.util.Values.bnode;
+import static org.eclipse.rdf4j.model.util.Values.literal;
 import static org.eclipse.rdf4j.repository.config.RepositoryConfigSchema.REPOSITORYTYPE;
+
+import java.util.Arrays;
+import java.util.Set;
 
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.util.Configurations;
 import org.eclipse.rdf4j.model.util.ModelException;
-import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 
 /**
  * @author Herko ter Horst
@@ -58,10 +66,24 @@ public class AbstractRepositoryImplConfig implements RepositoryImplConfig {
 
 	@Override
 	public Resource export(Model model) {
-		BNode implNode = SimpleValueFactory.getInstance().createBNode();
+		if (Configurations.useLegacyConfig()) {
+			return exportLegacy(model);
+		}
+
+		BNode implNode = bnode();
 
 		if (type != null) {
-			model.add(implNode, REPOSITORYTYPE, SimpleValueFactory.getInstance().createLiteral(type));
+			model.add(implNode, CONFIG.Rep.type, literal(type));
+		}
+
+		return implNode;
+	}
+
+	private Resource exportLegacy(Model model) {
+		BNode implNode = bnode();
+
+		if (type != null) {
+			model.add(implNode, REPOSITORYTYPE, literal(type));
 		}
 
 		return implNode;
@@ -69,7 +91,8 @@ public class AbstractRepositoryImplConfig implements RepositoryImplConfig {
 
 	@Override
 	public void parse(Model model, Resource resource) throws RepositoryConfigException {
-		Models.objectLiteral(model.getStatements(resource, REPOSITORYTYPE, null))
+		Configurations
+				.getLiteralValue(model, resource, CONFIG.Rep.type, REPOSITORYTYPE)
 				.ifPresent(typeLit -> setType(typeLit.getLabel()));
 	}
 
@@ -85,16 +108,15 @@ public class AbstractRepositoryImplConfig implements RepositoryImplConfig {
 	 */
 	public static RepositoryImplConfig create(Model model, Resource resource) throws RepositoryConfigException {
 		try {
-			// Literal typeLit = GraphUtil.getOptionalObjectLiteral(graph,
-			// implNode, REPOSITORYTYPE);
-
-			final Literal typeLit = Models.objectLiteral(model.getStatements(resource, REPOSITORYTYPE, null))
+			final Literal typeLit = Configurations
+					.getLiteralValue(model, resource, CONFIG.Rep.type, REPOSITORYTYPE)
 					.orElse(null);
 			if (typeLit != null) {
 				RepositoryFactory factory = RepositoryRegistry.getInstance()
 						.get(typeLit.getLabel())
 						.orElseThrow(() -> new RepositoryConfigException(
-								"Unsupported repository type: " + typeLit.getLabel()));
+								"Unsupported repository type: '" + typeLit.getLabel() + "' supported types are: "
+										+ Arrays.toString(RepositoryRegistry.getInstance().getKeys().toArray())));
 
 				RepositoryImplConfig implConfig = factory.getConfig();
 				implConfig.parse(model, resource);
@@ -106,4 +128,5 @@ public class AbstractRepositoryImplConfig implements RepositoryImplConfig {
 			throw new RepositoryConfigException(e.getMessage(), e);
 		}
 	}
+
 }

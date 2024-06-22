@@ -1,10 +1,13 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
- ******************************************************************************/
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 
 package org.eclipse.rdf4j.model;
 
@@ -13,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.Objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Abstract {@link Statement} test suite.
@@ -30,7 +33,6 @@ public abstract class StatementTest {
 	 * @param predicate the predicate of the statement
 	 * @param object    the predicate of the statement
 	 * @param context   the context of the statement; possibly {@code null}
-	 *
 	 * @return a new instance of the concrete statement class under test
 	 */
 	protected abstract Statement statement(Resource subject, IRI predicate, Value object, Resource context);
@@ -39,7 +41,6 @@ public abstract class StatementTest {
 	 * Creates a test IRI instance.
 	 *
 	 * @param iri the IRI of the datatype
-	 *
 	 * @return a new instance of the concrete IRI class under test
 	 */
 	protected abstract IRI iri(String iri);

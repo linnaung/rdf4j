@@ -1,9 +1,12 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.constraint;
@@ -22,12 +25,11 @@ import org.eclipse.rdf4j.sparqlbuilder.util.SparqlBuilderUtils;
  * other expressions.
  *
  * @param <T> the type of Expression (ie, Function or Operation). Used to support fluency
- *
- * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#termConstraint">SPARQL Filters</a> <br>
- *      <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#having"> SPARQL HAVING</a> <br>
- *      <a href= "http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#modOrderBy" >SPARQL ORDER BY</a> <br>
- *      <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#groupby"> SPARQL GROUP BY</a> <br>
- *      <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#assignment"> SPARQL Assignments</a>
+ * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#termConstraint">SPARQL Filters</a>
+ * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#having"> SPARQL HAVING</a>
+ * @see <a href= "http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#modOrderBy" >SPARQL ORDER BY</a>
+ * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#groupby"> SPARQL GROUP BY</a>
+ * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#assignment"> SPARQL Assignments</a>
  */
 public abstract class Expression<T extends Expression<T>> extends StandardQueryElementCollection<Operand>
 		implements Operand, Orderable, Groupable, Assignable {

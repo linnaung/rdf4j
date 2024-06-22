@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model;
 
@@ -31,7 +34,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *
 	 * @return an unmodifiable view of the specified set.
 	 */
-	public Model unmodifiable();
+	Model unmodifiable();
 
 	/**
 	 * Sets the prefix for a namespace. This will replace any existing namespace associated to the prefix.
@@ -40,7 +43,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 * @param name   The namespace name that the prefix maps to.
 	 * @return The {@link Namespace} object for the given namespace.
 	 */
-	public default Namespace setNamespace(String prefix, String name) {
+	default Namespace setNamespace(String prefix, String name) {
 		Optional<? extends Namespace> result = getNamespace(prefix);
 		if (!result.isPresent() || !result.get().getName().equals(name)) {
 			result = Optional.of(new ModelNamespace(prefix, name));
@@ -54,7 +57,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *
 	 * @param namespace A {@link Namespace} object to use in this Model.
 	 */
-	public void setNamespace(Namespace namespace);
+	void setNamespace(Namespace namespace);
 
 	/**
 	 * Removes a namespace declaration by removing the association between a prefix and a namespace name.
@@ -62,7 +65,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 * @param prefix The namespace prefix of which the assocation with a namespace name is to be removed.
 	 * @return the previous namespace bound to the prefix or {@link Optional#empty()}
 	 */
-	public Optional<Namespace> removeNamespace(String prefix);
+	Optional<Namespace> removeNamespace(String prefix);
 
 	/**
 	 * Determines if statements with the specified subject, predicate, object and (optionally) context exist in this
@@ -88,15 +91,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *                 matching one of these will match.
 	 * @return <code>true</code> if statements match the specified pattern.
 	 */
-	public boolean contains(Resource subj, IRI pred, Value obj, Resource... contexts);
-
-	/**
-	 * @deprecated since 2.0. Use {@link #contains(Resource, IRI, Value, Resource...)} instead.
-	 */
-	@Deprecated
-	public default boolean contains(Resource subj, URI pred, Value obj, Resource... contexts) {
-		return contains(subj, (IRI) pred, obj, contexts);
-	}
+	boolean contains(Resource subj, IRI pred, Value obj, Resource... contexts);
 
 	/**
 	 * Adds one or more statements to the model. This method creates a statement for each specified context and adds
@@ -113,15 +108,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 * @throws UnsupportedOperationException If this Model cannot accept any statements, because it is filtered to the
 	 *                                       empty set.
 	 */
-	public boolean add(Resource subj, IRI pred, Value obj, Resource... contexts);
-
-	/**
-	 * @deprecated since 2.0. Use {@link #add(Resource, IRI, Value, Resource...)} instead.
-	 */
-	@Deprecated
-	public default boolean add(Resource subj, URI pred, Value obj, Resource... contexts) {
-		return add(subj, (IRI) pred, obj, contexts);
-	}
+	boolean add(Resource subj, IRI pred, Value obj, Resource... contexts);
 
 	/**
 	 * Removes statements with the specified context exist in this model.
@@ -129,7 +116,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 * @param context The context of the statements to remove.
 	 * @return <code>true</code> if one or more statements have been removed.
 	 */
-	public boolean clear(Resource... context);
+	boolean clear(Resource... context);
 
 	/**
 	 * Removes statements with the specified subject, predicate, object and (optionally) context exist in this model.
@@ -154,15 +141,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *                 context matching one of these will be removed.
 	 * @return <code>true</code> if one or more statements have been removed.
 	 */
-	public boolean remove(Resource subj, IRI pred, Value obj, Resource... contexts);
-
-	/**
-	 * @deprecated since 2.0. Use {@link #remove(Resource, IRI, Value, Resource...)} instead.
-	 */
-	@Deprecated
-	public default boolean remove(Resource subj, URI pred, Value obj, Resource... contexts) {
-		return remove(subj, (IRI) pred, obj, contexts);
-	}
+	boolean remove(Resource subj, IRI pred, Value obj, Resource... contexts);
 
 	/**
 	 * Returns an {@link Iterable} over all {@link Statement}s in this Model that match the supplied criteria.
@@ -187,12 +166,10 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *                  matching any one of these will match. To match statements without an associated context, specify
 	 *                  the value {@code null} and explicitly cast it to type {@code Resource}.
 	 * @return an {@link Iterable} over the statements in this Model that match the specified pattern.
-	 *
-	 * @since 3.2.0
-	 *
 	 * @see #filter(Resource, IRI, Value, Resource...)
+	 * @since 3.2.0
 	 */
-	public default Iterable<Statement> getStatements(Resource subject, IRI predicate, Value object,
+	default Iterable<Statement> getStatements(Resource subject, IRI predicate, Value object,
 			Resource... contexts) {
 		return () -> filter(subject, predicate, object, contexts).iterator();
 	}
@@ -226,15 +203,9 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *                 disregarding their context. If one or more contexts are specified, statements with a context
 	 *                 matching one of these will match.
 	 * @return The statements that match the specified pattern.
-	 *
 	 * @see #getStatements(Resource, IRI, Value, Resource...)
 	 */
-	public Model filter(Resource subj, IRI pred, Value obj, Resource... contexts);
-
-	@Deprecated
-	public default Model filter(Resource subj, URI pred, Value obj, Resource... contexts) {
-		return filter(subj, (IRI) pred, obj, contexts);
-	}
+	Model filter(Resource subj, IRI pred, Value obj, Resource... contexts);
 
 	/**
 	 * Returns a {@link Set} view of the subjects contained in this model. The set is backed by the model, so changes to
@@ -247,7 +218,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *
 	 * @return a set view of the subjects contained in this model
 	 */
-	public Set<Resource> subjects();
+	Set<Resource> subjects();
 
 	/**
 	 * Returns a {@link Set} view of the predicates contained in this model. The set is backed by the model, so changes
@@ -260,7 +231,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *
 	 * @return a set view of the predicates contained in this model
 	 */
-	public Set<IRI> predicates();
+	Set<IRI> predicates();
 
 	/**
 	 * Returns a {@link Set} view of the objects contained in this model. The set is backed by the model, so changes to
@@ -273,7 +244,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *
 	 * @return a set view of the objects contained in this model
 	 */
-	public Set<Value> objects();
+	Set<Value> objects();
 
 	/**
 	 * Returns a {@link Set} view of the contexts contained in this model. The set is backed by the model, so changes to
@@ -286,7 +257,7 @@ public interface Model extends Set<Statement>, Serializable, NamespaceAware {
 	 *
 	 * @return a set view of the contexts contained in this model
 	 */
-	public default Set<Resource> contexts() {
+	default Set<Resource> contexts() {
 		Set<Resource> subjects = stream().map(st -> st.getContext()).collect(Collectors.toSet());
 		return subjects;
 	}

@@ -1,18 +1,22 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.jsonld;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.StringReader;
 import java.io.StringWriter;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -23,11 +27,13 @@ import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.model.vocabulary.DCTERMS;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.rio.ParserConfig;
+import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.RDFWriterTest;
+import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.WriterConfig;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
@@ -35,8 +41,12 @@ import org.eclipse.rdf4j.rio.helpers.BasicWriterSettings;
 import org.eclipse.rdf4j.rio.helpers.JSONLDMode;
 import org.eclipse.rdf4j.rio.helpers.JSONLDSettings;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
+
+import no.hasmac.jsonld.JsonLdError;
+import no.hasmac.jsonld.document.Document;
+import no.hasmac.jsonld.document.JsonDocument;
 
 /**
  * @author Peter Ansell
@@ -63,12 +73,12 @@ public class JSONLDWriterTest extends RDFWriterTest {
 
 	@Test
 	@Override
-	@Ignore("TODO: Determine why this test is breaking")
-	public void testIllegalPrefix() throws RDFHandlerException, RDFParseException, IOException {
+	@Disabled("TODO: Determine why this test is breaking")
+	public void testIllegalPrefix() throws RDFHandlerException, RDFParseException {
 	}
 
 	@Test
-	public void testEmptyNamespace() throws Exception {
+	public void testEmptyNamespace() {
 		IRI uri1 = vf.createIRI(exNs, "uri1");
 		IRI uri2 = vf.createIRI(exNs, "uri2");
 
@@ -83,7 +93,7 @@ public class JSONLDWriterTest extends RDFWriterTest {
 		rdfWriter.handleStatement(vf.createStatement(uri1, uri2, vf.createBNode()));
 		rdfWriter.endRDF();
 
-		assertTrue("Does not contain @vocab", w.toString().contains("@vocab"));
+		assertTrue(w.toString().contains("@vocab"), "Does not contain @vocab");
 	}
 
 	@Test
@@ -114,15 +124,120 @@ public class JSONLDWriterTest extends RDFWriterTest {
 
 		rdfParser.parse(in, "foo:bar");
 
-		assertEquals("Unexpected number of statements, found " + model.size(), 1, model.size());
+		assertEquals(1, model.size(), "Unexpected number of statements, found " + model.size());
 
-		assertTrue("missing namespaced statement", model.contains(st1));
+		assertTrue(model.contains(st1), "missing namespaced statement");
 
 		if (rdfParser.getRDFFormat().supportsNamespaces()) {
-			assertTrue("Expected at least one namespace, found " + model.getNamespaces().size(),
-					model.getNamespaces().size() >= 1);
+			assertTrue(!model.getNamespaces().isEmpty(),
+					"Expected at least one namespace, found " + model.getNamespaces().size());
 			assertEquals(exNs, model.getNamespace("ex").get().getName());
 		}
+	}
+
+	/**
+	 * Test if the JSON-LD writer honors the "native RDF type" setting.
+	 */
+	@Test
+	public void testNativeRDFTypes() {
+		IRI subject = vf.createIRI(exNs, "uri1");
+		IRI predicate = vf.createIRI(exNs, "uri2");
+		Literal object = vf.createLiteral(true);
+		Statement stmt = vf.createStatement(subject, predicate, object);
+
+		StringWriter w = new StringWriter();
+		RDFWriter rdfWriter = rdfWriterFactory.getWriter(w);
+		rdfWriter.getWriterConfig().set(JSONLDSettings.JSONLD_MODE, JSONLDMode.COMPACT);
+		rdfWriter.getWriterConfig().set(JSONLDSettings.COMPACT_ARRAYS, true);
+		rdfWriter.getWriterConfig().set(JSONLDSettings.USE_NATIVE_TYPES, true);
+
+		rdfWriter.startRDF();
+		rdfWriter.handleStatement(stmt);
+		rdfWriter.endRDF();
+
+		assertTrue(!w.toString().contains("@type"), "Does contain @type");
+	}
+
+	@Test
+	public void testFraming() throws IOException, JsonLdError {
+		Model data = Rio.parse(new StringReader("{\n" +
+				"  \"@context\": {\n" +
+				"    \"dc11\": \"http://purl.org/dc/elements/1.1/\",\n" +
+				"    \"ex\": \"http://example.org/vocab#\",\n" +
+				"    \"xsd\": \"http://www.w3.org/2001/XMLSchema#\",\n" +
+				"    \"ex:contains\": {\n" +
+				"      \"@type\": \"@id\"\n" +
+				"    }\n" +
+				"  },\n" +
+				"  \"@graph\": [\n" +
+				"    {\n" +
+				"      \"@id\": \"http://example.org/library\",\n" +
+				"      \"@type\": \"ex:Library\",\n" +
+				"      \"ex:contains\": \"http://example.org/library/the-republic\"\n" +
+				"    },\n" +
+				"    {\n" +
+				"      \"@id\": \"http://example.org/library/the-republic\",\n" +
+				"      \"@type\": \"ex:Book\",\n" +
+				"      \"dc11:creator\": \"Plato\",\n" +
+				"      \"dc11:title\": \"The Republic\",\n" +
+				"      \"ex:contains\": \"http://example.org/library/the-republic#introduction\"\n" +
+				"    },\n" +
+				"    {\n" +
+				"      \"@id\": \"http://example.org/library/the-republic#introduction\",\n" +
+				"      \"@type\": \"ex:Chapter\",\n" +
+				"      \"dc11:description\": \"An introductory chapter on The Republic.\",\n" +
+				"      \"dc11:title\": \"The Introduction\"\n" +
+				"    }\n" +
+				"  ]\n" +
+				"}"), "", RDFFormat.JSONLD);
+
+		Document frame = JsonDocument.of(new StringReader("{\n" +
+				"  \"@context\": {\n" +
+				"    \"dc11\": \"http://purl.org/dc/elements/1.1/\",\n" +
+				"    \"ex\": \"http://example.org/vocab#\"\n" +
+				"  },\n" +
+				"  \"@type\": \"ex:Library\",\n" +
+				"  \"ex:contains\": {\n" +
+				"    \"@type\": \"ex:Book\",\n" +
+				"    \"ex:contains\": {\n" +
+				"      \"@type\": \"ex:Chapter\"\n" +
+				"    }\n" +
+				"  }\n" +
+				"}"));
+
+		StringWriter stringWriter = new StringWriter();
+		RDFWriter rdfWriter = rdfWriterFactory.getWriter(stringWriter);
+		rdfWriter.getWriterConfig().set(JSONLDSettings.JSONLD_MODE, JSONLDMode.FRAME);
+		rdfWriter.getWriterConfig().set(JSONLDSettings.FRAME, frame);
+		rdfWriter.getWriterConfig().set(BasicWriterSettings.PRETTY_PRINT, true);
+
+		rdfWriter.startRDF();
+		data.forEach(rdfWriter::handleStatement);
+		rdfWriter.endRDF();
+
+		assertEquals(
+				"{\n" +
+						"    \"@id\": \"http://example.org/library\",\n" +
+						"    \"@type\": \"ex:Library\",\n" +
+						"    \"ex:contains\": {\n" +
+						"        \"@id\": \"http://example.org/library/the-republic\",\n" +
+						"        \"@type\": \"ex:Book\",\n" +
+						"        \"ex:contains\": {\n" +
+						"            \"@id\": \"http://example.org/library/the-republic#introduction\",\n" +
+						"            \"@type\": \"ex:Chapter\",\n" +
+						"            \"dc11:description\": \"An introductory chapter on The Republic.\",\n" +
+						"            \"dc11:title\": \"The Introduction\"\n" +
+						"        },\n" +
+						"        \"dc11:creator\": \"Plato\",\n" +
+						"        \"dc11:title\": \"The Republic\"\n" +
+						"    },\n" +
+						"    \"@context\": {\n" +
+						"        \"dc11\": \"http://purl.org/dc/elements/1.1/\",\n" +
+						"        \"ex\": \"http://example.org/vocab#\"\n" +
+						"    }\n" +
+						"}",
+				stringWriter.toString());
+
 	}
 
 	@Override
@@ -131,11 +246,11 @@ public class JSONLDWriterTest extends RDFWriterTest {
 				BasicWriterSettings.BASE_DIRECTIVE,
 				BasicWriterSettings.PRETTY_PRINT,
 				JSONLDSettings.COMPACT_ARRAYS,
-				JSONLDSettings.HIERARCHICAL_VIEW,
 				JSONLDSettings.JSONLD_MODE,
 				JSONLDSettings.PRODUCE_GENERALIZED_RDF,
 				JSONLDSettings.USE_RDF_TYPE,
-				JSONLDSettings.USE_NATIVE_TYPES
+				JSONLDSettings.USE_NATIVE_TYPES,
+				JSONLDSettings.EXCEPTION_ON_WARNING
 		};
 	}
 }

@@ -1,11 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
+
+import java.util.Objects;
 
 import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
 
@@ -39,15 +44,12 @@ public class Clear extends AbstractQueryModelNode implements UpdateExpr {
 		if (graph != null) {
 			graph.visit(visitor);
 		}
-		super.visitChildren(visitor);
 	}
 
 	@Override
 	public void replaceChildNode(QueryModelNode current, QueryModelNode replacement) {
 		if (graph == current) {
 			setGraph((ValueConstant) replacement);
-		} else {
-			super.replaceChildNode(current, replacement);
 		}
 	}
 
@@ -55,7 +57,7 @@ public class Clear extends AbstractQueryModelNode implements UpdateExpr {
 	public boolean equals(Object other) {
 		if (other instanceof Clear) {
 			Clear o = (Clear) other;
-			return silent == o.silent && nullEquals(graph, o.graph) && nullEquals(scope, o.scope);
+			return silent == o.silent && Objects.equals(graph, o.graph) && Objects.equals(scope, o.scope);
 		}
 		return false;
 	}

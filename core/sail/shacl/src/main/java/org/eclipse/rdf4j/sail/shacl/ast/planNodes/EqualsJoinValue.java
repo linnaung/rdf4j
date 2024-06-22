@@ -1,43 +1,53 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Objects;
+
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.sail.SailException;
 
 public class EqualsJoinValue implements PlanNode {
 	private final PlanNode left;
 	private final PlanNode right;
 	private final boolean useAsFilter;
+	private StackTraceElement[] stackTrace;
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
 	public EqualsJoinValue(PlanNode left, PlanNode right, boolean useAsFilter) {
-		left = PlanNodeHelper.handleSorting(this, left);
-		right = PlanNodeHelper.handleSorting(this, right);
+		this.left = PlanNodeHelper.handleSorting(this, left);
+		this.right = PlanNodeHelper.handleSorting(this, right);
 
-		this.left = left;
-		this.right = right;
 		this.useAsFilter = useAsFilter;
+//		this.stackTrace = Thread.currentThread().getStackTrace();
 
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final CloseableIteration<? extends ValidationTuple, SailException> leftIterator = left.iterator();
-			final CloseableIteration<? extends ValidationTuple, SailException> rightIterator = right.iterator();
+			private CloseableIteration<? extends ValidationTuple> leftIterator;
+			private CloseableIteration<? extends ValidationTuple> rightIterator;
 
 			ValidationTuple next;
 			ValidationTuple nextLeft;
 			ValidationTuple nextRight;
+
+			@Override
+			protected void init() {
+				leftIterator = left.iterator();
+				rightIterator = right.iterator();
+			}
 
 			void calculateNext() {
 				if (next != null) {
@@ -68,7 +78,7 @@ public class EqualsJoinValue implements PlanNode {
 							nextRight = null;
 						} else {
 
-							int compareTo = nextLeft.compareTarget(nextRight);
+							int compareTo = nextLeft.compareActiveTarget(nextRight);
 							if (compareTo == 0) {
 								compareTo = nextLeft.compareValue(nextRight);
 							}
@@ -98,28 +108,30 @@ public class EqualsJoinValue implements PlanNode {
 			}
 
 			@Override
-			public void close() throws SailException {
-				leftIterator.close();
-				rightIterator.close();
+			public void localClose() {
+				try {
+					if (leftIterator != null) {
+						leftIterator.close();
+					}
+				} finally {
+					if (rightIterator != null) {
+						rightIterator.close();
+					}
+				}
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() {
 				calculateNext();
 				return next != null;
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() {
 				calculateNext();
 				ValidationTuple temp = next;
 				next = null;
 				return temp;
-			}
-
-			@Override
-			public void remove() throws SailException {
-
 			}
 
 		};
@@ -127,7 +139,7 @@ public class EqualsJoinValue implements PlanNode {
 
 	@Override
 	public int depth() {
-		return 0;
+		return Math.max(left.depth(), right.depth()) + 1;
 	}
 
 	@Override
@@ -147,7 +159,7 @@ public class EqualsJoinValue implements PlanNode {
 
 	@Override
 	public String getId() {
-		return null;
+		return System.identityHashCode(this) + "";
 	}
 
 	@Override
@@ -170,5 +182,22 @@ public class EqualsJoinValue implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return true;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		EqualsJoinValue that = (EqualsJoinValue) o;
+		return useAsFilter == that.useAsFilter && left.equals(that.left) && right.equals(that.right);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(left, right, useAsFilter);
 	}
 }

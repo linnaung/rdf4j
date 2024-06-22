@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation;
 
@@ -79,7 +82,7 @@ public abstract class AbstractQueryPreparer implements QueryPreparer {
 		return tripleSource;
 	}
 
-	protected abstract CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluate(TupleExpr tupleExpr,
+	protected abstract CloseableIteration<? extends BindingSet> evaluate(TupleExpr tupleExpr,
 			Dataset dataset, BindingSet bindings, boolean includeInferred, int maxExecutionTime)
 			throws QueryEvaluationException;
 
@@ -99,8 +102,8 @@ public abstract class AbstractQueryPreparer implements QueryPreparer {
 
 		@Override
 		public boolean evaluate() throws QueryEvaluationException {
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter1 = null;
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter2 = null;
+			CloseableIteration<? extends BindingSet> bindingsIter1 = null;
+			CloseableIteration<? extends BindingSet> bindingsIter2 = null;
 			try {
 				ParsedBooleanQuery parsedBooleanQuery = getParsedQuery();
 				TupleExpr tupleExpr = parsedBooleanQuery.getTupleExpr();
@@ -147,8 +150,8 @@ public abstract class AbstractQueryPreparer implements QueryPreparer {
 
 		@Override
 		public TupleQueryResult evaluate() throws QueryEvaluationException {
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter1 = null;
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter2 = null;
+			CloseableIteration<? extends BindingSet> bindingsIter1 = null;
+			CloseableIteration<? extends BindingSet> bindingsIter2 = null;
 			IteratingTupleQueryResult result = null;
 			boolean allGood = false;
 			try {
@@ -206,10 +209,10 @@ public abstract class AbstractQueryPreparer implements QueryPreparer {
 
 		@Override
 		public GraphQueryResult evaluate() throws QueryEvaluationException {
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter1 = null;
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter2 = null;
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter3 = null;
-			CloseableIteration<? extends Statement, QueryEvaluationException> stIter = null;
+			CloseableIteration<? extends BindingSet> bindingsIter1 = null;
+			CloseableIteration<? extends BindingSet> bindingsIter2 = null;
+			CloseableIteration<? extends BindingSet> bindingsIter3 = null;
+			CloseableIteration<? extends Statement> stIter = null;
 			IteratingGraphQueryResult result = null;
 
 			boolean allGood = false;
@@ -219,7 +222,7 @@ public abstract class AbstractQueryPreparer implements QueryPreparer {
 						getIncludeInferred(), getMaxExecutionTime());
 
 				// Filters out all partial and invalid matches
-				bindingsIter2 = new FilterIteration<BindingSet, QueryEvaluationException>(bindingsIter1) {
+				bindingsIter2 = new FilterIteration<BindingSet>(bindingsIter1) {
 
 					@Override
 					protected boolean accept(BindingSet bindingSet) {
@@ -230,12 +233,17 @@ public abstract class AbstractQueryPreparer implements QueryPreparer {
 								&& bindingSet.getValue("object") instanceof Value
 								&& (context == null || context instanceof Resource);
 					}
+
+					@Override
+					protected void handleClose() {
+
+					}
 				};
 
 				bindingsIter3 = enforceMaxQueryTime(bindingsIter2);
 
 				// Convert the BindingSet objects to actual RDF statements
-				stIter = new ConvertingIteration<BindingSet, Statement, QueryEvaluationException>(bindingsIter3) {
+				stIter = new ConvertingIteration<BindingSet, Statement>(bindingsIter3) {
 
 					private final ValueFactory vf = tripleSource.getValueFactory();
 

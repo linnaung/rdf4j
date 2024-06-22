@@ -1,16 +1,19 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.Arrays;
-import java.util.List;
-import java.util.stream.Collectors;
+import java.util.HashSet;
+import java.util.stream.Stream;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -21,32 +24,106 @@ import org.eclipse.rdf4j.sail.SailException;
  */
 public class UnionNode implements PlanNode {
 
+	private final HashSet<PlanNode> nodesSet;
 	private StackTraceElement[] stackTrace;
 	private final PlanNode[] nodes;
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
-	public UnionNode(PlanNode... nodes) {
-		for (int i = 0; i < nodes.length; i++) {
-			nodes[i] = PlanNodeHelper.handleSorting(this, nodes[i]);
-		}
+	private UnionNode(PlanNode... nodes) {
 
 		this.nodes = nodes;
+		this.nodesSet = new HashSet<>(Arrays.asList(nodes));
+
 		// this.stackTrace = Thread.currentThread().getStackTrace();
 	}
 
+	public static PlanNode getInstance(PlanNode... nodes) {
+		PlanNode[] planNodes = Arrays.stream(nodes).filter(n -> !(n.isGuaranteedEmpty())).flatMap(n -> {
+			if (n instanceof UnionNode) {
+				return Arrays.stream(((UnionNode) n).nodes);
+			}
+			return Stream.of(n);
+		}).map(n -> PlanNodeHelper.handleSorting(true, n)).toArray(PlanNode[]::new);
+
+		if (planNodes.length == 1) {
+			return planNodes[0];
+		}
+		if (planNodes.length == 0) {
+			return EmptyNode.getInstance();
+		}
+
+		return new UnionNode(planNodes);
+
+	}
+
+	public static PlanNode getInstanceDedupe(PlanNode... nodes) {
+		PlanNode[] planNodes = Arrays.stream(nodes).filter(n -> !(n.isGuaranteedEmpty())).distinct().flatMap(n -> {
+			if (n instanceof UnionNode) {
+				return Arrays.stream(((UnionNode) n).nodes);
+			}
+			return Stream.of(n);
+		}).map(n -> PlanNodeHelper.handleSorting(true, n)).toArray(PlanNode[]::new);
+
+		if (planNodes.length == 1) {
+			return planNodes[0];
+		}
+		if (planNodes.length == 0) {
+			return EmptyNode.getInstance();
+		}
+
+		return new UnionNode(planNodes);
+
+	}
+
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
+
+		if (nodes.length == 1) {
+			return new LoggingCloseableIteration(this, validationExecutionLogger) {
+
+				private CloseableIteration<? extends ValidationTuple> iterator;
+
+				@Override
+				protected void init() {
+					iterator = nodes[0].iterator();
+				}
+
+				@Override
+				public void localClose() {
+					if (iterator != null) {
+						iterator.close();
+					}
+				}
+
+				@Override
+				protected ValidationTuple loggingNext() {
+					return iterator.next();
+				}
+
+				@Override
+				protected boolean localHasNext() {
+					return iterator.hasNext();
+				}
+			};
+		}
+
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final List<CloseableIteration<? extends ValidationTuple, SailException>> iterators = Arrays.stream(nodes)
-					.map(PlanNode::iterator)
-					.collect(Collectors.toList());
+			private CloseableIteration<? extends ValidationTuple>[] iterators;
 
 			final ValidationTuple[] peekList = new ValidationTuple[nodes.length];
 
 			ValidationTuple next;
 			ValidationTuple prev;
+
+			@Override
+			protected void init() {
+				iterators = Arrays
+						.stream(nodes)
+						.map(PlanNode::iterator)
+						.toArray(CloseableIteration[]::new);
+			}
 
 			private void calculateNext() {
 
@@ -56,7 +133,7 @@ public class UnionNode implements PlanNode {
 
 				for (int i = 0; i < peekList.length; i++) {
 					if (peekList[i] == null) {
-						CloseableIteration<? extends ValidationTuple, SailException> iterator = iterators.get(i);
+						var iterator = iterators[i];
 						if (iterator.hasNext()) {
 							peekList[i] = iterator.next();
 						}
@@ -75,7 +152,7 @@ public class UnionNode implements PlanNode {
 						sortedFirst = peekList[i];
 						sortedFirstIndex = i;
 					} else {
-						if (peekList[i].compareTarget(sortedFirst) < 0) {
+						if (peekList[i].compareActiveTarget(sortedFirst) < 0) {
 							sortedFirst = peekList[i];
 							sortedFirstIndex = i;
 						}
@@ -91,23 +168,40 @@ public class UnionNode implements PlanNode {
 			}
 
 			@Override
-			public void close() throws SailException {
-				iterators.forEach(CloseableIteration::close);
+			public void localClose() {
+				if (iterators != null) {
+					Throwable thrown = null;
+					for (int i = 0; i < iterators.length; i++) {
+						try {
+							iterators[i].close();
+						} catch (Throwable t) {
+							if (thrown != null) {
+								thrown.addSuppressed(t);
+							} else {
+								thrown = t;
+							}
+						} finally {
+							iterators[i] = null;
+						}
+					}
+
+					if (thrown != null) {
+						throw new SailException(thrown);
+					}
+				}
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() {
 				calculateNext();
 				return next != null;
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() {
 				calculateNext();
 
-				if (prev != null && next.compareTarget(prev) < 0) {
-					throw new AssertionError();
-				}
+				assert !(prev != null && next.compareActiveTarget(prev) < 0);
 
 				ValidationTuple temp = next;
 				prev = next;
@@ -115,10 +209,6 @@ public class UnionNode implements PlanNode {
 				return temp;
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -169,5 +259,27 @@ public class UnionNode implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return true;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		UnionNode unionNode = (UnionNode) o;
+		if (nodes.length != unionNode.nodes.length) {
+			return false;
+		}
+
+		return nodesSet.equals(unionNode.nodesSet);
+
+	}
+
+	@Override
+	public int hashCode() {
+		return nodes.length + nodesSet.hashCode();
 	}
 }

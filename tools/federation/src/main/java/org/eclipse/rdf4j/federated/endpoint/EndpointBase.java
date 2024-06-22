@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.endpoint;
 
@@ -39,7 +42,7 @@ public abstract class EndpointBase implements Endpoint {
 	protected final RepositoryInformation repoInfo; // the repository information
 	protected final String endpoint; // the endpoint, e.g. for SPARQL the URL
 	protected EndpointClassification endpointClassification; // the endpoint classification
-	protected boolean writable = false; // can this endpoint be used for write operation
+	protected boolean writable; // can this endpoint be used for write operation
 
 	private ManagedRepositoryConnection dependentConn = null; // if configured, contains the managed connection
 	protected boolean initialized = false; // true, iff the contained repository is initialized

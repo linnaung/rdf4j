@@ -1,16 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.server;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
+import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
  * Base class for single-use request interceptors. This implementation sets the thread name to something sensible at the
@@ -19,7 +22,7 @@ import org.springframework.web.servlet.handler.HandlerInterceptorAdapter;
  *
  * @author Herko ter Horst
  */
-public abstract class ServerInterceptor extends HandlerInterceptorAdapter {
+public abstract class ServerInterceptor implements HandlerInterceptor {
 
 	private volatile String origThreadName;
 
@@ -31,7 +34,7 @@ public abstract class ServerInterceptor extends HandlerInterceptorAdapter {
 
 		setRequestAttributes(request);
 
-		return super.preHandle(request, response, handler);
+		return HandlerInterceptor.super.preHandle(request, response, handler);
 	}
 
 	@Override

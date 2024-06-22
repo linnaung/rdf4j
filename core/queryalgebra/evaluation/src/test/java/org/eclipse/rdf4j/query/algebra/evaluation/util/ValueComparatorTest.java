@@ -1,13 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.util;
 
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -19,46 +22,46 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author james
  */
 public class ValueComparatorTest {
 
-	private ValueFactory vf = SimpleValueFactory.getInstance();
+	private final ValueFactory vf = SimpleValueFactory.getInstance();
 
-	private BNode bnode1 = vf.createBNode();
+	private final BNode bnode1 = vf.createBNode();
 
-	private BNode bnode2 = vf.createBNode();
+	private final BNode bnode2 = vf.createBNode();
 
-	private IRI uri1 = vf.createIRI("http://script.example/Latin");
+	private final IRI uri1 = vf.createIRI("http://script.example/Latin");
 
-	private IRI uri2 = vf.createIRI("http://script.example/Кириллица");
+	private final IRI uri2 = vf.createIRI("http://script.example/Кириллица");
 
-	private IRI uri3 = vf.createIRI("http://script.example/日本語");
+	private final IRI uri3 = vf.createIRI("http://script.example/日本語");
 
-	private Literal typed1 = vf.createLiteral("http://script.example/Latin", XSD.STRING);
+	private final Literal typed1 = vf.createLiteral("http://script.example/Latin", XSD.STRING);
 
-	private ValueComparator cmp = new ValueComparator();
+	private final ValueComparator cmp = new ValueComparator();
 
 	@Test
-	public void testBothNull() throws Exception {
+	public void testBothNull() {
 		assertTrue(cmp.compare(null, null) == 0);
 	}
 
 	@Test
-	public void testLeftNull() throws Exception {
+	public void testLeftNull() {
 		assertTrue(cmp.compare(null, typed1) < 0);
 	}
 
 	@Test
-	public void testRightNull() throws Exception {
+	public void testRightNull() {
 		assertTrue(cmp.compare(typed1, null) > 0);
 	}
 
 	@Test
-	public void testBothBnode() throws Exception {
+	public void testBothBnode() {
 		assertTrue(cmp.compare(bnode1, bnode1) == 0);
 		assertTrue(cmp.compare(bnode2, bnode2) == 0);
 		assertTrue(cmp.compare(bnode1, bnode2) != cmp.compare(bnode2, bnode1));
@@ -66,17 +69,17 @@ public class ValueComparatorTest {
 	}
 
 	@Test
-	public void testLeftBnode() throws Exception {
+	public void testLeftBnode() {
 		assertTrue(cmp.compare(bnode1, typed1) < 0);
 	}
 
 	@Test
-	public void testRightBnode() throws Exception {
+	public void testRightBnode() {
 		assertTrue(cmp.compare(typed1, bnode1) > 0);
 	}
 
 	@Test
-	public void testBothURI() throws Exception {
+	public void testBothURI() {
 		assertTrue(cmp.compare(uri1, uri1) == 0);
 		assertTrue(cmp.compare(uri1, uri2) < 0);
 		assertTrue(cmp.compare(uri1, uri3) < 0);
@@ -89,12 +92,12 @@ public class ValueComparatorTest {
 	}
 
 	@Test
-	public void testLeftURI() throws Exception {
+	public void testLeftURI() {
 		assertTrue(cmp.compare(uri1, typed1) < 0);
 	}
 
 	@Test
-	public void testRightURI() throws Exception {
+	public void testRightURI() {
 		assertTrue(cmp.compare(typed1, uri1) > 0);
 	}
 
@@ -102,7 +105,7 @@ public class ValueComparatorTest {
 	 * Tests whether xsd:int's are properly sorted in a list with mixed value types.
 	 */
 	@Test
-	public void testOrder1() throws Exception {
+	public void testOrder1() {
 		Literal en4 = vf.createLiteral("4", "en");
 		Literal int10 = vf.createLiteral(10);
 		Literal int9 = vf.createLiteral(9);
@@ -117,7 +120,7 @@ public class ValueComparatorTest {
 	 * Tests whether various numerics are properly sorted in a list with mixed value types.
 	 */
 	@Test
-	public void testOrder2() throws Exception {
+	public void testOrder2() {
 		Literal en4 = vf.createLiteral("4", "en");
 		Literal int10 = vf.createLiteral(10);
 		Literal int9 = vf.createLiteral(9);
@@ -143,7 +146,7 @@ public class ValueComparatorTest {
 	 * sorted between the numerics if the datatypes were to be sorted alphabetically.
 	 */
 	@Test
-	public void testOrder3() throws Exception {
+	public void testOrder3() {
 		Literal year1234 = vf.createLiteral("1234", XSD.GYEAR);
 		Literal float2000 = vf.createLiteral(2000f);
 		Literal int1000 = vf.createLiteral(1000);
@@ -154,7 +157,7 @@ public class ValueComparatorTest {
 	}
 
 	@Test
-	public void testNonStrictComparisons() throws Exception {
+	public void testNonStrictComparisons() {
 		cmp.setStrict(false);
 		assertTrue(cmp.isStrict() == false);
 		Literal date1 = vf.createLiteral("2019-09-02", XSD.DATE);
@@ -163,7 +166,7 @@ public class ValueComparatorTest {
 	}
 
 	@Test
-	public void testStrictComparisons() throws Exception {
+	public void testStrictComparisons() {
 		cmp.setStrict(true);
 		assertTrue(cmp.isStrict() == true);
 		Literal date1 = vf.createLiteral("2019-09-02", XSD.DATE);

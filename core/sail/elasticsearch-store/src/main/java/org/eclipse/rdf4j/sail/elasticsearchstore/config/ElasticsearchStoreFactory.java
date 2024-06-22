@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearchstore.config;
 
@@ -30,7 +33,7 @@ public class ElasticsearchStoreFactory implements SailFactory {
 	public static final String SAIL_TYPE = "rdf4j:ElasticsearchStore";
 
 	/**
-	 * Returns the Sail's type: <tt>rdf4j:ElasticsearchStore</tt>.
+	 * Returns the Sail's type: <var>rdf4j:ElasticsearchStore</var>.
 	 */
 	@Override
 	public String getSailType() {

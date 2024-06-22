@@ -1,16 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.assertj.core.api.AssertionsForClassTypes.assertThatThrownBy;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Collections;
 import java.util.HashSet;
@@ -25,12 +29,10 @@ import org.eclipse.rdf4j.rio.LanguageHandler;
 import org.eclipse.rdf4j.rio.ParseErrorListener;
 import org.eclipse.rdf4j.rio.ParserConfig;
 import org.eclipse.rdf4j.rio.RDFParseException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Ignore;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.ExpectedException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Tests for {@link RDFParserHelper} methods.
@@ -40,9 +42,6 @@ import org.junit.rules.ExpectedException;
 public class RDFParserHelperTest {
 
 	private static final String TEST_MESSAGE_FOR_FAILURE = "Test message for failure.";
-
-	@Rule
-	public ExpectedException thrown = ExpectedException.none();
 
 	private static final String LABEL_TESTA = "test-a";
 
@@ -55,10 +54,9 @@ public class RDFParserHelperTest {
 	private ValueFactory valueFactory;
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		parserConfig = new ParserConfig();
 		// By default we wipe out the SPI loaded datatype and language handlers
 		parserConfig.set(BasicParserSettings.DATATYPE_HANDLERS, Collections.<DatatypeHandler>emptyList());
@@ -70,10 +68,9 @@ public class RDFParserHelperTest {
 	}
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@After
-	public void tearDown() throws Exception {
+	@AfterEach
+	public void tearDown() {
 	}
 
 	/**
@@ -82,10 +79,11 @@ public class RDFParserHelperTest {
 	 * .
 	 */
 	@Test
-	public final void testCreateLiteralLabelNull() throws Exception {
-		thrown.expect(NullPointerException.class);
-		thrown.expectMessage("Cannot create a literal using a null label");
-		RDFParserHelper.createLiteral(null, null, null, parserConfig, errListener, valueFactory);
+	public final void testCreateLiteralLabelNull() {
+		assertThatThrownBy(
+				() -> RDFParserHelper.createLiteral(null, null, null, parserConfig, errListener, valueFactory))
+				.isInstanceOf(NullPointerException.class)
+				.hasMessage("Cannot create a literal using a null label");
 	}
 
 	/**
@@ -94,7 +92,7 @@ public class RDFParserHelperTest {
 	 * .
 	 */
 	@Test
-	public final void testCreateLiteralLabelOnly() throws Exception {
+	public final void testCreateLiteralLabelOnly() {
 		Literal literal = RDFParserHelper.createLiteral(LABEL_TESTA, null, null, parserConfig, errListener,
 				valueFactory);
 
@@ -109,7 +107,7 @@ public class RDFParserHelperTest {
 	 * .
 	 */
 	@Test
-	public final void testCreateLiteralLabelAndLanguage() throws Exception {
+	public final void testCreateLiteralLabelAndLanguage() {
 		Literal literal = RDFParserHelper.createLiteral(LABEL_TESTA, LANG_EN, null, parserConfig, errListener,
 				valueFactory);
 
@@ -124,7 +122,7 @@ public class RDFParserHelperTest {
 	 * .
 	 */
 	@Test
-	public final void testCreateLiteralLabelAndDatatype() throws Exception {
+	public final void testCreateLiteralLabelAndDatatype() {
 		Literal literal = RDFParserHelper.createLiteral(LABEL_TESTA, null, XSD.STRING, parserConfig, errListener,
 				valueFactory);
 
@@ -142,7 +140,7 @@ public class RDFParserHelperTest {
 	 * cases where {@link RDF#LANGSTRING} is given and there is a language.
 	 */
 	@Test
-	public final void testCreateLiteralLabelAndLanguageWithRDFLangString() throws Exception {
+	public final void testCreateLiteralLabelAndLanguageWithRDFLangString() {
 		Literal literal = RDFParserHelper.createLiteral(LABEL_TESTA, LANG_EN, RDF.LANGSTRING, parserConfig, errListener,
 				valueFactory);
 
@@ -165,15 +163,16 @@ public class RDFParserHelperTest {
 	 * and there is NO given language.
 	 */
 	@Test
-	public final void testCreateLiteralLabelNoLanguageWithRDFLangStringWithVerify() throws Exception {
+	public final void testCreateLiteralLabelNoLanguageWithRDFLangStringWithVerify() {
 		parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, true);
 		assertTrue(parserConfig.get(BasicParserSettings.VERIFY_DATATYPE_VALUES));
-		thrown.expect(RDFParseException.class);
-		RDFParserHelper.createLiteral(LABEL_TESTA, null, RDF.LANGSTRING, parserConfig, errListener, valueFactory);
+		assertThatThrownBy(() -> RDFParserHelper.createLiteral(LABEL_TESTA, null, RDF.LANGSTRING, parserConfig,
+				errListener, valueFactory))
+				.isInstanceOf(RDFParseException.class);
 	}
 
 	@Test
-	public final void testCreateLiteralLabelNoLanguageWithRDFLangStringWithNoVerify() throws Exception {
+	public final void testCreateLiteralLabelNoLanguageWithRDFLangStringWithNoVerify() {
 		parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, false);
 		Literal literal = RDFParserHelper.createLiteral(LABEL_TESTA, null, RDF.LANGSTRING, parserConfig, errListener,
 				valueFactory);
@@ -182,21 +181,19 @@ public class RDFParserHelperTest {
 	}
 
 	@Test
-	public final void testReportErrorStringFatalActive() throws Exception {
+	public final void testReportErrorStringFatalActive() {
 		parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, true);
 		assertTrue(parserConfig.get(BasicParserSettings.VERIFY_DATATYPE_VALUES));
-		thrown.expect(RDFParseException.class);
-		thrown.expectMessage(TEST_MESSAGE_FOR_FAILURE);
-		try {
-			RDFParserHelper.reportError(TEST_MESSAGE_FOR_FAILURE, BasicParserSettings.VERIFY_DATATYPE_VALUES,
-					parserConfig, errListener);
-		} finally {
-			assertErrorListener(0, 1, 0);
-		}
+		assertThatThrownBy(
+				() -> RDFParserHelper.reportError(TEST_MESSAGE_FOR_FAILURE, BasicParserSettings.VERIFY_DATATYPE_VALUES,
+						parserConfig, errListener))
+				.isInstanceOf(RDFParseException.class)
+				.hasMessage(TEST_MESSAGE_FOR_FAILURE);
+		assertErrorListener(0, 1, 0);
 	}
 
 	@Test
-	public final void testReportErrorStringNonFatalActive() throws Exception {
+	public final void testReportErrorStringNonFatalActive() {
 		parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, true);
 		assertTrue(parserConfig.get(BasicParserSettings.VERIFY_DATATYPE_VALUES));
 		parserConfig.addNonFatalError(BasicParserSettings.VERIFY_DATATYPE_VALUES);
@@ -206,7 +203,7 @@ public class RDFParserHelperTest {
 	}
 
 	@Test
-	public final void testReportErrorStringFatalInactive() throws Exception {
+	public final void testReportErrorStringFatalInactive() {
 		assertFalse(parserConfig.get(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES));
 		RDFParserHelper.reportError(TEST_MESSAGE_FOR_FAILURE, BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES,
 				parserConfig, errListener);
@@ -214,7 +211,7 @@ public class RDFParserHelperTest {
 	}
 
 	@Test
-	public final void testReportErrorStringNonFatalInactive() throws Exception {
+	public final void testReportErrorStringNonFatalInactive() {
 		assertFalse(parserConfig.get(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES));
 		parserConfig.addNonFatalError(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES);
 		RDFParserHelper.reportError(TEST_MESSAGE_FOR_FAILURE, BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES,
@@ -223,21 +220,21 @@ public class RDFParserHelperTest {
 	}
 
 	@Test
-	public final void testReportErrorStringIntIntFatalActive() throws Exception {
+	public final void testReportErrorStringIntIntFatalActive() {
 		parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, true);
 		assertTrue(parserConfig.get(BasicParserSettings.VERIFY_DATATYPE_VALUES));
-		thrown.expect(RDFParseException.class);
-		thrown.expectMessage(TEST_MESSAGE_FOR_FAILURE);
-		try {
-			RDFParserHelper.reportError(TEST_MESSAGE_FOR_FAILURE, 1, 1, BasicParserSettings.VERIFY_DATATYPE_VALUES,
-					parserConfig, errListener);
-		} finally {
-			assertErrorListener(0, 1, 0);
-		}
+		assertThatThrownBy(
+				() -> RDFParserHelper.reportError(TEST_MESSAGE_FOR_FAILURE, 1, 1,
+						BasicParserSettings.VERIFY_DATATYPE_VALUES,
+						parserConfig, errListener))
+				.isInstanceOf(RDFParseException.class)
+				.hasMessageContaining(TEST_MESSAGE_FOR_FAILURE);
+
+		assertErrorListener(0, 1, 0);
 	}
 
 	@Test
-	public final void testReportErrorStringIntIntNonFatalActive() throws Exception {
+	public final void testReportErrorStringIntIntNonFatalActive() {
 		parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, true);
 		assertTrue(parserConfig.get(BasicParserSettings.VERIFY_DATATYPE_VALUES));
 		parserConfig.addNonFatalError(BasicParserSettings.VERIFY_DATATYPE_VALUES);
@@ -247,7 +244,7 @@ public class RDFParserHelperTest {
 	}
 
 	@Test
-	public final void testReportErrorStringIntIntFatalInactive() throws Exception {
+	public final void testReportErrorStringIntIntFatalInactive() {
 		assertFalse(parserConfig.get(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES));
 		RDFParserHelper.reportError(TEST_MESSAGE_FOR_FAILURE, 1, 1, BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES,
 				parserConfig, errListener);
@@ -255,7 +252,7 @@ public class RDFParserHelperTest {
 	}
 
 	@Test
-	public final void testReportErrorStringIntIntNonFatalInactive() throws Exception {
+	public final void testReportErrorStringIntIntNonFatalInactive() {
 		assertFalse(parserConfig.get(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES));
 		parserConfig.addNonFatalError(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES);
 		RDFParserHelper.reportError(TEST_MESSAGE_FOR_FAILURE, 1, 1, BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES,
@@ -268,9 +265,9 @@ public class RDFParserHelperTest {
 	 * {@link org.eclipse.rdf4j.rio.helpers.RDFParserHelper#reportError(java.lang.Exception, int, int, org.eclipse.rdf4j.rio.RioSetting, org.eclipse.rdf4j.rio.ParserConfig, org.eclipse.rdf4j.rio.ParseErrorListener)}
 	 * .
 	 */
-	@Ignore
+	@Disabled
 	@Test
-	public final void testReportErrorExceptionIntInt() throws Exception {
+	public final void testReportErrorExceptionIntInt() {
 		fail("Not yet implemented"); // TODO
 	}
 
@@ -279,9 +276,9 @@ public class RDFParserHelperTest {
 	 * {@link org.eclipse.rdf4j.rio.helpers.RDFParserHelper#reportFatalError(java.lang.String, org.eclipse.rdf4j.rio.ParseErrorListener)}
 	 * .
 	 */
-	@Ignore
+	@Disabled
 	@Test
-	public final void testReportFatalErrorString() throws Exception {
+	public final void testReportFatalErrorString() {
 		fail("Not yet implemented"); // TODO
 	}
 
@@ -290,9 +287,9 @@ public class RDFParserHelperTest {
 	 * {@link org.eclipse.rdf4j.rio.helpers.RDFParserHelper#reportFatalError(java.lang.String, int, int, org.eclipse.rdf4j.rio.ParseErrorListener)}
 	 * .
 	 */
-	@Ignore
+	@Disabled
 	@Test
-	public final void testReportFatalErrorStringIntInt() throws Exception {
+	public final void testReportFatalErrorStringIntInt() {
 		fail("Not yet implemented"); // TODO
 	}
 
@@ -301,9 +298,9 @@ public class RDFParserHelperTest {
 	 * {@link org.eclipse.rdf4j.rio.helpers.RDFParserHelper#reportFatalError(java.lang.Exception, org.eclipse.rdf4j.rio.ParseErrorListener)}
 	 * .
 	 */
-	@Ignore
+	@Disabled
 	@Test
-	public final void testReportFatalErrorException() throws Exception {
+	public final void testReportFatalErrorException() {
 		fail("Not yet implemented"); // TODO
 	}
 
@@ -312,9 +309,9 @@ public class RDFParserHelperTest {
 	 * {@link org.eclipse.rdf4j.rio.helpers.RDFParserHelper#reportFatalError(java.lang.Exception, int, int, org.eclipse.rdf4j.rio.ParseErrorListener)}
 	 * .
 	 */
-	@Ignore
+	@Disabled
 	@Test
-	public final void testReportFatalErrorExceptionIntInt() throws Exception {
+	public final void testReportFatalErrorExceptionIntInt() {
 		fail("Not yet implemented"); // TODO
 	}
 

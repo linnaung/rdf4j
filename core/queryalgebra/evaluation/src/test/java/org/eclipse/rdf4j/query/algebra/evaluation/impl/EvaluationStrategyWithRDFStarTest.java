@@ -1,14 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.impl;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Iterator;
@@ -33,39 +36,24 @@ import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.RDFStarTripleSource;
 import org.eclipse.rdf4j.query.algebra.evaluation.TripleSource;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
-import org.junit.Before;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameter;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The test verifies the evaluation of TripleRef nodes through evaluation strategy that uses a tripleSource implementing
  * either {@link TripleSource} or {@link RDFStarTripleSource} interfaces
  *
  * @author damyan.ognyanov
- *
  */
-@RunWith(Parameterized.class)
 public class EvaluationStrategyWithRDFStarTest {
 
-	@Parameters(name = "RDF*={0}")
-	public static Object[] params() {
-		return new Object[] { false, true };
-	}
-
-	@Parameter
-	public boolean bRDFStarData;
-
 	// the triples over which the evaluations is carried
-	private ArrayList<Triple> triples = new ArrayList<>();
+	private final ArrayList<Triple> triples = new ArrayList<>();
 
 	ValueFactory vf = SimpleValueFactory.getInstance();
 
 	TripleRef tripleRefNode;
-
-	EvaluationStrategy strategy;
 
 	CommonBaseSource baseSource;
 
@@ -74,14 +62,14 @@ public class EvaluationStrategyWithRDFStarTest {
 	 * RDFStarTripleSource The sources for the eval strategies just forward the evaluation to an instance of that
 	 *
 	 * @author damyan.ognyanov
-	 *
 	 */
 	class CommonBaseSource {
-		public CloseableIteration<? extends Triple, QueryEvaluationException> getRdfStarTriples(Resource subj,
+		public CloseableIteration<? extends Triple> getRdfStarTriples(Resource subj,
 				IRI pred, Value obj)
 				throws QueryEvaluationException {
-			return new AbstractCloseableIteration<Triple, QueryEvaluationException>() {
-				Iterator<Triple> iter = triples.iterator();
+			return new AbstractCloseableIteration<>() {
+
+				final Iterator<Triple> iter = triples.iterator();
 
 				@Override
 				public boolean hasNext()
@@ -99,10 +87,15 @@ public class EvaluationStrategyWithRDFStarTest {
 				public void remove()
 						throws QueryEvaluationException {
 				}
+
+				@Override
+				protected void handleClose() {
+
+				}
 			};
 		}
 
-		public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj,
+		public CloseableIteration<? extends Statement> getStatements(Resource subj,
 				IRI pred, Value obj, Resource... contexts)
 				throws QueryEvaluationException {
 			// handle only arguments with reification vocabulary
@@ -110,7 +103,7 @@ public class EvaluationStrategyWithRDFStarTest {
 
 			// handle (*, rdf:type, rdf:Statement)
 			if (pred != null && pred.equals(RDF.TYPE) && obj != null && obj.equals(RDF.STATEMENT)) {
-				return new ConvertingIteration<Triple, Statement, QueryEvaluationException>(
+				return new ConvertingIteration<Triple, Statement>(
 						getRdfStarTriples(null, null, null)) {
 					@Override
 					protected Statement convert(Triple sourceObject)
@@ -120,7 +113,7 @@ public class EvaluationStrategyWithRDFStarTest {
 				};
 			} else if (pred != null && pred.equals(RDF.SUBJECT)) {
 				// handle (*, rdf:subject, *)
-				return new ConvertingIteration<Triple, Statement, QueryEvaluationException>(
+				return new ConvertingIteration<Triple, Statement>(
 						getRdfStarTriples(null, null, null)) {
 					@Override
 					protected Statement convert(Triple sourceObject)
@@ -130,7 +123,7 @@ public class EvaluationStrategyWithRDFStarTest {
 				};
 			} else if (pred != null && pred.equals(RDF.PREDICATE)) {
 				// handle (*, rdf:predicate, *)
-				return new ConvertingIteration<Triple, Statement, QueryEvaluationException>(
+				return new ConvertingIteration<Triple, Statement>(
 						getRdfStarTriples(null, null, null)) {
 					@Override
 					protected Statement convert(Triple sourceObject)
@@ -140,7 +133,7 @@ public class EvaluationStrategyWithRDFStarTest {
 				};
 			} else if (pred != null && pred.equals(RDF.OBJECT)) {
 				// handle (*, rdf:object, *)
-				return new ConvertingIteration<Triple, Statement, QueryEvaluationException>(
+				return new ConvertingIteration<Triple, Statement>(
 						getRdfStarTriples(null, null, null)) {
 					@Override
 					protected Statement convert(Triple sourceObject)
@@ -155,10 +148,8 @@ public class EvaluationStrategyWithRDFStarTest {
 
 	}
 
-	;
-
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		// prepare data
 		triples.clear();
 		triples.add(vf.createTriple(vf.createIRI("urn:a"), vf.createIRI("urn:p"), vf.createIRI("urn:b")));
@@ -168,19 +159,15 @@ public class EvaluationStrategyWithRDFStarTest {
 
 		baseSource = new CommonBaseSource();
 
-		tripleRefNode = new TripleRef();
-		tripleRefNode.setSubjectVar(new Var("s"));
-		tripleRefNode.setPredicateVar(new Var("p"));
-		tripleRefNode.setObjectVar(new Var("o"));
-		tripleRefNode.setExprVar(new Var("extern"));
-
-		strategy = new StrictEvaluationStrategy(createSource(), null);
+		tripleRefNode = new TripleRef(new Var("s"), new Var("p"), new Var("o"), new Var("extern"));
 	}
 
 	/**
 	 * parametrized: either {@link RDFStarTripleSource} or {@link TripleSource}
+	 *
+	 * @param bRDFStarData
 	 */
-	private TripleSource createSource() {
+	private TripleSource createSource(boolean bRDFStarData) {
 		if (bRDFStarData) {
 			return new RDFStarTripleSource() {
 
@@ -190,14 +177,14 @@ public class EvaluationStrategyWithRDFStarTest {
 				}
 
 				@Override
-				public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj,
+				public CloseableIteration<? extends Statement> getStatements(Resource subj,
 						IRI pred, Value obj, Resource... contexts)
 						throws QueryEvaluationException {
 					return baseSource.getStatements(subj, pred, obj, contexts);
 				}
 
 				@Override
-				public CloseableIteration<? extends Triple, QueryEvaluationException> getRdfStarTriples(Resource subj,
+				public CloseableIteration<? extends Triple> getRdfStarTriples(Resource subj,
 						IRI pred, Value obj)
 						throws QueryEvaluationException {
 					return baseSource.getRdfStarTriples(subj, pred, obj);
@@ -211,7 +198,7 @@ public class EvaluationStrategyWithRDFStarTest {
 				}
 
 				@Override
-				public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj,
+				public CloseableIteration<? extends Statement> getStatements(Resource subj,
 						IRI pred, Value obj, Resource... contexts)
 						throws QueryEvaluationException {
 					return baseSource.getStatements(subj, pred, obj, contexts);
@@ -220,11 +207,14 @@ public class EvaluationStrategyWithRDFStarTest {
 		}
 	}
 
-	@Test
-	public void testMatchAllUnbound() {
+	@ParameterizedTest(name = "RDF-star={0}")
+	@ValueSource(booleans = { false, true })
+	public void testMatchAllUnbound(boolean bRDFStarData) {
+		EvaluationStrategy strategy = new StrictEvaluationStrategy(createSource(bRDFStarData), null);
 		// case check all unbound
-		try (CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.evaluate(tripleRefNode,
-				new EmptyBindingSet())) {
+		try (CloseableIteration<BindingSet> iter = strategy.precompile(tripleRefNode)
+				.evaluate(
+						new EmptyBindingSet())) {
 			ArrayList<BindingSet> expected = new ArrayList<>();
 			triples.forEach(t -> {
 				expected.add(fromTriple(t));
@@ -233,15 +223,18 @@ public class EvaluationStrategyWithRDFStarTest {
 			while (iter.hasNext()) {
 				received.add(iter.next());
 			}
-			assertTrue("all expected must be received", received.containsAll(expected));
-			assertTrue("all received must be expected", expected.containsAll(received));
+			assertTrue(received.containsAll(expected), "all expected must be received");
+			assertTrue(expected.containsAll(received), "all received must be expected");
 		}
 	}
 
-	@Test
-	public void testSubjVarBound() {
-		try (CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.evaluate(tripleRefNode,
-				createWithVarValue(tripleRefNode.getSubjectVar(), vf.createIRI("urn:a")))) {
+	@ParameterizedTest(name = "RDF-star={0}")
+	@ValueSource(booleans = { false, true })
+	public void testSubjVarBound(boolean bRDFStarData) {
+		EvaluationStrategy strategy = new StrictEvaluationStrategy(createSource(bRDFStarData), null);
+		try (CloseableIteration<BindingSet> iter = strategy.precompile(tripleRefNode)
+				.evaluate(
+						createWithVarValue(tripleRefNode.getSubjectVar(), vf.createIRI("urn:a")))) {
 			ArrayList<BindingSet> expected = new ArrayList<>();
 			triples.forEach(t -> {
 				if (t.getSubject().equals(vf.createIRI("urn:a"))) {
@@ -252,15 +245,18 @@ public class EvaluationStrategyWithRDFStarTest {
 			while (iter.hasNext()) {
 				received.add(iter.next());
 			}
-			assertTrue("all expected must be received", received.containsAll(expected));
-			assertTrue("all received must be expected", expected.containsAll(received));
+			assertTrue(received.containsAll(expected), "all expected must be received");
+			assertTrue(expected.containsAll(received), "all received must be expected");
 		}
 	}
 
-	@Test
-	public void testPredVarBound() {
-		try (CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.evaluate(tripleRefNode,
-				createWithVarValue(tripleRefNode.getPredicateVar(), vf.createIRI("urn:p")))) {
+	@ParameterizedTest(name = "RDF-star={0}")
+	@ValueSource(booleans = { false, true })
+	public void testPredVarBound(boolean bRDFStarData) {
+		EvaluationStrategy strategy = new StrictEvaluationStrategy(createSource(bRDFStarData), null);
+		try (CloseableIteration<BindingSet> iter = strategy.precompile(tripleRefNode)
+				.evaluate(
+						createWithVarValue(tripleRefNode.getPredicateVar(), vf.createIRI("urn:p")))) {
 
 			ArrayList<BindingSet> expected = new ArrayList<>();
 			triples.forEach(t -> {
@@ -272,15 +268,18 @@ public class EvaluationStrategyWithRDFStarTest {
 			while (iter.hasNext()) {
 				received.add(iter.next());
 			}
-			assertTrue("all expected must be received", received.containsAll(expected));
-			assertTrue("all received must be expected", expected.containsAll(received));
+			assertTrue(received.containsAll(expected), "all expected must be received");
+			assertTrue(expected.containsAll(received), "all received must be expected");
 		}
 	}
 
-	@Test
-	public void testObjVarBound() {
-		try (CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.evaluate(tripleRefNode,
-				createWithVarValue(tripleRefNode.getObjectVar(), vf.createIRI("urn:b")))) {
+	@ParameterizedTest(name = "RDF-star={0}")
+	@ValueSource(booleans = { false, true })
+	public void testObjVarBound(boolean bRDFStarData) {
+		EvaluationStrategy strategy = new StrictEvaluationStrategy(createSource(bRDFStarData), null);
+		try (CloseableIteration<BindingSet> iter = strategy.precompile(tripleRefNode)
+				.evaluate(
+						createWithVarValue(tripleRefNode.getObjectVar(), vf.createIRI("urn:b")))) {
 
 			ArrayList<BindingSet> expected = new ArrayList<>();
 			triples.forEach(t -> {
@@ -292,17 +291,19 @@ public class EvaluationStrategyWithRDFStarTest {
 			while (iter.hasNext()) {
 				received.add(iter.next());
 			}
-			assertTrue("all expected must be received", received.containsAll(expected));
-			assertTrue("all received must be expected", expected.containsAll(received));
+			assertTrue(received.containsAll(expected), "all expected must be received");
+			assertTrue(expected.containsAll(received), "all received must be expected");
 		}
 	}
 
-	@Test
-	public void testSubjAndObjVarBound() {
+	@ParameterizedTest(name = "RDF-star={0}")
+	@ValueSource(booleans = { false, true })
+	public void testSubjAndObjVarBound(boolean bRDFStarData) {
 		QueryBindingSet set = (QueryBindingSet) createWithVarValue(tripleRefNode.getObjectVar(), vf.createIRI("urn:c"));
 		set.addBinding(tripleRefNode.getSubjectVar().getName(), vf.createIRI("urn:a:2"));
 
-		try (CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.evaluate(tripleRefNode, set)) {
+		EvaluationStrategy strategy = new StrictEvaluationStrategy(createSource(bRDFStarData), null);
+		try (CloseableIteration<BindingSet> iter = strategy.precompile(tripleRefNode).evaluate(set)) {
 
 			ArrayList<BindingSet> expected = new ArrayList<>();
 			triples.forEach(t -> {
@@ -314,17 +315,19 @@ public class EvaluationStrategyWithRDFStarTest {
 			while (iter.hasNext()) {
 				received.add(iter.next());
 			}
-			assertTrue("all expected must be received", received.containsAll(expected));
-			assertTrue("all received must be expected", expected.containsAll(received));
+			assertTrue(received.containsAll(expected), "all expected must be received");
+			assertTrue(expected.containsAll(received), "all received must be expected");
 		}
 	}
 
-	@Test
-	public void testExtVarBound() {
+	@ParameterizedTest(name = "RDF-star={0}")
+	@ValueSource(booleans = { false, true })
+	public void testExtVarBound(boolean bRDFStarData) {
 		Triple triple = triples.get(0);
 		QueryBindingSet set = (QueryBindingSet) createWithVarValue(tripleRefNode.getExprVar(), triple);
 
-		try (CloseableIteration<BindingSet, QueryEvaluationException> iter = strategy.evaluate(tripleRefNode, set)) {
+		EvaluationStrategy strategy = new StrictEvaluationStrategy(createSource(bRDFStarData), null);
+		try (CloseableIteration<BindingSet> iter = strategy.precompile(tripleRefNode).evaluate(set)) {
 
 			ArrayList<BindingSet> expected = new ArrayList<>();
 			expected.add(fromTriple(triple));

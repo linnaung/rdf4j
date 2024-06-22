@@ -1,17 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.rdfxml;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
@@ -34,9 +37,9 @@ import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.helpers.ParseErrorCollector;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
 import org.eclipse.rdf4j.rio.helpers.XMLParserSettings;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class RDFXMLParserTest {
 
@@ -50,8 +53,8 @@ public class RDFXMLParserTest {
 
 	private Locale platformLocale;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		platformLocale = Locale.getDefault();
 
 		Locale.setDefault(Locale.ENGLISH);
@@ -64,8 +67,8 @@ public class RDFXMLParserTest {
 
 	}
 
-	@After
-	public void tearDown() throws Exception {
+	@AfterEach
+	public void tearDown() {
 		Locale.setDefault(platformLocale);
 	}
 
@@ -73,11 +76,11 @@ public class RDFXMLParserTest {
 	public void rdfXmlLoadedFromInsideAJarResolvesRelativeUris() throws Exception {
 		URL zipfileUrl = this.getClass().getResource("/org/eclipse/rdf4j/rio/rdfxml/sample-with-rdfxml-data.zip");
 
-		assertNotNull("The sample-data.zip file must be present for this test", zipfileUrl);
+		assertNotNull(zipfileUrl, "The sample-data.zip file must be present for this test");
 
 		String url = "jar:" + zipfileUrl + "!/index.rdf";
 
-		try (final InputStream in = new URL(url).openStream();) {
+		try (final InputStream in = new URL(url).openStream()) {
 			parser.parse(in, url);
 		}
 
@@ -103,8 +106,8 @@ public class RDFXMLParserTest {
 		URL javaUrl = new URL(resourceUrl);
 		assertEquals("jar", javaUrl.getProtocol());
 
-		try (InputStream uc = javaUrl.openStream();) {
-			assertEquals("The resource stream should be empty", -1, uc.read());
+		try (InputStream uc = javaUrl.openStream()) {
+			assertEquals(-1, uc.read(), "The resource stream should be empty");
 		}
 
 		assertEquals(res, stmt2.getSubject());
@@ -115,7 +118,7 @@ public class RDFXMLParserTest {
 	@Test
 	public void testIgnoreExternalGeneralEntity() throws Exception {
 		try (final InputStream in = this.getClass()
-				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-external-general-entity.rdf");) {
+				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-external-general-entity.rdf")) {
 			parser.parse(in, "");
 		} catch (FileNotFoundException e) {
 			fail("parser tried to read external file from external general entity");
@@ -139,7 +142,7 @@ public class RDFXMLParserTest {
 		parser.getParserConfig().set(XMLParserSettings.DISALLOW_DOCTYPE_DECL, true);
 
 		try (final InputStream in = this.getClass()
-				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-external-param-entity.rdf");) {
+				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-external-param-entity.rdf")) {
 			parser.parse(in, "");
 		} catch (RDFParseException e) {
 			assertEquals(
@@ -160,7 +163,7 @@ public class RDFXMLParserTest {
 		parser.getParserConfig().set(XMLParserSettings.DISALLOW_DOCTYPE_DECL, false);
 
 		try (final InputStream in = this.getClass()
-				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-external-param-entity.rdf");) {
+				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-external-param-entity.rdf")) {
 			parser.parse(in, "");
 		} catch (FileNotFoundException e) {
 			fail("parser tried to read external file from external parameter entity");
@@ -173,7 +176,7 @@ public class RDFXMLParserTest {
 	@Test
 	public void testRDFXMLWhitespace() throws Exception {
 		try (final InputStream in = this.getClass()
-				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-whitespace-literal.rdf");) {
+				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-whitespace-literal.rdf")) {
 			parser.parse(in, "");
 		}
 		Statement stmt1 = sc.getStatements().iterator().next();
@@ -185,7 +188,7 @@ public class RDFXMLParserTest {
 	@Test
 	public void testFatalErrorPrologContent() throws Exception {
 		try (final InputStream in = this.getClass()
-				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/not-an-rdfxml-file.rdf");) {
+				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/not-an-rdfxml-file.rdf")) {
 			parser.parse(in, "");
 		} catch (RDFParseException e) {
 			assertEquals("Content is not allowed in prolog. [line 1, column 1]", e.getMessage());
@@ -204,7 +207,7 @@ public class RDFXMLParserTest {
 		parser.setRDFHandler(inputCollector);
 
 		try (final InputStream in = this.getClass()
-				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-namespace-addition.rdf");) {
+				.getResourceAsStream("/org/eclipse/rdf4j/rio/rdfxml/rdfxml-namespace-addition.rdf")) {
 			parser.parse(in, "");
 		} catch (RDFParseException | IOException e) {
 			assertEquals("Content is not allowed in prolog. [line 1, column 1]", e.getMessage());
@@ -216,8 +219,9 @@ public class RDFXMLParserTest {
 				+
 				"  <test:datapart xmlns:test=\"http://test.org/testing/\">0</test:datapart>\n" +
 				"  <test:datapart xmlns:test=\"http://test.org/testing/\">0</test:datapart>\n" +
-				"  \"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral>)";
-		String s2 = "(http://mycorp.example.com/papers/NobelPaper1, http://purl.org/metadata/dublin_core#Creator, \"David Hume\")";
+				"  \"^^<http://www.w3.org/1999/02/22-rdf-syntax-ns#XMLLiteral>) [null]";
+
+		String s2 = "(http://mycorp.example.com/papers/NobelPaper1, http://purl.org/metadata/dublin_core#Creator, \"David Hume\") [null]";
 		expectedLiteral[0] = s1;
 		expectedLiteral[1] = s2;
 
@@ -226,5 +230,6 @@ public class RDFXMLParserTest {
 			assertEquals(s.toString(), expectedLiteral[ind]);
 			ind += 1;
 		}
+
 	}
 }

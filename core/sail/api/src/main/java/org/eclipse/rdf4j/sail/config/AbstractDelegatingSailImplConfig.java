@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.config;
 
@@ -11,8 +14,9 @@ import static org.eclipse.rdf4j.sail.config.SailConfigSchema.DELEGATE;
 
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.util.Configurations;
 import org.eclipse.rdf4j.model.util.ModelException;
-import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 
 /**
  * @author Herko ter Horst
@@ -64,6 +68,21 @@ public abstract class AbstractDelegatingSailImplConfig extends AbstractSailImplC
 
 	@Override
 	public Resource export(Model m) {
+		if (Configurations.useLegacyConfig()) {
+			return exportLegacy(m);
+		}
+
+		Resource implNode = super.export(m);
+
+		if (delegate != null) {
+			Resource delegateNode = delegate.export(m);
+			m.add(implNode, CONFIG.delegate, delegateNode);
+		}
+
+		return implNode;
+	}
+
+	private Resource exportLegacy(Model m) {
 		Resource implNode = super.export(m);
 
 		if (delegate != null) {
@@ -79,7 +98,7 @@ public abstract class AbstractDelegatingSailImplConfig extends AbstractSailImplC
 		super.parse(m, implNode);
 
 		try {
-			Models.objectResource(m.getStatements(implNode, DELEGATE, null))
+			Configurations.getResourceValue(m, implNode, CONFIG.delegate, DELEGATE)
 					.ifPresent(delegate -> setDelegate(SailConfigUtil.parseRepositoryImpl(m, delegate)));
 		} catch (ModelException e) {
 			throw new SailConfigException(e.getMessage(), e);

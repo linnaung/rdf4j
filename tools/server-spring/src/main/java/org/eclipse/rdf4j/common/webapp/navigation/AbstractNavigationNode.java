@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.common.webapp.navigation;
 
@@ -96,7 +99,7 @@ public abstract class AbstractNavigationNode implements NavigationNode {
 			if (getParent().getPathPrefix() != null) {
 				result.append(getParent().getPathPrefix());
 			}
-			if (getParent().getId().length() > 0) {
+			if (!getParent().getId().isEmpty()) {
 				result.append(getParent().getId());
 				result.append(getPathSeparator());
 			}
@@ -136,7 +139,7 @@ public abstract class AbstractNavigationNode implements NavigationNode {
 			if (getParent().getIconPrefix() != null) {
 				result.append(getParent().getIconPrefix());
 			}
-			if (getParent().getId().length() > 0) {
+			if (!getParent().getId().isEmpty()) {
 				result.append(getParent().getId());
 				result.append(getIconSeparator());
 			}
@@ -187,7 +190,7 @@ public abstract class AbstractNavigationNode implements NavigationNode {
 			if (getParent().getI18nPrefix() != null) {
 				result.append(getParent().getI18nPrefix());
 			}
-			if (getParent().getId().length() > 0) {
+			if (!getParent().getId().isEmpty()) {
 				result.append(getParent().getId());
 				result.append(getI18nSeparator());
 			}

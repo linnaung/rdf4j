@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.trix;
 
@@ -33,7 +36,6 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.util.Literals;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandlerException;
-import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFWriter;
 import org.eclipse.rdf4j.rio.helpers.XMLWriterSettings;
 
@@ -43,7 +45,7 @@ import org.eclipse.rdf4j.rio.helpers.XMLWriterSettings;
  *
  * @author Arjohn Kampman
  */
-public class TriXWriter extends AbstractRDFWriter implements RDFWriter, CharSink {
+public class TriXWriter extends AbstractRDFWriter implements CharSink {
 
 	private final XMLWriter xmlWriter;
 
@@ -196,7 +198,7 @@ public class TriXWriter extends AbstractRDFWriter implements RDFWriter, CharSink
 		}
 	}
 
-	private static final boolean contextsEquals(Resource context1, Resource context2) {
+	private static boolean contextsEquals(Resource context1, Resource context2) {
 		if (context1 == null) {
 			return context2 == null;
 		} else {

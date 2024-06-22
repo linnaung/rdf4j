@@ -1,15 +1,19 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Objects;
+
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.sail.SailException;
 
 public class EqualsJoin implements PlanNode {
 	private final PlanNode left;
@@ -19,25 +23,28 @@ public class EqualsJoin implements PlanNode {
 	private ValidationExecutionLogger validationExecutionLogger;
 
 	public EqualsJoin(PlanNode left, PlanNode right, boolean useAsFilter) {
-		left = PlanNodeHelper.handleSorting(this, left);
-		right = PlanNodeHelper.handleSorting(this, right);
-
-		this.left = left;
-		this.right = right;
+		this.left = PlanNodeHelper.handleSorting(this, left);
+		this.right = PlanNodeHelper.handleSorting(this, right);
 		this.useAsFilter = useAsFilter;
 
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final CloseableIteration<? extends ValidationTuple, SailException> leftIterator = left.iterator();
-			final CloseableIteration<? extends ValidationTuple, SailException> rightIterator = right.iterator();
+			private CloseableIteration<? extends ValidationTuple> leftIterator;
+			private CloseableIteration<? extends ValidationTuple> rightIterator;
 
 			ValidationTuple next;
 			ValidationTuple nextLeft;
 			ValidationTuple nextRight;
+
+			@Override
+			protected void init() {
+				leftIterator = left.iterator();
+				rightIterator = right.iterator();
+			}
 
 			void calculateNext() {
 				if (next != null) {
@@ -68,7 +75,7 @@ public class EqualsJoin implements PlanNode {
 							nextRight = null;
 						} else {
 
-							int compareTo = nextLeft.compareTarget(nextRight);
+							int compareTo = nextLeft.compareActiveTarget(nextRight);
 
 							if (compareTo < 0) {
 								if (leftIterator.hasNext()) {
@@ -95,28 +102,30 @@ public class EqualsJoin implements PlanNode {
 			}
 
 			@Override
-			public void close() throws SailException {
-				leftIterator.close();
-				rightIterator.close();
+			public void localClose() {
+				try {
+					if (leftIterator != null) {
+						leftIterator.close();
+					}
+				} finally {
+					if (rightIterator != null) {
+						rightIterator.close();
+					}
+				}
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() {
 				calculateNext();
 				return next != null;
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() {
 				calculateNext();
 				ValidationTuple temp = next;
 				next = null;
 				return temp;
-			}
-
-			@Override
-			public void remove() throws SailException {
-
 			}
 
 		};
@@ -167,5 +176,22 @@ public class EqualsJoin implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return true;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		EqualsJoin that = (EqualsJoin) o;
+		return useAsFilter == that.useAsFilter && left.equals(that.left) && right.equals(that.right);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(left, right, useAsFilter);
 	}
 }

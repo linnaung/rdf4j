@@ -1,16 +1,15 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl;
-
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertTrue;
 
 import java.io.IOException;
 import java.util.Map;
@@ -27,8 +26,8 @@ import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.sail.shacl.results.ValidationReport;
 import org.eclipse.rdf4j.sail.shacl.results.ValidationResult;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Håvard Ottestad
@@ -37,14 +36,9 @@ public class TruncatedValidationReportTest {
 
 	private static final int NUMBER_OF_FAILURES = 5000;
 
-	@BeforeClass
-	public static void beforeClass() {
-		GlobalValidationExecutionLogging.loggingEnabled = false;
-	}
-
 	@Test
 	public void testTotal() throws IOException {
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitTotal(10);
@@ -57,15 +51,15 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertTrue(validationReport.isTruncated());
-		assertEquals(10, total);
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertEquals(10, total);
 
 	}
 
 	@Test
 	public void testPerConstraint() throws IOException {
 
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitPerConstraint(10);
@@ -78,17 +72,17 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertTrue(validationReport.isTruncated());
-		assertEquals(10, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
-		assertEquals(10, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
-		assertEquals(20, total);
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertEquals(10, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
+		Assertions.assertEquals(10, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
+		Assertions.assertEquals(20, total);
 
 	}
 
 	@Test
 	public void testPerConstraint2() throws IOException {
 
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitPerConstraint(10);
@@ -103,17 +97,17 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertTrue(validationReport.isTruncated());
-		assertEquals(10, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
-		assertEquals(10, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
-		assertEquals(20, total);
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertEquals(10, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
+		Assertions.assertEquals(10, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
+		Assertions.assertEquals(20, total);
 
 	}
 
 	@Test
 	public void testZeroTotal() throws IOException {
 
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitTotal(0);
@@ -126,16 +120,16 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertTrue(validationReport.isTruncated());
-		assertFalse(validationReport.conforms());
-		assertEquals(0, total);
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertFalse(validationReport.conforms());
+		Assertions.assertEquals(0, total);
 
 	}
 
 	@Test
 	public void testZeroPerConstraint() throws IOException {
 
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitPerConstraint(0);
@@ -148,16 +142,16 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertTrue(validationReport.isTruncated());
-		assertFalse(validationReport.conforms());
-		assertEquals(0, total);
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertFalse(validationReport.conforms());
+		Assertions.assertEquals(0, total);
 
 	}
 
 	@Test
 	public void testTotalAndPerConstraint() throws IOException {
 
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitTotal(20);
@@ -171,17 +165,17 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertTrue(validationReport.isTruncated());
-		assertEquals(5, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
-		assertEquals(5, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
-		assertEquals(10, total);
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertEquals(5, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
+		Assertions.assertEquals(5, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
+		Assertions.assertEquals(10, total);
 
 	}
 
 	@Test
 	public void testTotalAndPerConstraint2() throws IOException {
 
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitTotal(20);
@@ -195,16 +189,19 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertTrue(validationReport.isTruncated());
-		assertEquals(20, total);
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertEquals(20, total);
 
-		assertTrue(validationReport.asModel().contains(null, RDF4J.TRUNCATED, BooleanLiteral.TRUE));
+		Assertions.assertTrue(validationReport.asModel().contains(null, RDF4J.TRUNCATED, BooleanLiteral.TRUE));
 	}
 
 	@Test
 	public void testNoLimit() throws IOException {
 
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
+
+		((ShaclSail) shaclRepository.getSail()).setValidationResultsLimitPerConstraint(-1);
+		((ShaclSail) shaclRepository.getSail()).setValidationResultsLimitTotal(-1);
 
 		ValidationReport validationReport = getValidationReport(shaclRepository);
 		shaclRepository.shutDown();
@@ -214,19 +211,39 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertFalse(validationReport.isTruncated());
-		assertEquals(NUMBER_OF_FAILURES,
+		Assertions.assertFalse(validationReport.isTruncated());
+		Assertions.assertEquals(NUMBER_OF_FAILURES,
 				collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
-		assertEquals(NUMBER_OF_FAILURES,
+		Assertions.assertEquals(NUMBER_OF_FAILURES,
 				collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
-		assertEquals(NUMBER_OF_FAILURES * 2, total);
+		Assertions.assertEquals(NUMBER_OF_FAILURES * 2, total);
+
+	}
+
+	@Test
+	public void testDefaultLimit() throws IOException {
+
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
+
+		ValidationReport validationReport = getValidationReport(shaclRepository);
+		shaclRepository.shutDown();
+
+		Map<SourceConstraintComponent, Long> collect = validationReport.getValidationResult()
+				.stream()
+				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
+		long total = collect.values().stream().mapToLong(l -> l).sum();
+
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertEquals(1000, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
+		Assertions.assertEquals(1000, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
+		Assertions.assertEquals(2000, total);
 
 	}
 
 	@Test
 	public void testLimitIsEqualToSize() throws IOException {
 
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitTotal(NUMBER_OF_FAILURES * 2);
@@ -240,18 +257,18 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertFalse(validationReport.isTruncated());
-		assertEquals(NUMBER_OF_FAILURES,
+		Assertions.assertFalse(validationReport.isTruncated());
+		Assertions.assertEquals(NUMBER_OF_FAILURES,
 				collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
-		assertEquals(NUMBER_OF_FAILURES,
+		Assertions.assertEquals(NUMBER_OF_FAILURES,
 				collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
-		assertEquals(NUMBER_OF_FAILURES * 2, total);
+		Assertions.assertEquals(NUMBER_OF_FAILURES * 2, total);
 
 	}
 
 	@Test
 	public void testRevalidate() throws IOException {
-		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.ttl", true);
+		SailRepository shaclRepository = Utils.getInitializedShaclRepository("shaclDatatypeAndMinCount.trig");
 
 		ShaclSail sail = (ShaclSail) shaclRepository.getSail();
 		sail.setValidationResultsLimitPerConstraint(15);
@@ -275,10 +292,10 @@ public class TruncatedValidationReportTest {
 				.collect(Collectors.groupingBy(ValidationResult::getSourceConstraintComponent, Collectors.counting()));
 		long total = collect.values().stream().mapToLong(l -> l).sum();
 
-		assertTrue(validationReport.isTruncated());
-		assertEquals(15, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
-		assertEquals(15, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
-		assertEquals(30, total);
+		Assertions.assertTrue(validationReport.isTruncated());
+		Assertions.assertEquals(15, collect.get(SourceConstraintComponent.MinCountConstraintComponent).longValue());
+		Assertions.assertEquals(15, collect.get(SourceConstraintComponent.DatatypeConstraintComponent).longValue());
+		Assertions.assertEquals(30, total);
 	}
 
 	private ValidationReport getValidationReport(SailRepository shaclRepository) {

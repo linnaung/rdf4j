@@ -1,14 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.http.protocol;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.eclipse.rdf4j.http.protocol.Protocol.CONFIG;
 import static org.eclipse.rdf4j.http.protocol.Protocol.CONTEXTS;
 import static org.eclipse.rdf4j.http.protocol.Protocol.NAMESPACES;
@@ -23,15 +25,16 @@ import static org.eclipse.rdf4j.http.protocol.Protocol.getRepositoryConfigLocati
 import static org.eclipse.rdf4j.http.protocol.Protocol.getRepositoryID;
 import static org.eclipse.rdf4j.http.protocol.Protocol.getRepositoryLocation;
 import static org.eclipse.rdf4j.http.protocol.Protocol.getServerLocation;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ProtocolTest {
 
@@ -44,19 +47,19 @@ public class ProtocolTest {
 	@Test
 	public void testGetProtocolLocation() {
 		String result = getProtocolLocation(serverLocation);
-		assertThat(result).isEqualTo(serverLocation + "/" + PROTOCOL);
+		assertEquals(result, serverLocation + "/" + PROTOCOL);
 	}
 
 	@Test
 	public void testGetConfigLocation() {
 		String result = getConfigLocation(serverLocation);
-		assertThat(result).isEqualTo(serverLocation + "/" + CONFIG);
+		assertEquals(result, serverLocation + "/" + CONFIG);
 	}
 
 	@Test
 	public void testGetRepositoriesLocation() {
 		String result = getRepositoriesLocation(serverLocation);
-		assertThat(result).isEqualTo(serverLocation + "/" + REPOSITORIES);
+		assertEquals(result, serverLocation + "/" + REPOSITORIES);
 	}
 
 	@Test
@@ -78,25 +81,25 @@ public class ProtocolTest {
 	@Test
 	public void testGetRepositoryLocation() {
 		String result = getRepositoryLocation(serverLocation, repositoryID);
-		assertThat(result).isEqualTo(repositoryLocation);
+		assertEquals(result, repositoryLocation);
 	}
 
 	@Test
 	public void testGetRepositoryConfigLocation() {
 		String result = getRepositoryConfigLocation(repositoryLocation);
-		assertThat(result).isEqualTo(repositoryLocation + "/" + CONFIG);
+		assertEquals(result, repositoryLocation + "/" + CONFIG);
 	}
 
 	@Test
 	public void testGetContextsLocation() {
 		String result = getContextsLocation(repositoryLocation);
-		assertThat(result).isEqualTo(repositoryLocation + "/" + CONTEXTS);
+		assertEquals(result, repositoryLocation + "/" + CONTEXTS);
 	}
 
 	@Test
 	public void testGetNamespacesLocation() {
 		String result = getNamespacesLocation(repositoryLocation);
-		assertThat(result).isEqualTo(repositoryLocation + "/" + NAMESPACES);
+		assertEquals(result, repositoryLocation + "/" + NAMESPACES);
 	}
 
 	@Test
@@ -133,7 +136,7 @@ public class ProtocolTest {
 		assertEquals(vf.createBNode("bnode1"), Protocol.decodeContext("_:bnode1", vf));
 		assertEquals(vf.createIRI("urn:test"), Protocol.decodeContext("<urn:test>", vf));
 
-		// RDF* triples are resources but they can't be used as context values
+		// RDF-star triples are resources but they can't be used as context values
 		try {
 			Protocol.decodeContext("<<<urn:a> <urn:b> <urn:c>>>", SimpleValueFactory.getInstance());
 			fail("Must fail with exception");
@@ -142,8 +145,9 @@ public class ProtocolTest {
 		}
 	}
 
-	@Test(expected = IllegalArgumentException.class)
+	@Test
 	public void testParseIRIvsTriple() {
-		Protocol.decodeURI("<<<urn:a><urn:b><urn:c>>>", SimpleValueFactory.getInstance());
+		Exception exception = assertThrows(IllegalArgumentException.class,
+				() -> Protocol.decodeURI("<<<urn:a><urn:b><urn:c>>>", SimpleValueFactory.getInstance()));
 	}
 }

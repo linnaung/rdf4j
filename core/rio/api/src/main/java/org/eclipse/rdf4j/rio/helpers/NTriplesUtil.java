@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
@@ -30,27 +33,27 @@ public class NTriplesUtil {
 	/*
 	 * The following correspond to the N-Triples grammar (https://www.w3.org/TR/n-triples/#n-triples-grammar).
 	 */
-	private static String PN_CHARS_BASE = "[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF"
+	private static final String PN_CHARS_BASE = "[A-Za-z\u00C0-\u00D6\u00D8-\u00F6\u00F8-\u02FF\u0370-\u037D\u037F-\u1FFF"
 			+ "\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD"
 			+ "\uD800\uDC00-\uDB7F\uDFFF]"; // <- \u10000-\uEFFFF expressed with surrogate pairs
-	private static String PN_CHARS_U = "(?:" + PN_CHARS_BASE + "|_)";
-	private static String PN_CHARS = "(?:" + PN_CHARS_U + "|[0-9\u0300-\u036F\u203F-\u2040\u00B7-])";
-	private static String BNODE_ID = "(?:" + PN_CHARS_U + "|[0-9])(?:(?:" + PN_CHARS + "|\\.)*" + PN_CHARS + ")?";
-	private static String BNODE = "_:" + BNODE_ID;
+	private static final String PN_CHARS_U = "(?:" + PN_CHARS_BASE + "|_)";
+	private static final String PN_CHARS = "(?:" + PN_CHARS_U + "|[0-9\u0300-\u036F\u203F-\u2040\u00B7-])";
+	private static final String BNODE_ID = "(?:" + PN_CHARS_U + "|[0-9])(?:(?:" + PN_CHARS + "|\\.)*" + PN_CHARS + ")?";
+	private static final String BNODE = "_:" + BNODE_ID;
 
-	private static String HEX = "[0-9A-Fa-f]";
-	private static String UCHAR = "(?:\\\\u" + HEX + "{4}|\\\\U" + HEX + "{8})";
-	private static String IRI = "<(?:[^\u0000-\u0020<>\"{}|^`\\\\]|" + UCHAR + ")*>";
+	private static final String HEX = "[0-9A-Fa-f]";
+	private static final String UCHAR = "(?:\\\\u" + HEX + "{4}|\\\\U" + HEX + "{8})";
+	private static final String IRI = "<(?:[^\u0000-\u0020<>\"{}|^`\\\\]|" + UCHAR + ")*>";
 
-	private static String ECHAR = "\\\\[tbnrf\"'\\\\]";
-	private static String STRING_LITERAL_QUOTE = "\"(?:[^\"\\\\\n\r]|" + ECHAR + "|" + UCHAR + ")*\"";
-	private static String LANGTAG = "@[a-zA-Z]+(?:-[a-zA-Z0-9]+)*";
-	private static String LITERAL = STRING_LITERAL_QUOTE + "(?:\\^\\^" + IRI + "|" + LANGTAG + ")?";
+	private static final String ECHAR = "\\\\[tbnrf\"'\\\\]";
+	private static final String STRING_LITERAL_QUOTE = "\"(?:[^\"\\\\\n\r]|" + ECHAR + "|" + UCHAR + ")*+\"";
+	private static final String LANGTAG = "@[a-zA-Z]+(?:-[a-zA-Z0-9]+)*";
+	private static final String LITERAL = STRING_LITERAL_QUOTE + "(?:\\^\\^" + IRI + "|" + LANGTAG + ")?";
 
-	private static Pattern BNODE_ID_PATTERN = Pattern.compile(BNODE_ID);
-	private static Pattern BNODE_PATTERN = Pattern.compile(BNODE);
-	private static Pattern IRI_PATTERN = Pattern.compile(IRI);
-	private static Pattern LITERAL_PATTERN = Pattern.compile(LITERAL);
+	private static final Pattern BNODE_ID_PATTERN = Pattern.compile(BNODE_ID);
+	private static final Pattern BNODE_PATTERN = Pattern.compile(BNODE);
+	private static final Pattern IRI_PATTERN = Pattern.compile(IRI);
+	private static final Pattern LITERAL_PATTERN = Pattern.compile(LITERAL);
 
 	static class TripleMatch {
 		Triple triple;
@@ -116,7 +119,7 @@ public class NTriplesUtil {
 	public static IRI parseURI(String nTriplesURI, ValueFactory valueFactory) throws IllegalArgumentException {
 		if (nTriplesURI.startsWith("<") && nTriplesURI.endsWith(">")) {
 			String uri = nTriplesURI.substring(1, nTriplesURI.length() - 1);
-			// Disambiguate with RDF* triple
+			// Disambiguate with RDF-star triple
 			if (!uri.startsWith("<")) {
 				uri = unescapeString(uri);
 				return valueFactory.createIRI(uri);
@@ -186,10 +189,10 @@ public class NTriplesUtil {
 	}
 
 	/**
-	 * Parses an RDF* triple (non-standard N-Triples), creates an object for it using the supplied ValueFactory and
+	 * Parses an RDF-star triple (non-standard N-Triples), creates an object for it using the supplied ValueFactory and
 	 * returns this object.
 	 *
-	 * @param nTriplesTriple The RDF* triple to parse.
+	 * @param nTriplesTriple The RDF-star triple to parse.
 	 * @param valueFactory   The ValueFactory to use for creating the object.
 	 * @return An object representing the parsed triple.
 	 * @throws IllegalArgumentException If the supplied triple could not be parsed correctly.
@@ -203,10 +206,10 @@ public class NTriplesUtil {
 	}
 
 	/**
-	 * Parses an RDF* triple (non-standard N-Triples), creates an object for it using the supplied ValueFactory and
+	 * Parses an RDF-star triple (non-standard N-Triples), creates an object for it using the supplied ValueFactory and
 	 * returns an object that contains the parsed triple and the length of the parsed text.
 	 *
-	 * @param nTriplesTriple The RDF* triple to parse.
+	 * @param nTriplesTriple The RDF-star triple to parse.
 	 * @param valueFactory   The ValueFactory to use for creating the object.
 	 * @return An object representing the parsed triple and the length of the matching text.
 	 * @throws IllegalArgumentException If the supplied triple could not be parsed correctly.
@@ -216,7 +219,7 @@ public class NTriplesUtil {
 			String triple = nTriplesTriple.substring(2);
 			int offset = 2;
 
-			while (triple.length() > 0 && Character.isWhitespace(triple.charAt(0))) {
+			while (!triple.isEmpty() && Character.isWhitespace(triple.charAt(0))) {
 				triple = triple.substring(1);
 				++offset;
 			}
@@ -274,7 +277,7 @@ public class NTriplesUtil {
 					}
 					object = v;
 				}
-				while (triple.length() > 0 && Character.isWhitespace(triple.charAt(0))) {
+				while (!triple.isEmpty() && Character.isWhitespace(triple.charAt(0))) {
 					triple = triple.substring(1);
 					++offset;
 				}
@@ -293,7 +296,7 @@ public class NTriplesUtil {
 	 * Finds the end of the label in a literal string. This method takes into account that characters can be escaped
 	 * using backslashes.
 	 *
-	 * @return The index of the double quote ending the label, or <tt>-1</tt> if it could not be found.
+	 * @return The index of the double quote ending the label, or <var>-1</var> if it could not be found.
 	 */
 	private static int findEndOfLabel(String nTriplesLiteral) {
 		// First character of literal is guaranteed to be a double
@@ -547,7 +550,7 @@ public class NTriplesUtil {
 	 * @param xsdStringToPlainLiteral True to omit serializing the xsd:string datatype and false to always serialize the
 	 *                                datatype for literals.
 	 * @param escapeUnicode           True to escape non-ascii/non-printable characters using Unicode escapes
-	 *                                (<tt>&#x5C;uxxxx</tt> and <tt>&#x5C;Uxxxxxxxx</tt>), false to print without
+	 *                                (<var>&#x5C;uxxxx</var> and <var>&#x5C;Uxxxxxxxx</var>), false to print without
 	 *                                escaping.
 	 * @throws IOException
 	 */
@@ -576,7 +579,7 @@ public class NTriplesUtil {
 	}
 
 	/**
-	 * Creates an N-Triples (non-standard) string for the supplied RDF* triple.
+	 * Creates an N-Triples (non-standard) string for the supplied RDF-star triple.
 	 *
 	 * @param triple
 	 * @return string
@@ -607,11 +610,11 @@ public class NTriplesUtil {
 	/**
 	 * Checks whether the supplied character is a letter or number according to the N-Triples specification.
 	 *
-	 * @deprecated use {@link ASCIIUtil#isLetterOrNumber(int)}
-	 * @see #isLetter
-	 * @see #isNumber
 	 * @param c
 	 * @return true if it is a letter or a number
+	 * @see #isLetter
+	 * @see #isNumber
+	 * @deprecated use {@link ASCIIUtil#isLetterOrNumber(int)}
 	 */
 	@Deprecated
 	public static boolean isLetterOrNumber(int c) {
@@ -622,9 +625,9 @@ public class NTriplesUtil {
 	 * Checks whether the supplied character is a letter according to the N-Triples specification.N-Triples letters are
 	 * A - Z and a - z.
 	 *
-	 * @deprecated use {@link ASCIIUtil#isLetter(int)}
 	 * @param c
-	 * @return
+	 * @return true if c is an ascii leter
+	 * @deprecated use {@link ASCIIUtil#isLetter(int)}
 	 */
 	@Deprecated
 	public static boolean isLetter(int c) {
@@ -635,9 +638,9 @@ public class NTriplesUtil {
 	 * Checks whether the supplied character is a number according to the N-Triples specification.N-Triples numbers are
 	 * 0 - 9.
 	 *
-	 * @deprecated use {@link ASCIIUtil#isNumber(int)}
 	 * @param c
 	 * @return true if the character is a number
+	 * @deprecated use {@link ASCIIUtil#isNumber(int)}
 	 */
 	@Deprecated
 	public static boolean isNumber(int c) {
@@ -647,9 +650,9 @@ public class NTriplesUtil {
 	/**
 	 * Checks whether the supplied character is valid character as per N-Triples specification.
 	 *
-	 * @see <a href="https://www.w3.org/TR/n-triples/#BNodes">https://www.w3.org/TR/n-triples/#BNodes</a>
 	 * @param c
 	 * @return true if valid
+	 * @see <a href="https://www.w3.org/TR/n-triples/#BNodes">https://www.w3.org/TR/n-triples/#BNodes</a>
 	 */
 	public static boolean isValidCharacterForBNodeLabel(int c) {
 		return ASCIIUtil.isLetterOrNumber(c) || isLiberalCharactersButNotDot(c) || isDot(c);
@@ -688,11 +691,11 @@ public class NTriplesUtil {
 
 	/**
 	 * Escapes a Unicode string to an all-ASCII character sequence.Any special characters are escaped using backslashes
-	 * ( <tt>"</tt> becomes <tt>\"</tt>, etc.), and non-ascii/non-printable characters are escaped using Unicode escapes
-	 * ( <tt>&#x5C;uxxxx</tt> and <tt>&#x5C;Uxxxxxxxx</tt>).
+	 * ( <var>"</var> becomes <var>\"</var>, etc.), and non-ascii/non-printable characters are escaped using Unicode
+	 * escapes ( <var>&#x5C;uxxxx</var> and <var>&#x5C;Uxxxxxxxx</var>).
 	 *
 	 * @param label
-	 * @return
+	 * @return an escaped string (unicode to ascii plus codepoints).
 	 */
 	public static String escapeString(String label) {
 		try {
@@ -706,8 +709,8 @@ public class NTriplesUtil {
 
 	/**
 	 * Escapes a Unicode string to an all-ASCII character sequence. Any special characters are escaped using backslashes
-	 * ( <tt>"</tt> becomes <tt>\"</tt>, etc.), and non-ascii/non-printable characters are escaped using Unicode escapes
-	 * ( <tt>&#x5C;uxxxx</tt> and <tt>&#x5C;Uxxxxxxxx</tt>).
+	 * ( <var>"</var> becomes <var>\"</var>, etc.), and non-ascii/non-printable characters are escaped using Unicode
+	 * escapes ( <var>&#x5C;uxxxx</var> and <var>&#x5C;Uxxxxxxxx</var>).
 	 *
 	 * @param label
 	 * @param appendable
@@ -719,8 +722,8 @@ public class NTriplesUtil {
 
 	/**
 	 * Escapes a Unicode string to an N-Triples compatible character sequence.Any special characters are escaped using
-	 * backslashes (<tt>"</tt> becomes <tt>\"</tt>, etc.), and non-ascii/non-printable characters are escaped using
-	 * Unicode escapes (<tt>&#x5C;uxxxx</tt> and <tt>&#x5C;Uxxxxxxxx</tt>) if the option is selected.
+	 * backslashes (<var>"</var> becomes <var>\"</var>, etc.), and non-ascii/non-printable characters are escaped using
+	 * Unicode escapes (<var>&#x5C;uxxxx</var> and <var>&#x5C;Uxxxxxxxx</var>) if the option is selected.
 	 *
 	 * @param label
 	 * @param appendable
@@ -766,9 +769,9 @@ public class NTriplesUtil {
 	}
 
 	/**
-	 * Unescapes an escaped Unicode string. Any Unicode sequences ( <tt>&#x5C;uxxxx</tt> and <tt>&#x5C;Uxxxxxxxx</tt>)
-	 * are restored to the value indicated by the hexadecimal argument and any backslash-escapes ( <tt>\"</tt>,
-	 * <tt>\\</tt>, etc.) are decoded to their original form.
+	 * Unescapes an escaped Unicode string. Any Unicode sequences ( <var>&#x5C;uxxxx</var> and
+	 * <var>&#x5C;Uxxxxxxxx</var>) are restored to the value indicated by the hexadecimal argument and any
+	 * backslash-escapes ( <var>\"</var>, <var>\\</var>, etc.) are decoded to their original form.
 	 *
 	 * @param s An escaped Unicode string.
 	 * @return The unescaped string.

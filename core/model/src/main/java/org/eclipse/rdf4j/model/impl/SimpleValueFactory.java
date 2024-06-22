@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.impl;
 
@@ -11,6 +14,8 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 import java.util.Date;
 import java.util.GregorianCalendar;
+import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -24,6 +29,8 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.AbstractValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 
@@ -31,27 +38,16 @@ import org.eclipse.rdf4j.model.vocabulary.XSD;
  * Default implementation of the {@link ValueFactory} interface.
  *
  * @author Arjohn Kampman
- * 
- * @implNote the implementation duplicates code from {@link AbstractValueFactory} - this is done to avoid deprecation
- *           warnings in end-user calling code - see https://github.com/eclipse/rdf4j/issues/2655. We can not
- *           remove/replace the abstract superclass without breaking binary compatibility so this will be handled in a
- *           followup, as part of a major release. See https://github.com/eclipse/rdf4j/issues/2663.
  */
-@SuppressWarnings("deprecation")
 public class SimpleValueFactory extends AbstractValueFactory {
 
 	/* Constants */
 
 	private static final SimpleValueFactory sharedInstance = new SimpleValueFactory();
 
-	/**
-	 * "universal" ID for bnode prefixes to prevent blank node clashes (unique per classloaded instance of this class)
-	 */
-	private static long lastBNodePrefixUID = 0;
-
-	private static synchronized long getNextBNodePrefixUid() {
-		return lastBNodePrefixUID = Math.max(System.currentTimeMillis(), lastBNodePrefixUID + 1);
-	}
+	// static UUID as prefix together with a thread safe incrementing long ensures unique blank nodes.
+	private final static String uniqueIdPrefix = UUID.randomUUID().toString().replace("-", "");
+	private final static AtomicLong uniqueIdSuffix = new AtomicLong();
 
 	private static final DatatypeFactory datatypeFactory;
 
@@ -66,20 +62,6 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	/* variables */
 
 	/**
-	 * @category variables
-	 * 
-	 *           The ID for the next bnode that is created.
-	 */
-	private int nextBNodeID;
-
-	/**
-	 * @category variables
-	 * 
-	 *           The prefix for any new bnode IDs.
-	 */
-	private String bnodePrefix;
-
-	/**
 	 * Provide a single shared instance of a SimpleValueFactory.
 	 *
 	 * @return a singleton instance of SimpleValueFactory.
@@ -92,7 +74,6 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	 * Hidden constructor to enforce singleton pattern.
 	 */
 	protected SimpleValueFactory() {
-		initBNodeParams();
 	}
 
 	/* Public methods */
@@ -104,7 +85,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 
 	@Override
 	public IRI createIRI(String namespace, String localName) {
-		return createIRI(namespace + localName);
+		return new SimpleIRI(namespace, localName);
 	}
 
 	@Override
@@ -114,7 +95,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 
 	@Override
 	public Literal createLiteral(String value) {
-		return new SimpleLiteral(value, XSD.Datatype.STRING);
+		return new SimpleLiteral(value, CoreDatatype.XSD.STRING);
 	}
 
 	@Override
@@ -134,12 +115,12 @@ public class SimpleValueFactory extends AbstractValueFactory {
 
 	@Override
 	public Statement createStatement(Resource subject, IRI predicate, Value object) {
-		return new SimpleStatement(subject, predicate, object);
+		return new GenericStatement<>(subject, predicate, object, null);
 	}
 
 	@Override
 	public Statement createStatement(Resource subject, IRI predicate, Value object, Resource context) {
-		return new ContextStatement(subject, predicate, object, context);
+		return new GenericStatement<>(subject, predicate, object, context);
 	}
 
 	@Override
@@ -147,28 +128,9 @@ public class SimpleValueFactory extends AbstractValueFactory {
 		return new SimpleTriple(subject, predicate, object);
 	}
 
-	/**
-	 * Generates a new bnode prefix and resets <tt>nextBNodeID</tt> to <tt>1</tt> .
-	 */
-	protected void initBNodeParams() {
-		// BNode prefix is based on currentTimeMillis(). Combined with a
-		// sequential number per session, this gives a unique identifier.
-		bnodePrefix = "node" + Long.toString(getNextBNodePrefixUid(), 32) + "x";
-		nextBNodeID = 1;
-	}
-
 	@Override
-	public synchronized BNode createBNode() {
-		int id = nextBNodeID++;
-
-		BNode result = createBNode(bnodePrefix + id);
-
-		if (id == Integer.MAX_VALUE) {
-			// Start with a new bnode prefix
-			initBNodeParams();
-		}
-
-		return result;
+	public BNode createBNode() {
+		return createBNode(uniqueIdPrefix + uniqueIdSuffix.incrementAndGet());
 	}
 
 	/**
@@ -176,7 +138,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	 */
 	@Override
 	public Literal createLiteral(byte value) {
-		return createIntegerLiteral(value, XSD.Datatype.BYTE);
+		return createIntegerLiteral(value, CoreDatatype.XSD.BYTE);
 	}
 
 	/**
@@ -184,7 +146,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	 */
 	@Override
 	public Literal createLiteral(short value) {
-		return createIntegerLiteral(value, XSD.Datatype.SHORT);
+		return createIntegerLiteral(value, CoreDatatype.XSD.SHORT);
 	}
 
 	/**
@@ -192,7 +154,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	 */
 	@Override
 	public Literal createLiteral(int value) {
-		return createIntegerLiteral(value, XSD.Datatype.INT);
+		return createIntegerLiteral(value, CoreDatatype.XSD.INT);
 	}
 
 	/**
@@ -200,7 +162,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	 */
 	@Override
 	public Literal createLiteral(long value) {
-		return createIntegerLiteral(value, XSD.Datatype.LONG);
+		return createIntegerLiteral(value, CoreDatatype.XSD.LONG);
 	}
 
 	/**
@@ -210,7 +172,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 		return createNumericLiteral(value, datatype);
 	}
 
-	protected Literal createIntegerLiteral(Number value, XSD.Datatype datatype) {
+	protected Literal createIntegerLiteral(Number value, CoreDatatype.XSD datatype) {
 		return createNumericLiteral(value, datatype);
 	}
 
@@ -219,7 +181,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	 */
 	@Override
 	public Literal createLiteral(float value) {
-		return createFPLiteral(value, XSD.Datatype.FLOAT);
+		return createFPLiteral(value, CoreDatatype.XSD.FLOAT);
 	}
 
 	/**
@@ -227,17 +189,17 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	 */
 	@Override
 	public Literal createLiteral(double value) {
-		return createFPLiteral(value, XSD.Datatype.DOUBLE);
+		return createFPLiteral(value, CoreDatatype.XSD.DOUBLE);
 	}
 
 	@Override
 	public Literal createLiteral(BigInteger bigInteger) {
-		return createIntegerLiteral(bigInteger, XSD.INTEGER);
+		return createIntegerLiteral(bigInteger, CoreDatatype.XSD.INTEGER);
 	}
 
 	@Override
 	public Literal createLiteral(BigDecimal bigDecimal) {
-		return createNumericLiteral(bigDecimal, XSD.DECIMAL);
+		return createNumericLiteral(bigDecimal, CoreDatatype.XSD.DECIMAL);
 	}
 
 	/**
@@ -247,7 +209,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 		return createNumericLiteral(value, datatype);
 	}
 
-	protected Literal createFPLiteral(Number value, XSD.Datatype datatype) {
+	protected Literal createFPLiteral(Number value, CoreDatatype.XSD datatype) {
 		return createNumericLiteral(value, datatype);
 	}
 
@@ -264,7 +226,7 @@ public class SimpleValueFactory extends AbstractValueFactory {
 		return new NumericLiteral(number, datatype);
 	}
 
-	protected Literal createNumericLiteral(Number number, XSD.Datatype datatype) {
+	protected Literal createNumericLiteral(Number number, CoreDatatype datatype) {
 		if (number instanceof BigDecimal) {
 			return new DecimalLiteral((BigDecimal) number, datatype);
 		}
@@ -280,11 +242,11 @@ public class SimpleValueFactory extends AbstractValueFactory {
 	 *
 	 * @see XMLGregorianCalendar#toXMLFormat()
 	 * @see XMLGregorianCalendar#getXMLSchemaType()
-	 * @see XMLDatatypeUtil#qnameToURI(javax.xml.namespace.QName)
+	 * @see XMLDatatypeUtil#qnameToCoreDatatype(javax.xml.namespace.QName)
 	 */
 	@Override
 	public Literal createLiteral(XMLGregorianCalendar calendar) {
-		return createLiteral(calendar.toXMLFormat(), XMLDatatypeUtil.qnameToURI(calendar.getXMLSchemaType()));
+		return createLiteral(calendar.toXMLFormat(), XMLDatatypeUtil.qnameToCoreDatatype(calendar.getXMLSchemaType()));
 	}
 
 	/**

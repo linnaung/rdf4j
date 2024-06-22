@@ -1,16 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.triple;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
@@ -20,9 +23,9 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test rdf:Statement(a, b, c) function cases covered: subject one of (IRI | BNode | Triple | Literal) predicate one of
@@ -34,21 +37,19 @@ public class StatementFunctionTest {
 
 	private StatementFunction function;
 
-	private ValueFactory f = SimpleValueFactory.getInstance();
+	private final ValueFactory f = SimpleValueFactory.getInstance();
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		function = new StatementFunction();
 	}
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@After
-	public void tearDown() throws Exception {
+	@AfterEach
+	public void tearDown() {
 	}
 
 	@Test
@@ -59,9 +60,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -72,9 +73,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -85,9 +86,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -98,9 +99,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -111,9 +112,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -124,9 +125,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -137,9 +138,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -150,9 +151,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -163,9 +164,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -176,9 +177,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -189,9 +190,9 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
 	@Test
@@ -202,38 +203,35 @@ public class StatementFunctionTest {
 
 		Value value = function.evaluate(f, subj, pred, obj);
 		assertNotNull(value);
-		assertTrue("expect Triple", value instanceof Triple);
+		assertTrue(value instanceof Triple, "expect Triple");
 		Triple other = f.createTriple(subj, pred, obj);
-		assertEquals("expect to be the same", value, other);
+		assertEquals(value, other, "expect to be the same");
 	}
 
-	@Test(expected = ValueExprEvaluationException.class)
+	@Test
 	public void testNegariveWrongNumberOfArguments() {
 		IRI subj = f.createIRI("urn:a");
 		IRI pred = f.createIRI("urn:b");
 		IRI obj = f.createIRI("urn:c");
 
-		function.evaluate(f, subj, pred, obj, null);
-		fail("should throw ValueExprEvaluationException");
+		assertThrows(ValueExprEvaluationException.class, () -> function.evaluate(f, subj, pred, obj, null));
 	}
 
-	@Test(expected = ValueExprEvaluationException.class)
+	@Test
 	public void testNegativeLiteralAsSubject() {
 		Literal subj = f.createLiteral(1);
 		IRI pred = f.createIRI("urn:b");
 		IRI obj = f.createIRI("urn:c");
 
-		function.evaluate(f, subj, pred, obj);
-		fail("should not accept Literal as subject");
+		assertThrows(ValueExprEvaluationException.class, () -> function.evaluate(f, subj, pred, obj));
 	}
 
-	@Test(expected = ValueExprEvaluationException.class)
+	@Test
 	public void testNegativeLiteralAsPredicate() {
 		Literal subj = f.createLiteral(1);
 		IRI pred = f.createIRI("urn:b");
 		IRI obj = f.createIRI("urn:c");
 
-		function.evaluate(f, subj, pred, obj);
-		fail("should not accept Literal as predicate");
+		assertThrows(ValueExprEvaluationException.class, () -> function.evaluate(f, subj, pred, obj));
 	}
 }

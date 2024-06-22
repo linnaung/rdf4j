@@ -1,17 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.common.webapp.util;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.UnsupportedEncodingException;
 import java.security.Principal;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -38,8 +39,8 @@ import javax.servlet.http.Part;
 import org.eclipse.rdf4j.common.lang.FileFormat;
 import org.eclipse.rdf4j.common.lang.service.FileFormatServiceRegistry;
 import org.eclipse.rdf4j.query.resultio.TupleQueryResultWriterRegistry;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author jeen
@@ -49,10 +50,9 @@ public class HttpServerUtilTest {
 	private ArrayList<String> tupleQueryMimeTypes;
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		FileFormatServiceRegistry<? extends FileFormat, ?> registry = TupleQueryResultWriterRegistry.getInstance();
 
 		tupleQueryMimeTypes = new ArrayList<>(16);
@@ -140,7 +140,7 @@ public class HttpServerUtilTest {
 
 	class ServletRequestStub implements javax.servlet.http.HttpServletRequest {
 
-		private Enumeration<String> testHeaders;
+		private final Enumeration<String> testHeaders;
 
 		public ServletRequestStub(String... testHeaders) {
 			this.testHeaders = Collections.enumeration(Arrays.asList(testHeaders));
@@ -165,7 +165,7 @@ public class HttpServerUtilTest {
 		}
 
 		@Override
-		public void setCharacterEncoding(String env) throws UnsupportedEncodingException {
+		public void setCharacterEncoding(String env) {
 			// TODO Auto-generated method stub
 
 		}
@@ -183,7 +183,7 @@ public class HttpServerUtilTest {
 		}
 
 		@Override
-		public ServletInputStream getInputStream() throws IOException {
+		public ServletInputStream getInputStream() {
 			// TODO Auto-generated method stub
 			return null;
 		}
@@ -237,7 +237,7 @@ public class HttpServerUtilTest {
 		}
 
 		@Override
-		public BufferedReader getReader() throws IOException {
+		public BufferedReader getReader() {
 			// TODO Auto-generated method stub
 			return null;
 		}
@@ -553,7 +553,7 @@ public class HttpServerUtilTest {
 		 * @see javax.servlet.http.HttpServletRequest#authenticate(javax.servlet.http.HttpServletResponse)
 		 */
 		@Override
-		public boolean authenticate(HttpServletResponse response) throws IOException, ServletException {
+		public boolean authenticate(HttpServletResponse response) throws ServletException {
 			// TODO Auto-generated method stub
 			return false;
 		}
@@ -586,7 +586,7 @@ public class HttpServerUtilTest {
 		 * @see javax.servlet.http.HttpServletRequest#getParts()
 		 */
 		@Override
-		public Collection<Part> getParts() throws IOException, ServletException {
+		public Collection<Part> getParts() throws ServletException {
 			// TODO Auto-generated method stub
 			return null;
 		}
@@ -597,7 +597,7 @@ public class HttpServerUtilTest {
 		 * @see javax.servlet.http.HttpServletRequest#getPart(java.lang.String)
 		 */
 		@Override
-		public Part getPart(String name) throws IOException, ServletException {
+		public Part getPart(String name) throws ServletException {
 			// TODO Auto-generated method stub
 			return null;
 		}

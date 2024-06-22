@@ -1,10 +1,13 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
- ******************************************************************************/
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 
 package org.eclipse.rdf4j.model;
 
@@ -13,7 +16,7 @@ import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
 import java.util.Objects;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Abstract {@link Triple} test suite.
@@ -29,7 +32,6 @@ public abstract class TripleTest {
 	 * @param subject   the subject of the triple
 	 * @param predicate the predicate of the triple
 	 * @param object    the object of the triple
-	 *
 	 * @return a new instance of the concrete triple class under test
 	 */
 	protected abstract Triple triple(Resource subject, IRI predicate, Value object);
@@ -38,7 +40,6 @@ public abstract class TripleTest {
 	 * Creates a test IRI instance.
 	 *
 	 * @param iri the IRI of the datatype
-	 *
 	 * @return a new instance of the concrete IRI class under test
 	 */
 	protected abstract IRI iri(String iri);

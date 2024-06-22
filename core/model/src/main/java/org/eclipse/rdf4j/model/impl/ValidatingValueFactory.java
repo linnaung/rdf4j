@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2017 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.impl;
 
@@ -23,9 +26,9 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
-import org.eclipse.rdf4j.model.URI;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.util.Literals;
 import org.eclipse.rdf4j.model.util.URIUtil;
@@ -66,7 +69,7 @@ public class ValidatingValueFactory implements ValueFactory {
 	public IRI createIRI(String iri) {
 		try {
 			if (!new ParsedIRI(iri).isAbsolute()) {
-				throw new IllegalArgumentException("IRI must be absolute");
+				throw new IllegalArgumentException("IRI must be absolute: " + iri);
 			}
 			return delegate.createIRI(iri);
 		} catch (URISyntaxException e) {
@@ -91,7 +94,7 @@ public class ValidatingValueFactory implements ValueFactory {
 
 	@Override
 	public BNode createBNode(String nodeID) {
-		if (nodeID.length() < 1) {
+		if (nodeID.isEmpty()) {
 			throw new IllegalArgumentException("Blank node ID cannot be empty");
 		}
 		if (!isMember(PN_CHARS_U, nodeID.codePointAt(0))) {
@@ -114,30 +117,27 @@ public class ValidatingValueFactory implements ValueFactory {
 	}
 
 	@Override
+	public Literal createLiteral(String label, CoreDatatype datatype) {
+		if (!XMLDatatypeUtil.isValidValue(label, datatype)) {
+			throw new IllegalArgumentException("Not a valid literal value");
+		}
+		return delegate.createLiteral(label, datatype);
+	}
+
+	@Override
+	public Literal createLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
+		if (!XMLDatatypeUtil.isValidValue(label, coreDatatype)) {
+			throw new IllegalArgumentException("Not a valid literal value");
+		}
+		return delegate.createLiteral(label, datatype, coreDatatype);
+	}
+
+	@Override
 	public Literal createLiteral(String label, String language) {
 		if (!Literals.isValidLanguageTag(language)) {
 			throw new IllegalArgumentException("Not a valid language tag: " + language);
 		}
 		return delegate.createLiteral(label, language);
-	}
-
-	@Override
-	public URI createURI(String uri) {
-		return createIRI(uri);
-	}
-
-	@Override
-	public URI createURI(String namespace, String localName) {
-		return createIRI(namespace, localName);
-	}
-
-	@Override
-	public Literal createLiteral(String label, URI datatype) {
-		if (datatype instanceof IRI) {
-			return createLiteral(label, (IRI) datatype);
-		} else {
-			return createLiteral(label, createIRI(datatype.stringValue()));
-		}
 	}
 
 	@Override
@@ -222,16 +222,6 @@ public class ValidatingValueFactory implements ValueFactory {
 
 	@Override
 	public Statement createStatement(Resource subject, IRI predicate, Value object, Resource context) {
-		return delegate.createStatement(subject, predicate, object, context);
-	}
-
-	@Override
-	public Statement createStatement(Resource subject, URI predicate, Value object) {
-		return delegate.createStatement(subject, predicate, object);
-	}
-
-	@Override
-	public Statement createStatement(Resource subject, URI predicate, Value object, Resource context) {
 		return delegate.createStatement(subject, predicate, object, context);
 	}
 

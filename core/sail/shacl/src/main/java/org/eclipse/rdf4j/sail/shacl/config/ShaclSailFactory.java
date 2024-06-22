@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.config;
 
@@ -55,8 +58,6 @@ public class ShaclSailFactory implements SailFactory {
 			}
 
 			sail.setCacheSelectNodes(shaclSailConfig.isCacheSelectNodes());
-			sail.setUndefinedTargetValidatesAllSubjects(shaclSailConfig.isUndefinedTargetValidatesAllSubjects());
-			sail.setIgnoreNoShapesLoadedException(shaclSailConfig.isIgnoreNoShapesLoadedException());
 			sail.setLogValidationPlans(shaclSailConfig.isLogValidationPlans());
 			sail.setLogValidationViolations(shaclSailConfig.isLogValidationViolations());
 			sail.setParallelValidation(shaclSailConfig.isParallelValidation());
@@ -68,6 +69,8 @@ public class ShaclSailFactory implements SailFactory {
 			sail.setDashDataShapes(shaclSailConfig.isDashDataShapes());
 			sail.setValidationResultsLimitTotal(shaclSailConfig.getValidationResultsLimitTotal());
 			sail.setValidationResultsLimitPerConstraint(shaclSailConfig.getValidationResultsLimitPerConstraint());
+			sail.setShapesGraphs(shaclSailConfig.getShapesGraphs());
+
 		}
 
 		return sail;

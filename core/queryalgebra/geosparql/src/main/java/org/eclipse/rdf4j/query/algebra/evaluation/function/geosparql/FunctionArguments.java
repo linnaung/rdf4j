@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.geosparql;
 
@@ -13,9 +16,8 @@ import java.text.ParseException;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.vocabulary.GEO;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.GEOF;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
 import org.locationtech.spatial4j.context.SpatialContext;
@@ -63,7 +65,7 @@ class FunctionArguments {
 	 * @throws ValueExprEvaluationException
 	 */
 	public static String getString(Function func, Value v) throws ValueExprEvaluationException {
-		Literal l = getLiteral(func, v, XSD.STRING);
+		Literal l = getLiteral(func, v, CoreDatatype.XSD.STRING);
 		return l.stringValue();
 	}
 
@@ -77,7 +79,7 @@ class FunctionArguments {
 	 * @throws ValueExprEvaluationException
 	 */
 	public static Shape getShape(Function func, Value v, SpatialContext context) throws ValueExprEvaluationException {
-		Literal wktLiteral = getLiteral(func, v, GEO.WKT_LITERAL);
+		Literal wktLiteral = getLiteral(func, v, CoreDatatype.GEO.WKT_LITERAL);
 		try {
 			ShapeReader reader = context.getFormats().getWktReader();
 			return reader.read(wktLiteral.getLabel());
@@ -119,6 +121,19 @@ class FunctionArguments {
 		}
 		Literal lit = (Literal) v;
 		if (!expectedDatatype.equals(lit.getDatatype())) {
+			throw new ValueExprEvaluationException(
+					"Invalid datatype " + lit.getDatatype() + " for " + func.getURI() + ": " + v);
+		}
+		return lit;
+	}
+
+	public static Literal getLiteral(Function func, Value v, CoreDatatype expectedDatatype)
+			throws ValueExprEvaluationException {
+		if (!(v instanceof Literal)) {
+			throw new ValueExprEvaluationException("Invalid argument for " + func.getURI() + ": " + v);
+		}
+		Literal lit = (Literal) v;
+		if (expectedDatatype != lit.getCoreDatatype()) {
 			throw new ValueExprEvaluationException(
 					"Invalid datatype " + lit.getDatatype() + " for " + func.getURI() + ": " + v);
 		}
