@@ -5,35 +5,20 @@ toc: true
 
 You can either retrieve RDF4J via Apache Maven, or download the SDK or onejar directly.
 
-## RDF4J 3.5.0 (latest)
+## RDF4J 5.0.2 (latest)
 
-RDF4J 3.5.0 is our latest stable release. It requires Java 8 minimally. Java 11 or higher is recommended for best performance. 
-For details on what’s new and how to upgrade, see the [release and upgrade notes](/release-notes/3.5.0).
+RDF4J 5.0.2 is our latest stable release. It requires Java 11 minimally.
+For details on what’s new and how to upgrade, see the [release and upgrade notes](/release-notes/5.0.2).
 
-- [RDF4J 3.5.0 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.5.0-sdk.zip)<br/>
+- [RDF4J 5.0.2 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-5.0.2-sdk.zip)<br/>
   Full Eclipse RDF4J SDK, containing all libraries, RDF4J Server, Workbench, and Console applications, and Javadoc API.
 
-- [RDF4J 3.5.0 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.5.0-onejar.jar)<br/>
+- [RDF4J 5.0.2 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-5.0.2-onejar.jar)<br/>
   Single jar file for easy inclusion of the full RDF4J toolkit in your Java project.
 
 - [RDF4J artifacts](https://search.maven.org/search?q=org.eclipse.rdf4j) on the [Maven Central Repository](http://search.maven.org/)
 
-## RDF4J 3.6.0-M2
-
-RDF4J 3.6.0-M2 is the second milestone build of the upcoming 3.6.0 release.
-
-This is a milestone build, not an official release, intended for early access and testing. We do not recommend its use in production environments.
-
-- [RDF4J 3.6.0-M2 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.6.0-M2-sdk.zip)<br/>
-  Full Eclipse RDF4J SDK, containing all libraries, RDF4J Server, Workbench, and Console applications, and Javadoc API.
-
-- [RDF4J 3.6.0-M2 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.6.0-M2-onejar.jar)<br/>
-  Single jar file for easy inclusion of the full RDF4J toolkit in your Java project.
-
-- [RDF4J artifacts](https://search.maven.org/search?q=org.eclipse.rdf4j) on the [Maven Central Repository](http://search.maven.org/)
-
-
-## Apache Maven
+### Apache Maven
 
 You can include RDF4J as a Maven dependency in your Java project by including the following BOM (Bill-of-Materials):
 
@@ -41,9 +26,9 @@ You can include RDF4J as a Maven dependency in your Java project by including th
 <dependencyManagement>
     <dependencies>
         <dependency>
-            <groupId>org.eclipse.RDF4J</groupId>
+            <groupId>org.eclipse.rdf4j</groupId>
             <artifactId>rdf4j-bom</artifactId>
-            <version>3.5.0</version>
+            <version>5.0.2</version>
             <type>pom</type>
             <scope>import</scope>
         </dependency>
@@ -67,24 +52,49 @@ which artifacts RDF4J provides.
 
 ## Older releases
 
-### RDF4J 3.4
+### RDF4J 4.3
 
-- [RDF4J 3.4.4 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.4.4-sdk.zip)
-- [RDF4J 3.4.4 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.4.4-onejar.jar)
--
-### RDF4J 3.3
+- [RDF4J 4.3.13 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-4.3.13-sdk.zip)
+- [RDF4J 4.3.13 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-4.3.13-onejar.jar)
 
-- [RDF4J 3.3.1 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.3.1-sdk.zip)
-- [RDF4J 3.3.1 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.3.1-onejar.jar)
--
-### RDF4J 3.2
 
-- [RDF4J 3.2.3 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.2.3-sdk.zip)
-- [RDF4J 3.2.3 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.2.3-onejar.jar)
+### RDF4J 4.2
+
+- [RDF4J 4.2.4 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-4.2.4-sdk.zip)
+- [RDF4J 4.2.4 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-4.2.4-onejar.jar)
+
+
+
+### RDF4J 4.1
+
+- [RDF4J 4.1.3 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-4.1.3-sdk.zip)
+- [RDF4J 4.1.3 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-4.1.3-onejar.jar)
+
+
+### RDF4J 4.0
+
+- [RDF4J 4.0.4 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-4.0.4-sdk.zip)
+- [RDF4J 4.0.4 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-4.0.4-onejar.jar)
+
+
+### RDF4J 3.7
+
+- [RDF4J 3.7.7 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.7.7-sdk.zip)
+- [RDF4J 3.7.7 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.7.7-onejar.jar)
+
+### RDF4J 3.6
+
+- [RDF4J 3.6.3 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.6.3-sdk.zip)
+- [RDF4J 3.6.3 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.6.3-onejar.jar)
+
+### RDF4J 3.5
+
+- [RDF4J 3.5.1 SDK (zip)](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.5.1-sdk.zip)
+- [RDF4J 3.5.1 onejar](http://www.eclipse.org/downloads/download.php?file=/rdf4j/eclipse-rdf4j-3.5.1-onejar.jar)
 
 ## Source code and nightly builds
 
-You can access the RDF4J source code directly from [our GitHub repositories](https://github.com/eclipse/rdf4j). Maven nightly snapshot builds for the master and develop branch are available from the [Sonatype snapshot repository](https://oss.sonatype.org/content/repositories/snapshots/org/eclipse/rdf4j/).
+You can access the RDF4J source code directly from [our GitHub repositories](https://github.com/eclipse/rdf4j). Maven nightly snapshot builds for the main and develop branch are available from the [Sonatype snapshot repository](https://oss.sonatype.org/content/repositories/snapshots/org/eclipse/rdf4j/).
 
 To include nightly snapshot builds in your project, add this repository to your project’s POM:
 
@@ -92,7 +102,7 @@ To include nightly snapshot builds in your project, add this repository to your 
 <repositories>
     <repository>
         <id>oss.sonatype.org-snapshot</id>
-        <url>http://oss.sonatype.org/content/repositories/snapshots</url>
+        <url>https://oss.sonatype.org/content/repositories/snapshots</url>
         <releases>
             <enabled>false</enabled>
         </releases>

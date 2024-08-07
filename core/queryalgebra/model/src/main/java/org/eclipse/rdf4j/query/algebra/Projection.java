@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
 
@@ -18,7 +21,7 @@ public class Projection extends UnaryTupleOperator {
 	 * Variables *
 	 *-----------*/
 
-	private ProjectionElemList projElemList = new ProjectionElemList();
+	private ProjectionElemList projElemList;
 
 	private Var projectionContext = null;
 
@@ -29,14 +32,16 @@ public class Projection extends UnaryTupleOperator {
 	 *--------------*/
 
 	public Projection() {
+		projElemList = new ProjectionElemList();
 	}
 
 	public Projection(TupleExpr arg) {
 		super(arg);
+		projElemList = new ProjectionElemList();
 	}
 
 	public Projection(TupleExpr arg, ProjectionElemList elements) {
-		this(arg);
+		super(arg);
 		setProjectionElemList(elements);
 	}
 
@@ -60,14 +65,14 @@ public class Projection extends UnaryTupleOperator {
 
 	@Override
 	public Set<String> getBindingNames() {
-		return projElemList.getTargetNames();
+		return projElemList.getProjectedNames();
 	}
 
 	@Override
 	public Set<String> getAssuredBindingNames() {
 		// Return all target binding names for which the source binding is assured
 		// by the argument
-		return projElemList.getTargetNamesFor(getArg().getAssuredBindingNames());
+		return projElemList.getProjectedNamesFor(getArg().getAssuredBindingNames());
 	}
 
 	@Override
@@ -92,10 +97,16 @@ public class Projection extends UnaryTupleOperator {
 
 	@Override
 	public boolean equals(Object other) {
-		if (other instanceof Projection && super.equals(other)) {
-			Projection o = (Projection) other;
-			return projElemList.equals(o.getProjectionElemList());
+		if (this == other) {
+			return true;
 		}
+		if (other instanceof Projection) {
+			Projection o = (Projection) other;
+			if (super.equals(o)) {
+				return projElemList.equals(o.getProjectionElemList());
+			}
+		}
+
 		return false;
 	}
 

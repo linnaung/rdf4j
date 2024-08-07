@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2016, 2017 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.examples.repository;
 
@@ -42,7 +45,6 @@ public class Example13AddRDFToDatabase {
 		// See http://docs.rdf4j.org/programming/#_the_repository_api for more extensive examples on
 		// how to create and maintain different types of databases.
 		Repository db = new SailRepository(new MemoryStore());
-		db.init();
 
 		// Open a connection to the database
 		try (RepositoryConnection conn = db.getConnection()) {
@@ -50,9 +52,8 @@ public class Example13AddRDFToDatabase {
 			conn.add(model);
 
 			// let's check that our data is actually in the database
-			try (RepositoryResult<Statement> result = conn.getStatements(null, null, null);) {
-				while (result.hasNext()) {
-					Statement st = result.next();
+			try (RepositoryResult<Statement> result = conn.getStatements(null, null, null)) {
+				for (Statement st : result) {
 					System.out.println("db contains: " + st);
 				}
 			}

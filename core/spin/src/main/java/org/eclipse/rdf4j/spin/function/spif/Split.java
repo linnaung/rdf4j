@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.spin.function.spif;
 
@@ -28,7 +31,7 @@ public class Split implements InverseMagicProperty {
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
+	public CloseableIteration<? extends List<? extends Value>> evaluate(
 			final ValueFactory valueFactory, Value... args) throws QueryEvaluationException {
 		if (args.length != 2) {
 			throw new ValueExprEvaluationException(
@@ -44,7 +47,7 @@ public class Split implements InverseMagicProperty {
 		final String regex = ((Literal) args[1]).stringValue();
 		final String[] parts = s.split(regex);
 		return new CloseableIteratorIteration<>(
-				SingleValueToListTransformer.transform(new Iterator<Value>() {
+				SingleValueToListTransformer.transform(new Iterator<>() {
 
 					int pos = 0;
 

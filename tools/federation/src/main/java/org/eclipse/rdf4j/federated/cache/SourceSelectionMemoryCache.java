@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.cache;
 
@@ -64,7 +67,7 @@ public class SourceSelectionMemoryCache implements SourceSelectionCache {
 		if (subQuery.object() != null) {
 			if (getAssurance(new SubQuery(subQuery.subject(), subQuery.predicate(), null, subQuery.contexts()),
 					endpoint)
-							.equals(StatementSourceAssurance.NONE)) {
+					.equals(StatementSourceAssurance.NONE)) {
 				return StatementSourceAssurance.NONE;
 			}
 		}
@@ -78,6 +81,11 @@ public class SourceSelectionMemoryCache implements SourceSelectionCache {
 
 		updateCacheEntry(subQuery, endpoint, hasStatements);
 		updateInferredInformation(subQuery, endpoint, hasStatements);
+	}
+
+	@Override
+	public void invalidate() {
+		cache.invalidateAll(); // invalidate the entire cache
 	}
 
 	private void updateCacheEntry(SubQuery subQuery, Endpoint endpoint, boolean hasStatements) {
@@ -119,10 +127,9 @@ public class SourceSelectionMemoryCache implements SourceSelectionCache {
 
 		/**
 		 * The {@link StatementSourceAssurance} for the given {@link Endpoint},
-		 * {@link StatementSourceAssurance#POSSIBLY_HAS_STATEMENTS if unknown.
+		 * {@link StatementSourceAssurance#POSSIBLY_HAS_STATEMENTS if unknown}.
 		 *
 		 * @param e
-		 * @return
 		 */
 		public StatementSourceAssurance getAssurance(Endpoint e) {
 			return endpointToInformation.getOrDefault(e.getId(), StatementSourceAssurance.POSSIBLY_HAS_STATEMENTS);

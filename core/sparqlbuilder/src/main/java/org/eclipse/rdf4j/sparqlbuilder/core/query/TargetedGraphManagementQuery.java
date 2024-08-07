@@ -1,15 +1,21 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core.query;
 
+import static org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf.iri;
+
 import java.util.Optional;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.Iri;
 
 @SuppressWarnings("javadoc")
@@ -27,7 +33,6 @@ public abstract class TargetedGraphManagementQuery<T extends TargetedGraphManage
 	 * Specify which graph to target
 	 *
 	 * @param graph the IRI identifying the graph to target
-	 *
 	 * @return this query instance
 	 */
 	@SuppressWarnings("unchecked")
@@ -35,6 +40,17 @@ public abstract class TargetedGraphManagementQuery<T extends TargetedGraphManage
 		this.graph = Optional.ofNullable(graph);
 
 		return (T) this;
+	}
+
+	/**
+	 * Specify which graph to target
+	 *
+	 * @param graph the IRI identifying the graph to target
+	 * @return this query instance
+	 */
+	@SuppressWarnings("unchecked")
+	public T graph(IRI graph) {
+		return graph(iri(graph));
 	}
 
 	/**

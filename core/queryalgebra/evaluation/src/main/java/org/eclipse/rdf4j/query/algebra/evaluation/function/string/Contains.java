@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.string;
 
@@ -14,7 +17,7 @@ import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.vocabulary.FN;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
+import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
 
 /**
  * The SPARQL built-in {@link Function} CONTAINS, as defined in
@@ -51,8 +54,8 @@ public class Contains implements Function {
 				} else {
 					throw new ValueExprEvaluationException("incompatible operands for CONTAINS function");
 				}
-			} else if (QueryEvaluationUtil.isStringLiteral(leftLit)) {
-				if (QueryEvaluationUtil.isStringLiteral(rightLit)) {
+			} else if (QueryEvaluationUtility.isStringLiteral(leftLit)) {
+				if (QueryEvaluationUtility.isStringLiteral(rightLit)) {
 					String leftLexVal = leftLit.getLabel();
 					String rightLexVal = rightLit.getLabel();
 

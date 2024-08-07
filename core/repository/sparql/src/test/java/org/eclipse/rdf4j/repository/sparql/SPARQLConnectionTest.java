@@ -1,13 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.sparql;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.eclipse.rdf4j.model.util.Values.iri;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -24,8 +28,8 @@ import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.rio.ParserConfig;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 public class SPARQLConnectionTest {
@@ -34,14 +38,14 @@ public class SPARQLConnectionTest {
 	private SPARQLProtocolSession client;
 	private final ValueFactory vf = SimpleValueFactory.getInstance();
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		client = mock(SPARQLProtocolSession.class);
 		subject = new SPARQLConnection(null, client);
 	}
 
 	@Test
-	public void setParserConfigPassesToProtocolSession() throws Exception {
+	public void setParserConfigPassesToProtocolSession() {
 		ParserConfig config = new ParserConfig();
 
 		subject.setParserConfig(config);
@@ -151,9 +155,9 @@ public class SPARQLConnectionTest {
 	}
 
 	@Test
-	public void testSilentModeSparqlConnection() throws Exception {
-		subject.enableSilentMode(true);
-		assertThat(subject.isSilentMode() == true);
+	public void testSilentClear() throws Exception {
+		subject.setSilentClear(true);
+		assertThat(subject.isSilentClear());
 
 		ArgumentCaptor<String> sparqlUpdateCaptor = ArgumentCaptor.forClass(String.class);
 		subject.begin();
@@ -164,5 +168,21 @@ public class SPARQLConnectionTest {
 
 		String sparqlUpdate = sparqlUpdateCaptor.getValue();
 		assertThat(sparqlUpdate).containsOnlyOnce("CLEAR SILENT");
+	}
+
+	@Test
+	public void testSilentClear_NamedGraph() throws Exception {
+		subject.setSilentClear(true);
+		assertThat(subject.isSilentClear());
+
+		ArgumentCaptor<String> sparqlUpdateCaptor = ArgumentCaptor.forClass(String.class);
+		subject.begin();
+		subject.clear(iri("http://example.org/"));
+		subject.commit();
+
+		verify(client).sendUpdate(any(), sparqlUpdateCaptor.capture(), any(), any(), anyBoolean(), anyInt(), any());
+
+		String sparqlUpdate = sparqlUpdateCaptor.getValue();
+		assertThat(sparqlUpdate).containsOnlyOnce("CLEAR SILENT GRAPH <http://example.org/>");
 	}
 }

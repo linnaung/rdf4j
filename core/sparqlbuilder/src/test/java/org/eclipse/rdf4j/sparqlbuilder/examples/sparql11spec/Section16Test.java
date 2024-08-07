@@ -1,13 +1,18 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.examples.sparql11spec;
 
+import static org.assertj.core.api.AssertionsForClassTypes.assertThat;
+import static org.eclipse.rdf4j.sparqlbuilder.core.SparqlBuilder.var;
 import static org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf.iri;
 
 import java.util.Arrays;
@@ -32,14 +37,18 @@ import org.eclipse.rdf4j.sparqlbuilder.graphpattern.GraphPatterns;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.Iri;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.RdfBlankNode;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class Section16Test extends BaseExamples {
 	@Test
 	public void example_16_1_2() {
 		Prefix dc = SparqlBuilder.prefix("dc", iri(DC_NS));
 		Prefix ns = SparqlBuilder.prefix("ns", iri(EXAMPLE_ORG_NS));
-		Variable title = query.var(), p = query.var(), discount = query.var(), price = query.var(), x = query.var();
+		Variable title = var("title"),
+				p = var("p"),
+				discount = var("discount"),
+				price = var("price"),
+				x = var("x");
 		Operand one = Rdf.literalOf(1);
 
 		Assignment discountedPrice = Expressions.multiply(p, Expressions.subtract(one, discount).parenthesize())
@@ -48,9 +57,17 @@ public class Section16Test extends BaseExamples {
 		query.prefix(dc, ns)
 				.select(title, discountedPrice)
 				.where(x.has(ns.iri("price"), p), x.has(dc.iri("title"), title), x.has(ns.iri("discount"), discount));
-		p();
+		assertThat(query.getQueryString()).is(stringEqualsIgnoreCaseAndWhitespace(
+				"PREFIX  dc:  <http://purl.org/dc/elements/1.1/>\n"
+						+ "PREFIX  ns:  <https://example.org/ns#>\n"
+						+ "SELECT  ?title ((?p*(1-?discount)) AS ?price) WHERE\n"
+						+ "{ ?x ns:price ?p .\n"
+						+ "  ?x dc:title ?title . \n"
+						+ "  ?x ns:discount ?discount .\n"
+						+ "}"
+		));
 
-		Variable fullPrice = query.var(), customerPrice = query.var();
+		Variable fullPrice = var("fullPrice"), customerPrice = var("customerPrice");
 		Expression<?> cPrice = Expressions.multiply(fullPrice, Expressions.subtract(one, discount).parenthesize());
 		Projection newProjection = SparqlBuilder.select(title, p.as(fullPrice), cPrice.as(customerPrice));
 
@@ -58,7 +75,15 @@ public class Section16Test extends BaseExamples {
 		// (rather than Projectable instances) replaces (rather than augments)
 		// the query's projections
 		query.select(newProjection);
-		p();
+		assertThat(query.getQueryString()).is(stringEqualsIgnoreCaseAndWhitespace(
+				"PREFIX  dc:  <http://purl.org/dc/elements/1.1/>\n"
+						+ "PREFIX  ns:  <https://example.org/ns#>\n"
+						+ "SELECT  ?title (?p AS ?fullPrice) ((?fullPrice*(1-?discount)) AS ?customerPrice) WHERE\n"
+						+ "{ ?x ns:price ?p .\n"
+						+ "   ?x dc:title ?title . \n"
+						+ "   ?x ns:discount ?discount .\n"
+						+ "}"
+		));
 	}
 
 	@Test
@@ -66,10 +91,17 @@ public class Section16Test extends BaseExamples {
 		Prefix foaf = SparqlBuilder.prefix("foaf", iri(FOAF_NS)),
 				vcard = SparqlBuilder.prefix("vcard", iri("http://www.w3.org/2001/vcard-rdf/3.0#"));
 		Iri aliceIri = Rdf.iri("http://example.org/person#", "Alice");
-		Variable name = SparqlBuilder.var("name"), x = SparqlBuilder.var("x");
-		p(Queries.CONSTRUCT(aliceIri.has(vcard.iri("FN"), name))
+		Variable name = var("name"), x = var("x");
+		assertThat(Queries.CONSTRUCT(aliceIri.has(vcard.iri("FN"), name))
 				.where(x.has(foaf.iri("name"), name))
-				.prefix(foaf, vcard));
+				.prefix(foaf, vcard)
+				.getQueryString()
+		).is(stringEqualsIgnoreCaseAndWhitespace(
+				"PREFIX foaf:    <http://xmlns.com/foaf/0.1/>\n"
+						+ "PREFIX vcard:   <http://www.w3.org/2001/vcard-rdf/3.0#>\n"
+						+ "CONSTRUCT   { <http://example.org/person#Alice> vcard:FN ?name .}\n"
+						+ "WHERE       { ?x foaf:name ?name . }"
+		));
 	}
 
 	@Test
@@ -78,8 +110,8 @@ public class Section16Test extends BaseExamples {
 				vcard = SparqlBuilder.prefix("vcard", iri("http://www.w3.org/2001/vcard-rdf/3.0#"));
 
 		ConstructQuery cQuery = Queries.CONSTRUCT();
-		Variable x = cQuery.var(), gname = cQuery.var(), fname = cQuery.var();
-		RdfBlankNode v = cQuery.bNode();
+		Variable x = var("x"), gname = var("gname"), fname = var("fname");
+		RdfBlankNode v = Rdf.bNode("v");
 		GraphTemplate template = SparqlBuilder.construct(x.has(vcard.iri("N"), v), v.has(vcard.iri("givenName"), gname),
 				v.has(vcard.iri("familyName"), fname));
 
@@ -88,7 +120,19 @@ public class Section16Test extends BaseExamples {
 				.where(x.has(foaf.iri("firstName"), gname).union(x.has(foaf.iri("givenname"), gname)),
 						x.has(foaf.iri("surname"), fname).union(x.has(foaf.iri("family_name"), fname)));
 
-		p(cQuery);
+		assertThat(cQuery.getQueryString()).is(stringEqualsIgnoreCaseAndWhitespace(
+				"PREFIX foaf:    <http://xmlns.com/foaf/0.1/>\n"
+						+ "PREFIX vcard:   <http://www.w3.org/2001/vcard-rdf/3.0#>\n"
+						+ "\n"
+						+ "CONSTRUCT { ?x  vcard:N _:v .\n"
+						+ "            _:v vcard:givenName ?gname .\n"
+						+ "            _:v vcard:familyName ?fname .}\n"
+						+ "WHERE\n"
+						+ " {\n"
+						+ "    { ?x foaf:firstname ?gname .} UNION  { ?x foaf:givenname   ?gname .} \n"
+						+ "    { ?x foaf:surname   ?fname .} UNION  { ?x foaf:family_name ?fname .} \n"
+						+ " }"
+		));
 	}
 
 	@Test
@@ -109,27 +153,61 @@ public class Section16Test extends BaseExamples {
 
 		ConstructQuery query = Queries.CONSTRUCT(s.has(p, o)).where(where).prefix(dc, app, xsd);
 
-		p(query);
+		assertThat(query.getQueryString()).is(stringEqualsIgnoreCaseAndWhitespace(
+				"PREFIX  dc: <http://purl.org/dc/elements/1.1/>\n"
+						+ "PREFIX app: <http://example.org/ns#>\n"
+						+ "PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>\n"
+						+ "\n"
+						+ "CONSTRUCT { ?s ?p ?o .} WHERE\n"
+						+ " {\n"
+						+ "   GRAPH ?g { ?s ?p ?o .} \n"
+						+ "   ?g dc:publisher <http://www.w3.org/> .\n"
+						+ "   ?g dc:date ?date .\n"
+						+ "   FILTER ( app:customDate(?date) > \"2005-02-28T00:00:00Z\"^^xsd:dateTime )\n"
+						+ " }"
+		));
 	}
 
 	@Test
 	public void example_16_2_3() {
 		Prefix foaf = SparqlBuilder.prefix("foaf", iri("http://xmlns.com/foaf/0.1/")),
 				site = SparqlBuilder.prefix("site", iri("http://example.org/stats#"));
-		Variable name = SparqlBuilder.var("name"), hits = SparqlBuilder.var("hits");
+		Variable name = var("name"), hits = var("hits");
 		RdfBlankNode subject = Rdf.bNode();
 
-		p(Queries.CONSTRUCT(subject.has(foaf.iri("name"), name))
+		ConstructQuery query = Queries.CONSTRUCT(subject.has(foaf.iri("name"), name))
+				.prefix(foaf, site)
 				.where(subject.has(foaf.iri("name"), name).andHas(site.iri("hits"), hits))
 				.orderBy(hits.desc())
-				.limit(2));
+				.limit(2);
+		assertThat(query.getQueryString()).is(stringEqualsIgnoreCaseAndWhitespace(
+				"PREFIX foaf: <http://xmlns.com/foaf/0.1/>\n"
+						+ "PREFIX site: <http://example.org/stats#>\n"
+						+ "\n"
+						+ "CONSTRUCT { [] foaf:name ?name . }\n"
+						+ "WHERE\n"
+						+ "{ [] foaf:name ?name ;\n"
+						+ "     site:hits ?hits .\n"
+						+ "}\n"
+						+ "ORDER BY desc(?hits)\n"
+						+ "LIMIT 2"
+		));
 	}
 
 	@Test
 	public void example_16_2_4() {
 		Prefix foaf = SparqlBuilder.prefix("foaf", iri("http://xmlns.com/foaf/0.1/"));
-		Variable x = SparqlBuilder.var("x"), name = SparqlBuilder.var("name");
+		Variable x = var("x"), name = var("name");
 
-		p(Queries.CONSTRUCT().where(x.has(foaf.iri("name"), name)).prefix(foaf));
+		ConstructQuery query = Queries.CONSTRUCT(x.has(foaf.iri("name"), name))
+				.where(x.has(foaf.iri("name"), name))
+				.prefix(foaf);
+		assertThat(query.getQueryString()).is(stringEqualsIgnoreCaseAndWhitespace(
+				"PREFIX foaf: <http://xmlns.com/foaf/0.1/>\n"
+						+ "\n"
+						+ "CONSTRUCT { ?x foaf:name ?name .} \n"
+						+ "WHERE\n"
+						+ "{ ?x foaf:name ?name .}"
+		));
 	}
 }

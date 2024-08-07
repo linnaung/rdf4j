@@ -1,22 +1,34 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.ref.Cleaner;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.util.Comparator;
 import java.util.concurrent.locks.ReentrantLock;
+import java.util.function.Supplier;
 
 import org.apache.commons.io.FileUtils;
-import org.eclipse.rdf4j.IsolationLevel;
-import org.eclipse.rdf4j.IsolationLevels;
+import org.eclipse.rdf4j.collection.factory.api.CollectionFactory;
+import org.eclipse.rdf4j.collection.factory.mapdb.MapDb3CollectionFactory;
 import org.eclipse.rdf4j.common.concurrent.locks.Lock;
 import org.eclipse.rdf4j.common.concurrent.locks.LockManager;
 import org.eclipse.rdf4j.common.io.MavenUtil;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategyFactory;
@@ -36,7 +48,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * A SAIL implementation using B-Tree indexing on disk for storing and querying its data.
- *
+ * <p>
  * The NativeStore is designed for datasets between 100,000 and 100 million triples. On most operating systems, if there
  * is sufficient physical memory, the NativeStore will act like the MemoryStore, because the read/write commands will be
  * cached by the OS. This technique allows the NativeStore to operate quite well for millions of triples.
@@ -48,11 +60,55 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 
 	private static final Logger logger = LoggerFactory.getLogger(NativeStore.class);
 
-	/*-----------*
-	 * Variables *
-	 *-----------*/
-
 	private static final String VERSION = MavenUtil.loadVersion("org.eclipse.rdf4j", "rdf4j-sail-nativerdf", "devel");
+
+	private static final Cleaner REMOVE_STORES_USED_FOR_MEMORY_OVERFLOW = Cleaner.create();
+
+	/**
+	 * When we are close to running out of memory we start using a native store instead of a model in memory.
+	 * Performance craters to near zero. So it is dubious if this is worth the effort. The class is static to avoid
+	 * taking a pointer which might make it hard to get a phantom reference.
+	 */
+	final static class MemoryOverflowIntoNativeStore extends MemoryOverflowModel {
+		private static final long serialVersionUID = 1L;
+
+		/**
+		 * The class is static to avoid taking a pointer which might make it hard to get a phantom reference.
+		 */
+		private static final class OverFlowStoreCleaner implements Runnable {
+			private final NativeSailStore nativeSailStore;
+			private final File dataDir;
+
+			private OverFlowStoreCleaner(NativeSailStore nativeSailStore, File dataDir) {
+				this.nativeSailStore = nativeSailStore;
+				nativeSailStore.disableTxnStatus();
+				this.dataDir = dataDir;
+			}
+
+			@Override
+			public void run() {
+				try {
+					nativeSailStore.close();
+				} finally {
+					try {
+						FileUtils.deleteDirectory(dataDir);
+					} catch (IOException e) {
+						NativeStore.logger.error("Could not remove data dir of overflow model store", e);
+					}
+				}
+			}
+		}
+
+		@Override
+		protected SailStore createSailStore(File dataDir) throws IOException, SailException {
+			// Model can't fit into memory, use another NativeSailStore to store delta
+			NativeSailStore nativeSailStore = new NativeSailStore(dataDir, "spoc");
+			// Once the model is no longer reachable (i.e. phantom reference we can close the
+			// backingstore.
+			REMOVE_STORES_USED_FOR_MEMORY_OVERFLOW.register(this, new OverFlowStoreCleaner(nativeSailStore, dataDir));
+			return nativeSailStore;
+		}
+	}
 
 	/**
 	 * Specifies which triple indexes this native store must use.
@@ -78,6 +134,9 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 	// used to decide if store is writable, is true if the store was writable during initialization
 	private boolean isWritable;
 
+	// indicates if a datadir is temporary (i.e. will be deleted on shutdown)
+	private boolean isTmpDatadir = false;
+
 	/**
 	 * Data directory lock.
 	 */
@@ -85,10 +144,14 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 
 	private EvaluationStrategyFactory evalStratFactory;
 
-	/** independent life cycle */
+	/**
+	 * independent life cycle
+	 */
 	private FederatedServiceResolver serviceResolver;
 
-	/** dependent life cycle */
+	/**
+	 * dependent life cycle
+	 */
 	private SPARQLServiceResolver dependentServiceResolver;
 
 	/**
@@ -134,10 +197,16 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 	 * Methods *
 	 *---------*/
 
+	@Override
+	public void setDataDir(File dataDir) {
+		super.setDataDir(dataDir);
+		isTmpDatadir = (dataDir == null);
+	}
+
 	/**
 	 * Sets the triple indexes for the native store, must be called before initialization.
 	 *
-	 * @param tripleIndexes An index strings, e.g. <tt>spoc,posc</tt>.
+	 * @param tripleIndexes An index strings, e.g. <var>spoc,posc</var>.
 	 */
 	public void setTripleIndexes(String tripleIndexes) {
 		if (isInitialized()) {
@@ -152,7 +221,7 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 	}
 
 	/**
-	 * Specifiec whether updates should be synced to disk forcefully, must be called before initialization. Enabling
+	 * Specifies whether updates should be synced to disk forcefully, must be called before initialization. Enabling
 	 * this feature may prevent corruption in case of events like power loss, but can have a severe impact on write
 	 * performance. By default, this feature is disabled.
 	 */
@@ -229,7 +298,7 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 	/**
 	 * Initializes this NativeStore.
 	 *
-	 * @exception SailException If this NativeStore could not be initialized using the parameters that have been set.
+	 * @throws SailException If this NativeStore could not be initialized using the parameters that have been set.
 	 */
 	@Override
 	protected void initializeInternal() throws SailException {
@@ -239,7 +308,13 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 		File dataDir = getDataDir();
 
 		if (dataDir == null) {
-			throw new SailException("Data dir has not been set");
+			try {
+				setDataDir(Files.createTempDirectory("rdf4j-native-tmp").toFile());
+				isTmpDatadir = true;
+			} catch (IOException ioe) {
+				throw new SailException("Temp data dir could not be created");
+			}
+			dataDir = getDataDir();
 		} else if (!dataDir.exists()) {
 			boolean success = dataDir.mkdirs();
 			if (!success) {
@@ -257,21 +332,17 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 		logger.debug("Data dir is " + dataDir);
 
 		try {
-			File versionFile = new File(dataDir, "nativerdf.ver");
-			String version = versionFile.exists() ? FileUtils.readFileToString(versionFile) : null;
+			Path versionPath = new File(dataDir, "nativerdf.ver").toPath();
+			String version = versionPath.toFile().exists() ? Files.readString(versionPath, StandardCharsets.UTF_8)
+					: null;
 			if (!VERSION.equals(version) && upgradeStore(dataDir, version)) {
-				FileUtils.writeStringToFile(versionFile, VERSION);
+				logger.debug("Data store upgraded to version " + VERSION);
+				Files.writeString(versionPath, VERSION, StandardCharsets.UTF_8,
+						StandardOpenOption.CREATE, StandardOpenOption.WRITE, StandardOpenOption.TRUNCATE_EXISTING);
 			}
 			final NativeSailStore mainStore = new NativeSailStore(dataDir, tripleIndexes, forceSync, valueCacheSize,
 					valueIDCacheSize, namespaceCacheSize, namespaceIDCacheSize);
-			this.store = new SnapshotSailStore(mainStore, () -> new MemoryOverflowModel() {
-
-				@Override
-				protected SailStore createSailStore(File dataDir) throws IOException, SailException {
-					// Model can't fit into memory, use another NativeSailStore to store delta
-					return new NativeSailStore(dataDir, getTripleIndexes());
-				}
-			}) {
+			this.store = new SnapshotSailStore(mainStore, () -> new MemoryOverflowIntoNativeStore()) {
 
 				@Override
 				public SailSource getExplicitSailSource() {
@@ -311,14 +382,35 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 
 		try {
 			store.close();
-
-			logger.debug("NativeStore shut down");
 		} finally {
 			dirLock.release();
 			if (dependentServiceResolver != null) {
 				dependentServiceResolver.shutDown();
 			}
-			logger.debug("NativeStore shut down");
+		}
+
+		if (isTmpDatadir) {
+			File dataDir = getDataDir();
+			if (dataDir != null) {
+				try {
+					Files.walk(dataDir.toPath())
+							.map(Path::toFile)
+							.sorted(Comparator.reverseOrder()) // delete files before directory
+							.forEach(File::delete);
+				} catch (IOException ioe) {
+					logger.error("Could not delete temp file " + dataDir);
+				}
+			}
+		}
+		logger.debug("NativeStore shut down");
+	}
+
+	@Override
+	public void shutDown() throws SailException {
+		super.shutDown();
+		// edge case when re-initialize after shutdown
+		if (isTmpDatadir) {
+			setDataDir(null);
 		}
 	}
 
@@ -329,11 +421,7 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 
 	@Override
 	protected NotifyingSailConnection getConnectionInternal() throws SailException {
-		try {
-			return new NativeStoreConnection(this);
-		} catch (IOException e) {
-			throw new SailException(e);
-		}
+		return new NativeStoreConnection(this);
 	}
 
 	@Override
@@ -409,5 +497,10 @@ public class NativeStore extends AbstractNotifyingSail implements FederatedServi
 		} else {
 			return false; // no upgrade needed
 		}
+	}
+
+	@Override
+	public Supplier<CollectionFactory> getCollectionFactory() {
+		return () -> new MapDb3CollectionFactory(getIterationCacheSyncThreshold());
 	}
 }

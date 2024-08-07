@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.algebra;
 
@@ -26,7 +29,7 @@ import com.google.common.collect.Lists;
  *
  */
 public class ExclusiveArbitraryLengthPath extends ArbitraryLengthPath
-		implements ExclusiveTupleExpr, ExclusiveTupleExprRenderer {
+		implements ExclusiveTupleExprRenderer {
 
 	private static final long serialVersionUID = 5743134085306940200L;
 
@@ -37,8 +40,8 @@ public class ExclusiveArbitraryLengthPath extends ArbitraryLengthPath
 	private final List<String> freeVars;
 
 	public ExclusiveArbitraryLengthPath(ArbitraryLengthPath path, StatementSource owner, QueryInfo queryInfo) {
-		super(path.getScope(), path.getSubjectVar(), path.getPathExpression(), path.getObjectVar(),
-				path.getContextVar(), path.getMinLength());
+		super(path.getScope(), path.getSubjectVar().clone(), path.getPathExpression(), path.getObjectVar().clone(),
+				path.getContextVar() != null ? path.getContextVar().clone() : null, path.getMinLength());
 		this.owner = owner;
 		this.queryInfo = queryInfo;
 		this.freeVars = computeFreeVars();

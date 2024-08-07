@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
@@ -45,6 +48,28 @@ public class Formatter {
 
 		return in.toString();
 
+	}
+
+	public static String formatSparqlQuery(String query) {
+		StringBuilder stringBuilder = new StringBuilder();
+		query = query.replace(" .", " .\n");
+		query = query.replace("\n\n", "\n");
+		String[] split = query.split("\n");
+		int indent = 0;
+		for (String s : split) {
+			s = s.trim();
+			if (s.startsWith("}")) {
+				indent--;
+			}
+			for (int i = 0; i < indent; i++) {
+				stringBuilder.append("\t");
+			}
+			stringBuilder.append(s).append("\n");
+			if (s.endsWith("{")) {
+				indent++;
+			}
+		}
+		return stringBuilder.toString().trim();
 	}
 
 }

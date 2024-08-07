@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.util;
 
@@ -32,8 +35,8 @@ public class Namespaces {
 	/**
 	 * Set of RDFa 1.1 "initial context" namespaces
 	 *
-	 * @see http://www.w3.org/2011/rdfa-context/rdfa-1.1
-	 * @see http://www.w3.org/2013/json-ld-context/rdfa11
+	 * @see <a href="http://www.w3.org/2011/rdfa-context/rdfa-1.1">RDFa 1.1 context</a>
+	 * @see <a href="http://www.w3.org/2013/json-ld-context/rdfa11">JDON-lD rdfa1 context</a>
 	 */
 	public static final Set<Namespace> DEFAULT_RDFA11;
 
@@ -146,7 +149,7 @@ public class Namespaces {
 	 * @return A Map of prefix to URI mappings which is backed by the given Set of {@link Namespace}s.
 	 */
 	public static Map<String, String> wrap(final Set<Namespace> namespaces) {
-		return new Map<String, String>() {
+		return new Map<>() {
 
 			@Override
 			public void clear() {

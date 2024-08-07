@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearchstore;
 
@@ -119,12 +122,13 @@ class ElasticsearchNamespaceStore implements NamespaceStoreInterface {
 				.prepareSearch(index)
 				.addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)
 				.setQuery(QueryBuilders.constantScoreQuery(matchAllQuery()))
+				.setTrackTotalHits(true)
 				.setSize(10000)
 				.get();
 
 		SearchHits hits = searchResponse.getHits();
-		if (hits.totalHits > 10000) {
-			throw new SailException("Namespace store only supports 10 000 items, found " + hits.totalHits);
+		if (hits.getTotalHits().value > 10000) {
+			throw new SailException("Namespace store only supports 10 000 items, found " + hits.getTotalHits().value);
 		}
 
 		return StreamSupport.stream(hits.spliterator(), false)

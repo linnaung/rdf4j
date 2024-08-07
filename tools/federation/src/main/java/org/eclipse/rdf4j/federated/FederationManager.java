@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated;
 
@@ -17,7 +20,6 @@ import java.util.concurrent.TimeUnit;
 
 import org.eclipse.rdf4j.federated.endpoint.Endpoint;
 import org.eclipse.rdf4j.federated.endpoint.EndpointClassification;
-import org.eclipse.rdf4j.federated.evaluation.FederationEvalStrategy;
 import org.eclipse.rdf4j.federated.evaluation.FederationEvaluationStrategyFactory;
 import org.eclipse.rdf4j.federated.evaluation.SailFederationEvalStrategy;
 import org.eclipse.rdf4j.federated.evaluation.SparqlFederationEvalStrategy;
@@ -68,18 +70,17 @@ public class FederationManager {
 	 *
 	 * @author Andreas Schwarte
 	 */
-	public static enum FederationType {
+	public enum FederationType {
 		LOCAL,
 		REMOTE,
-		HYBRID;
+		HYBRID
 	}
 
 	/* Instance variables */
 	private FederationContext federationContext;
 	private FedX federation;
 	private ExecutorService executor;
-	private FederationEvalStrategy strategy;
-	private FederationType type;
+	private FederationType federationType;
 	private ControlledWorkerScheduler<BindingSet> joinScheduler;
 	private ControlledWorkerScheduler<BindingSet> leftJoinScheduler;
 	private ControlledWorkerScheduler<BindingSet> unionScheduler;
@@ -93,8 +94,20 @@ public class FederationManager {
 		this.federationContext = federationContext;
 		this.executor = Executors.newCachedThreadPool(new NamingThreadFactory("FedX Executor"));
 
-		updateStrategy();
+		updateFederationType();
 		reset();
+	}
+
+	/**
+	 *
+	 * @return the initialized and configured {@link FederationEvaluationStrategyFactory}
+	 */
+	/* package */ FederationEvaluationStrategyFactory getFederationEvaluationStrategyFactory() {
+		FederationEvaluationStrategyFactory strategyFactory = federation.getFederationEvaluationStrategyFactory();
+		strategyFactory.setFederationType(federationType);
+		strategyFactory.setFederationContext(federationContext);
+		strategyFactory.setCollectionFactory(federation.getCollectionFactory());
+		return strategyFactory;
 	}
 
 	/**
@@ -132,8 +145,7 @@ public class FederationManager {
 	/**
 	 * Returns the managed {@link Executor} which takes for properly handling any configured
 	 * {@link FedXConfig#getTaskWrapper()}
-	 * 
-	 * @return
+	 *
 	 */
 	public Executor getExecutor() {
 		final Optional<TaskWrapper> taskWrapper = federationContext.getConfig().getTaskWrapper();
@@ -151,10 +163,6 @@ public class FederationManager {
 		return this.federation;
 	}
 
-	public FederationEvalStrategy getStrategy() {
-		return strategy;
-	}
-
 	public ControlledWorkerScheduler<BindingSet> getJoinScheduler() {
 		return joinScheduler;
 	}
@@ -168,7 +176,7 @@ public class FederationManager {
 	}
 
 	public FederationType getFederationType() {
-		return type;
+		return federationType;
 	}
 
 	/**
@@ -195,8 +203,8 @@ public class FederationManager {
 		federationContext.getEndpointManager().addEndpoint(e);
 
 		if (updateStrategy == null || updateStrategy.length == 0
-				|| (updateStrategy.length == 1 && updateStrategy[0] == true)) {
-			updateStrategy();
+				|| (updateStrategy.length == 1 && updateStrategy[0])) {
+			updateFederationType();
 		}
 	}
 
@@ -212,7 +220,7 @@ public class FederationManager {
 			addEndpoint(e, false);
 		}
 
-		updateStrategy();
+		updateFederationType();
 	}
 
 	/**
@@ -233,8 +241,8 @@ public class FederationManager {
 		federationContext.getEndpointManager().removeEndpoint(e);
 
 		if (updateStrategy == null || updateStrategy.length == 0
-				|| (updateStrategy.length == 1 && updateStrategy[0] == true)) {
-			updateStrategy();
+				|| (updateStrategy.length == 1 && updateStrategy[0])) {
+			updateFederationType();
 		}
 	}
 
@@ -251,7 +259,7 @@ public class FederationManager {
 			removeEndpoint(e, false);
 		}
 
-		updateStrategy();
+		updateFederationType();
 	}
 
 	/**
@@ -268,35 +276,60 @@ public class FederationManager {
 	 */
 	public synchronized void shutDown() throws FedXException {
 
-		log.info("Shutting down federation and all underlying repositories ...");
-		// Abort all running queries
-		federationContext.getQueryManager().shutdown();
-		executor.shutdown();
 		try {
-			executor.awaitTermination(30, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			log.warn("Failed to shutdown executor:" + e.getMessage());
-			log.debug("Details:", e);
+			log.info("Shutting down federation and all underlying repositories ...");
+			// Abort all running queries
+			federationContext.getQueryManager().shutdown();
+			executor.shutdown();
+			try {
+				executor.awaitTermination(30, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+				log.warn("Failed to shutdown executor:" + e.getMessage());
+				log.debug("Details:", e);
+				Thread.currentThread().interrupt();
+			} finally {
+				executor.shutdownNow();
+			}
+		} finally {
+			try {
+				try {
+					joinScheduler.shutdown();
+				} catch (Exception e) {
+					log.warn("Failed to shutdown join scheduler: " + e.getMessage());
+					log.debug("Details: ", e);
+				} finally {
+					joinScheduler.abort();
+				}
+			} finally {
+				try {
+					try {
+						unionScheduler.shutdown();
+					} catch (Exception e) {
+						log.warn("Failed to shutdown union scheduler: " + e.getMessage());
+						log.debug("Details: ", e);
+					} finally {
+						unionScheduler.abort();
+					}
+				} finally {
+					try {
+						try {
+							leftJoinScheduler.shutdown();
+						} catch (Exception e) {
+							log.warn("Failed to shutdown left join scheduler: " + e.getMessage());
+							log.debug("Details: ", e);
+						} finally {
+							leftJoinScheduler.abort();
+						}
+					} finally {
+						federationContext.getFederatedServiceResolver().shutDown();
+					}
+
+				}
+
+			}
+
 		}
-		try {
-			joinScheduler.shutdown();
-		} catch (Exception e) {
-			log.warn("Failed to shutdown join scheduler: " + e.getMessage());
-			log.debug("Details: ", e);
-		}
-		try {
-			unionScheduler.shutdown();
-		} catch (Exception e) {
-			log.warn("Failed to shutdown union scheduler: " + e.getMessage());
-			log.debug("Details: ", e);
-		}
-		try {
-			leftJoinScheduler.shutdown();
-		} catch (Exception e) {
-			log.warn("Failed to shutdown left join scheduler: " + e.getMessage());
-			log.debug("Details: ", e);
-		}
-		federationContext.getFederatedServiceResolver().shutDown();
+
 	}
 
 	/**
@@ -309,11 +342,10 @@ public class FederationManager {
 	 * @see SynchronousWorkerUnion
 	 */
 	public WorkerUnionBase<BindingSet> createWorkerUnion(QueryInfo queryInfo) {
-		FederationEvalStrategy strategy = getStrategy();
-		if (type == FederationType.LOCAL) {
-			return new SynchronousWorkerUnion<>(strategy, queryInfo);
+		if (federationType == FederationType.LOCAL) {
+			return new SynchronousWorkerUnion<>(queryInfo);
 		}
-		return new ControlledWorkerUnion<>(strategy, unionScheduler, queryInfo);
+		return new ControlledWorkerUnion<>(unionScheduler, queryInfo);
 
 	}
 
@@ -321,8 +353,9 @@ public class FederationManager {
 	 * Update the federation evaluation strategy using the classification of endpoints as provided by
 	 * {@link Endpoint#getEndpointClassification()}:
 	 * <p>
-	 *
-	 * Which strategy is applied depends on {@link FederationEvaluationStrategyFactory}.
+	 * Which strategy is applied depends on the {@link FederationEvaluationStrategyFactory}, see
+	 * {@link #getFederationEvaluationStrategyFactory()}.
+	 * </p>
 	 *
 	 * Default strategies:
 	 * <ul>
@@ -332,7 +365,7 @@ public class FederationManager {
 	 * </ul>
 	 *
 	 */
-	public void updateStrategy() {
+	private void updateFederationType() {
 
 		int localCount = 0, remoteCount = 0;
 		for (Endpoint e : federation.getMembers()) {
@@ -345,26 +378,24 @@ public class FederationManager {
 
 		boolean updated = false;
 		if (remoteCount == 0) {
-			if (type != FederationType.LOCAL) {
-				type = FederationType.LOCAL;
+			if (federationType != FederationType.LOCAL) {
+				federationType = FederationType.LOCAL;
 				updated = true;
 			}
 		} else if (localCount == 0) {
-			if (type != FederationType.REMOTE) {
-				type = FederationType.REMOTE;
+			if (federationType != FederationType.REMOTE) {
+				federationType = FederationType.REMOTE;
 				updated = true;
 			}
 		} else {
-			if (type != FederationType.HYBRID) {
-				type = FederationType.HYBRID;
+			if (federationType != FederationType.HYBRID) {
+				federationType = FederationType.HYBRID;
 				updated = true;
 			}
 		}
 
 		if (updated) {
-			strategy = FederationEvaluationStrategyFactory.getEvaluationStrategy(type, federationContext);
-			log.info("Federation updated. Type: " + type + ", evaluation strategy is "
-					+ strategy.getClass().getSimpleName());
+			log.info("Federation updated. Type: " + federationType);
 		}
 
 	}

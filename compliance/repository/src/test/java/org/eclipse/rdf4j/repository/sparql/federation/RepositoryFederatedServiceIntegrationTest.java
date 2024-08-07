@@ -1,4 +1,16 @@
+/*******************************************************************************
+ * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 package org.eclipse.rdf4j.repository.sparql.federation;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.util.Collection;
 import java.util.List;
@@ -24,10 +36,9 @@ import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.junit.After;
-import org.junit.Assert;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.google.common.collect.Lists;
 
@@ -35,7 +46,6 @@ import com.google.common.collect.Lists;
  * Integration tests for {@link RepositoryFederatedService}
  *
  * @author Andreas Schwarte
- *
  */
 public class RepositoryFederatedServiceIntegrationTest {
 
@@ -45,7 +55,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	private SailRepository localRepo;
 	private RepositoryFederatedService federatedService;
 
-	@Before
+	@BeforeEach
 	public void before() {
 		serviceRepo = new SailRepository(new MemoryStore());
 		serviceRepo.init();
@@ -63,15 +73,16 @@ public class RepositoryFederatedServiceIntegrationTest {
 		localRepo.init();
 	}
 
-	@After
+	@AfterEach
 	public void after() {
 		federatedService.shutdown();
 		localRepo.shutDown();
 		serviceRepo.shutDown();
+		System.setProperty("org.eclipse.rdf4j.repository.debug", "false");
 	}
 
 	@Test
-	public void test() throws Exception {
+	public void test() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("val1"))));
 
@@ -81,7 +92,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test2() throws Exception {
+	public void test2() {
 
 		addData(serviceRepo, Lists.newArrayList(
 				vf.createStatement(iri("s1"), RDFS.LABEL, l("val1")),
@@ -94,7 +105,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test3() throws Exception {
+	public void test3() {
 
 		addData(serviceRepo, Lists.newArrayList(
 				vf.createStatement(iri("s1"), RDFS.LABEL, l("val1")),
@@ -107,7 +118,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test3a() throws Exception {
+	public void test3a() {
 
 		addData(serviceRepo, Lists.newArrayList(
 				vf.createStatement(iri("s1"), RDFS.LABEL, l("val1")),
@@ -122,7 +133,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test4() throws Exception {
+	public void test4() {
 
 		addData(serviceRepo, Lists.newArrayList(
 				vf.createStatement(iri("s1"), RDFS.LABEL, l("val1")),
@@ -135,7 +146,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test4a() throws Exception {
+	public void test4a() {
 
 		addData(serviceRepo, Lists.newArrayList(
 				vf.createStatement(iri("s1"), RDFS.LABEL, l("val1")),
@@ -149,7 +160,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test4b() throws Exception {
+	public void test4b() {
 
 		addData(serviceRepo, Lists.newArrayList(
 				vf.createStatement(iri("s1"), RDFS.LABEL, l("val1")),
@@ -162,7 +173,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test5() throws Exception {
+	public void test5() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("val1"))));
 
@@ -174,7 +185,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test5a() throws Exception {
+	public void test5a() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("val1"))));
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s2"), RDFS.LABEL, l("val2"))));
@@ -188,7 +199,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test5b() throws Exception {
+	public void test5b() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("val1"))));
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s2"), RDFS.LABEL, l("val2"))));
@@ -201,7 +212,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test6() throws Exception {
+	public void test6() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("val1"))));
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s2"), RDFS.LABEL, l("val2"))));
@@ -210,14 +221,14 @@ public class RepositoryFederatedServiceIntegrationTest {
 		String query = "SELECT ?var ?cnt WHERE { SERVICE <urn:dummy> { SELECT ?var { ?s ?p ?var } LIMIT 2 }  . SERVICE <urn:dummy> { SELECT ?var ?cnt ?__rowIdx WHERE { SELECT (COUNT(?s2) AS ?cnt) WHERE { ?s2 ?p2 ?var  } } } }";
 
 		List<BindingSet> res = evaluateQuery(query);
-		Assert.assertEquals(2, res.size());
+		assertEquals(2, res.size());
 		BindingSet b1 = res.get(0);
-		Assert.assertEquals(l("val1"), b1.getValue("var"));
-		Assert.assertEquals(1, ((Literal) b1.getValue("cnt")).intValue());
+		assertEquals(l("val1"), b1.getValue("var"));
+		assertEquals(1, ((Literal) b1.getValue("cnt")).intValue());
 	}
 
 	@Test
-	public void test6b() throws Exception {
+	public void test6b() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("val1"))));
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s2"), RDFS.LABEL, l("val2"))));
@@ -226,14 +237,14 @@ public class RepositoryFederatedServiceIntegrationTest {
 		String query = "SELECT ?var ?cnt WHERE { SERVICE <urn:dummy> { SELECT ?var { ?s ?p ?var } LIMIT 1 }  . SERVICE <urn:dummy> { SELECT ?var ?cnt ?__rowIdx WHERE { SELECT (COUNT(?s2) AS ?cnt) WHERE { ?s2 ?p2 ?var  } } } }";
 
 		List<BindingSet> res = evaluateQuery(query);
-		Assert.assertEquals(1, res.size());
+		assertEquals(1, res.size());
 		BindingSet b1 = res.get(0);
-		Assert.assertEquals(l("val1"), b1.getValue("var"));
-		Assert.assertEquals(1, ((Literal) b1.getValue("cnt")).intValue());
+		assertEquals(l("val1"), b1.getValue("var"));
+		assertEquals(1, ((Literal) b1.getValue("cnt")).intValue());
 	}
 
 	@Test
-	public void test7_CrossProduct() throws Exception {
+	public void test7_CrossProduct() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("serviceVal"))));
 
@@ -245,7 +256,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test8_subSelectAll() throws Exception {
+	public void test8_subSelectAll() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("val1"))));
 
@@ -255,7 +266,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test8a_subSelectAll() throws Exception {
+	public void test8a_subSelectAll() {
 
 		addData(serviceRepo, Lists.newArrayList(vf.createStatement(iri("s1"), RDFS.LABEL, l("val1"))));
 
@@ -302,7 +313,7 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	@Test
-	public void test10_consumePartially() throws Exception {
+	public void test10_consumePartially() {
 
 		/*
 		 * The purpose of this test is validate that connections are closed properly, even if a result is consume only
@@ -352,6 +363,6 @@ public class RepositoryFederatedServiceIntegrationTest {
 	}
 
 	private void assertResultEquals(List<BindingSet> res, String bindingName, List<Value> expected) {
-		Assert.assertEquals(expected, res.stream().map(b -> b.getValue(bindingName)).collect(Collectors.toList()));
+		assertEquals(expected, res.stream().map(b -> b.getValue(bindingName)).collect(Collectors.toList()));
 	}
 }

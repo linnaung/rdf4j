@@ -1,47 +1,41 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
 
 import java.util.LinkedHashSet;
 import java.util.Set;
 
-import org.eclipse.rdf4j.query.algebra.helpers.TupleExprs;
+import org.eclipse.rdf4j.common.annotation.Experimental;
 
 /**
  * A natural join between two tuple expressions.
  */
 public class Join extends BinaryTupleOperator {
 
-	/*--------------*
-	 * Constructors *
-	 *--------------*/
+	/**
+	 * Indicates whether a join can use merge join.
+	 */
+	private boolean mergeJoin = false;
+
+	/**
+	 * Indicates whether a join can be cached. This also entails that no bindings from the parent node are actually used
+	 * in this join.
+	 */
+	private boolean cacheable;
 
 	public Join() {
 	}
 
-	/**
-	 * Creates a new natural join operator.
-	 */
 	public Join(TupleExpr leftArg, TupleExpr rightArg) {
 		super(leftArg, rightArg);
-	}
-
-	/*---------*
-	 * Methods *
-	 *---------*/
-
-	/**
-	 * @deprecated since 2.0. Use {@link TupleExprs#containsProjection(TupleExpr)} instead.
-	 * @return <code>true</code> if the right argument of this Join contains a projection, <code>false</code> otherwise.
-	 */
-	@Deprecated
-	public boolean hasSubSelectInRightArg() {
-		return TupleExprs.containsSubquery(rightArg);
 	}
 
 	@Override
@@ -80,4 +74,18 @@ public class Join extends BinaryTupleOperator {
 		return (Join) super.clone();
 	}
 
+	@Experimental
+	public boolean isMergeJoin() {
+		return mergeJoin;
+	}
+
+	@Experimental
+	public void setMergeJoin(boolean mergeJoin) {
+		this.mergeJoin = mergeJoin;
+	}
+
+	@Experimental
+	public void setCacheable(boolean cacheable) {
+		this.cacheable = cacheable;
+	}
 }

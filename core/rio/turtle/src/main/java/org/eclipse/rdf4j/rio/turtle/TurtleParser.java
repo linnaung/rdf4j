@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.turtle;
 
@@ -28,7 +31,9 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.util.Values;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.rio.RDFFormat;
@@ -37,7 +42,6 @@ import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFParser;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
-import org.eclipse.rdf4j.rio.helpers.TurtleParserSettings;
 
 /**
  * RDF parser for <a href="https://www.w3.org/TR/turtle/">RDF-1.1 Turtle</a> files. This parser is not thread-safe,
@@ -70,6 +74,11 @@ public class TurtleParser extends AbstractRDFParser {
 	private int lineNumber = 1;
 
 	private final StringBuilder parsingBuilder = new StringBuilder();
+
+	/**
+	 * The most recently read complete statement.
+	 */
+	private Statement previousStatement;
 
 	/*--------------*
 	 * Constructors *
@@ -237,7 +246,7 @@ public class TurtleParser extends AbstractRDFParser {
 				unread(directive.substring(5));
 			}
 			parseBase();
-		} else if (directive.length() == 0) {
+		} else if (directive.isEmpty()) {
 			reportFatalError("Directive name is missing, expected @prefix or @base");
 		} else {
 			reportFatalError("Unknown directive \"" + directive + "\"");
@@ -272,12 +281,11 @@ public class TurtleParser extends AbstractRDFParser {
 		skipWSC();
 
 		// Read the namespace URI
-		IRI namespace = parseURI();
+		String namespaceStr = parseURI().toString();
+
+		String prefixStr = prefixID.toString();
 
 		// Store and report this namespace mapping
-		String prefixStr = prefixID.toString();
-		String namespaceStr = namespace.toString();
-
 		setNamespace(prefixStr, namespaceStr);
 
 		if (rdfHandler != null) {
@@ -366,10 +374,16 @@ public class TurtleParser extends AbstractRDFParser {
 	protected void parseObjectList() throws IOException, RDFParseException, RDFHandlerException {
 		parseObject();
 
+		if (skipWSC() == '{') {
+			parseAnnotation();
+		}
 		while (skipWSC() == ',') {
 			readCodePoint();
 			skipWSC();
 			parseObject();
+			if (skipWSC() == '{') {
+				parseAnnotation();
+			}
 		}
 	}
 
@@ -443,7 +457,7 @@ public class TurtleParser extends AbstractRDFParser {
 	}
 
 	/**
-	 * Parses a collection, e.g. <tt>( item1 item2 item3 )</tt>.
+	 * Parses a collection, e.g. <var>( item1 item2 item3 )</var>.
 	 */
 	protected Resource parseCollection() throws IOException, RDFParseException, RDFHandlerException {
 		verifyCharacterOrFail(readCodePoint(), "(");
@@ -501,7 +515,7 @@ public class TurtleParser extends AbstractRDFParser {
 	}
 
 	/**
-	 * Parses an implicit blank node. This method parses the token <tt>[]</tt> and predicateObjectLists that are
+	 * Parses an implicit blank node. This method parses the token <var>[]</var> and predicateObjectLists that are
 	 * surrounded by square brackets.
 	 */
 	protected Resource parseImplicitBlank() throws IOException, RDFParseException, RDFHandlerException {
@@ -625,7 +639,7 @@ public class TurtleParser extends AbstractRDFParser {
 
 			unread(c);
 
-			return createLiteral(label, lang.toString(), null, getLineNumber(), -1);
+			return createLiteral(label, lang.toString(), ((IRI) null), getLineNumber(), -1);
 		} else if (c == '^') {
 			readCodePoint();
 
@@ -646,7 +660,7 @@ public class TurtleParser extends AbstractRDFParser {
 			}
 			return createLiteral(label, null, (IRI) datatype, getLineNumber(), -1);
 		} else {
-			return createLiteral(label, null, null, getLineNumber(), -1);
+			return createLiteral(label, null, ((IRI) null), getLineNumber(), -1);
 		}
 	}
 
@@ -658,7 +672,7 @@ public class TurtleParser extends AbstractRDFParser {
 	 * @throws RDFParseException
 	 */
 	protected String parseQuotedString() throws IOException, RDFParseException {
-		String result = null;
+		String result;
 
 		int c1 = readCodePoint();
 
@@ -753,6 +767,11 @@ public class TurtleParser extends AbstractRDFParser {
 			}
 
 			appendCodepoint(sb, c);
+
+			if (c == '\n') {
+				lineNumber++;
+				reportLocation();
+			}
 
 			if (c == '\\') {
 				// This escapes the next character, which might be a '"'
@@ -942,7 +961,7 @@ public class TurtleParser extends AbstractRDFParser {
 					BasicParserSettings.VERIFY_RELATIVE_URIS);
 		}
 
-		String namespace = null;
+		String namespace;
 
 		if (c == ':') {
 			// qname using default namespace
@@ -973,10 +992,10 @@ public class TurtleParser extends AbstractRDFParser {
 
 				if (value.equals("true")) {
 					unread(c);
-					return createLiteral("true", null, XSD.BOOLEAN, getLineNumber(), -1);
+					return createLiteral("true", null, CoreDatatype.XSD.BOOLEAN, getLineNumber(), -1);
 				} else if (value.equals("false")) {
 					unread(c);
-					return createLiteral("false", null, XSD.BOOLEAN, getLineNumber(), -1);
+					return createLiteral("false", null, CoreDatatype.XSD.BOOLEAN, getLineNumber(), -1);
 				}
 			}
 
@@ -1053,7 +1072,7 @@ public class TurtleParser extends AbstractRDFParser {
 	}
 
 	/**
-	 * Parses a blank node ID, e.g. <tt>_:node1</tt>.
+	 * Parses a blank node ID, e.g. <var>_:node1</var>.
 	 */
 	protected Resource parseNodeID() throws IOException, RDFParseException {
 		// Node ID should start with "_:"
@@ -1099,16 +1118,16 @@ public class TurtleParser extends AbstractRDFParser {
 
 	protected void reportStatement(Resource subj, IRI pred, Value obj) throws RDFParseException, RDFHandlerException {
 		if (subj != null && pred != null && obj != null) {
-			Statement st = createStatement(subj, pred, obj);
+			previousStatement = createStatement(subj, pred, obj);
 			if (rdfHandler != null) {
-				rdfHandler.handleStatement(st);
+				rdfHandler.handleStatement(previousStatement);
 			}
 		}
 	}
 
 	/**
-	 * Verifies that the supplied character code point <tt>codePoint</tt> is one of the expected characters specified in
-	 * <tt>expected</tt>. This method will throw a <tt>ParseException</tt> if this is not the case.
+	 * Verifies that the supplied character code point <var>codePoint</var> is one of the expected characters specified
+	 * in <var>expected</var>. This method will throw a <var>ParseException</var> if this is not the case.
 	 */
 	protected void verifyCharacterOrFail(int codePoint, String expected) throws RDFParseException {
 		if (codePoint == -1) {
@@ -1137,11 +1156,11 @@ public class TurtleParser extends AbstractRDFParser {
 	}
 
 	/**
-	 * Consumes any white space characters (space, tab, line feed, newline) and comments (#-style) from <tt>reader</tt>.
-	 * After this method has been called, the first character that is returned by <tt>reader</tt> is either a
-	 * non-ignorable character, or EOF. For convenience, this character is also returned by this method.
+	 * Consumes any white space characters (space, tab, line feed, newline) and comments (#-style) from
+	 * <var>reader</var>. After this method has been called, the first character that is returned by <var>reader</var>
+	 * is either a non-ignorable character, or EOF. For convenience, this character is also returned by this method.
 	 *
-	 * @return The next character code point that will be returned by <tt>reader</tt>.
+	 * @return The next character code point that will be returned by <var>reader</var>.
 	 */
 	protected int skipWSC() throws IOException, RDFHandlerException {
 		int c = readCodePoint();
@@ -1331,9 +1350,9 @@ public class TurtleParser extends AbstractRDFParser {
 
 	/**
 	 * Peeks at the next two Unicode code points without advancing the reader and returns true if they indicate the
-	 * start of an RDF* triple value. Such values start with '<<'.
+	 * start of an RDF-star triple value. Such values start with '<<'.
 	 *
-	 * @return true if the next code points indicate the beginning of an RDF* triple value, false otherwise
+	 * @return true if the next code points indicate the beginning of an RDF-star triple value, false otherwise
 	 * @throws IOException
 	 */
 	protected boolean peekIsTripleValue() throws IOException {
@@ -1346,9 +1365,9 @@ public class TurtleParser extends AbstractRDFParser {
 	}
 
 	/**
-	 * Parser an RDF* triple value and returns it.
+	 * Parser an RDF-star triple value and returns it.
 	 *
-	 * @return An RDF* triple.
+	 * @return An RDF-star triple.
 	 * @throws IOException
 	 */
 	protected Triple parseTripleValue() throws IOException {
@@ -1368,15 +1387,32 @@ public class TurtleParser extends AbstractRDFParser {
 					verifyCharacterOrFail(readCodePoint(), ">");
 					return valueFactory.createTriple((Resource) subject, (IRI) predicate, object);
 				} else {
-					reportFatalError("Missing object in RDF* triple");
+					reportFatalError("Missing object in RDF-star triple");
 				}
 			} else {
-				reportFatalError("Illegal predicate value in RDF* triple: " + predicate);
+				reportFatalError("Illegal predicate value in RDF-star triple: " + predicate);
 			}
 		} else {
-			reportFatalError("Illegal subject val in RDF* triple: " + subject);
+			reportFatalError("Illegal subject val in RDF-star triple: " + subject);
 		}
 
 		return null;
 	}
+
+	protected void parseAnnotation() throws IOException {
+		verifyCharacterOrFail(readCodePoint(), "{");
+		verifyCharacterOrFail(readCodePoint(), "|");
+		skipWSC();
+
+		// keep reference to original subject and predicate while processing the annotation content
+		final Resource currentSubject = subject;
+		final IRI currentPredicate = predicate;
+		subject = Values.triple(previousStatement);
+		parsePredicateObjectList();
+		verifyCharacterOrFail(readCodePoint(), "|");
+		verifyCharacterOrFail(readCodePoint(), "}");
+		subject = currentSubject;
+		predicate = currentPredicate;
+	}
+
 }

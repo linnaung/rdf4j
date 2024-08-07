@@ -1,16 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl;
 
-import static junit.framework.TestCase.assertTrue;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
+import static org.junit.jupiter.params.provider.Arguments.arguments;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -18,36 +19,55 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.StringReader;
 import java.io.StringWriter;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.eclipse.rdf4j.IsolationLevel;
-import org.eclipse.rdf4j.IsolationLevels;
+import org.apache.commons.lang3.reflect.FieldUtils;
+import org.apache.jena.query.Dataset;
+import org.apache.jena.query.DatasetFactory;
+import org.apache.jena.riot.RDFDataMgr;
+import org.apache.jena.riot.RDFLanguages;
+import org.apache.jena.update.UpdateAction;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
+import org.eclipse.rdf4j.common.transaction.QueryEvaluationMode;
+import org.eclipse.rdf4j.model.BNode;
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.DynamicModel;
 import org.eclipse.rdf4j.model.impl.DynamicModelFactory;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
+import org.eclipse.rdf4j.model.impl.LinkedHashModelFactory;
 import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.util.Values;
+import org.eclipse.rdf4j.model.vocabulary.DASH;
 import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.RDF4J;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
+import org.eclipse.rdf4j.model.vocabulary.RSX;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
+import org.eclipse.rdf4j.query.MalformedQueryException;
+import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
@@ -57,292 +77,260 @@ import org.eclipse.rdf4j.rio.WriterConfig;
 import org.eclipse.rdf4j.rio.helpers.BasicWriterSettings;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
 import org.eclipse.rdf4j.sail.shacl.ShaclSail.TransactionSettings.ValidationApproach;
-import org.eclipse.rdf4j.sail.shacl.ast.Shape;
+import org.eclipse.rdf4j.sail.shacl.ast.ContextWithShape;
 import org.eclipse.rdf4j.sail.shacl.results.ValidationReport;
-import org.junit.AfterClass;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.parallel.Isolated;
+import org.junit.jupiter.params.provider.Arguments;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.topbraid.jenax.util.JenaUtil;
+import org.topbraid.shacl.util.ModelPrinter;
+import org.topbraid.shacl.validation.ValidationUtil;
+import org.topbraid.shacl.vocabulary.SH;
+
+import com.google.common.collect.Lists;
+
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.LoggerContext;
 
 /**
  * @author Håvard Ottestad
  */
-@RunWith(Parameterized.class)
+@Isolated("Because we are modifying the static CONTEXTS field in the ShaclValidator class")
+//@Execution(CONCURRENT)
 abstract public class AbstractShaclTest {
 
 	private static final Logger logger = LoggerFactory.getLogger(AbstractShaclTest.class);
 
-	private static final String[] FILENAME_EXTENSION = { "rq" };
+	public static final Set<IRI> SHAPE_GRAPHS = Set.of(RDF4J.SHACL_SHAPE_GRAPH, RDF4J.NIL,
+			Values.iri("http://example.com/ns#shapesGraph1"));
 
-	// @formatter:off
-	// formatter doesn't understand that the trailing ) needs to be on a new line.
-	private static final List<String> testCasePaths = Stream.of(
+	private static final Set<String> ignoredTestCases = Set.of(
+			"test-cases/path/oneOrMorePath",
+			"test-cases/path/zeroOrMorePath",
+			"test-cases/path/zeroOrOnePath"
 
-			"test-cases/and-or/datatypeNodeShape",
-		"test-cases/class/allObjects",
-		"test-cases/class/allSubjects",
-		"test-cases/class/and",
-		"test-cases/class/and2",
-		"test-cases/class/complexTargetShape",
-		"test-cases/class/complexTargetShape2",
-		"test-cases/class/multipleClass",
-		"test-cases/class/not",
-		"test-cases/class/not2",
-		"test-cases/class/notAnd",
-		"test-cases/class/notNotSimple",
-		"test-cases/class/simple",
-		"test-cases/class/simpleTargetShape",
-//		"test-cases/class/sparqlTarget",
-//		"test-cases/class/sparqlTargetNot",
-		"test-cases/class/subclass",
-		"test-cases/class/targetNode",
-		"test-cases/class/validateTarget",
-		"test-cases/class/validateTargetNot",
-		"test-cases/complex/dcat",
-		"test-cases/complex/foaf",
-//		"test-cases/complex/sparqlTarget",
-		"test-cases/datatype/allObjects",
-		"test-cases/datatype/not",
-		"test-cases/datatype/notNodeShape",
-		"test-cases/datatype/notNodeShapeAnd",
-		"test-cases/datatype/notNodeShapeTargetShape",
-		"test-cases/datatype/notNot",
-		"test-cases/datatype/notSimpleNodeShape",
-		"test-cases/datatype/notTargetNode",
-		"test-cases/datatype/notTargetShape",
-		"test-cases/datatype/simple",
-		"test-cases/datatype/simpleNested",
-		"test-cases/datatype/simpleNode",
-		"test-cases/datatype/simpleNodeNested",
-//		"test-cases/datatype/sparqlTarget",
-		"test-cases/datatype/targetNode",
-		"test-cases/datatype/targetNode2",
-		"test-cases/datatype/targetNodeLang",
-		"test-cases/datatype/targetObjectsOf",
-		"test-cases/datatype/targetSubjectsOf",
-		"test-cases/datatype/targetSubjectsOfSingle",
-		"test-cases/deactivated/nodeshape",
-		"test-cases/deactivated/or",
-		"test-cases/deactivated/propertyshape",
-		"test-cases/functionalProperty/multipleFunctional",
-		"test-cases/functionalProperty/multipleFunctionalOr",
-		"test-cases/functionalProperty/singleFunctional",
-		"test-cases/hasValue/and",
-		"test-cases/hasValue/not",
-		"test-cases/hasValue/not2",
-		"test-cases/hasValueIn/and",
-		"test-cases/hasValueIn/not",
-		"test-cases/hasValueIn/not2",
-		"test-cases/hasValueIn/simple",
-		"test-cases/hasValueIn/targetNode",
-		"test-cases/hasValueIn/targetNode2",
-		"test-cases/implicitTargetClass/simple",
-		"test-cases/in/notAnd",
-		"test-cases/in/notOr",
-		"test-cases/in/simple",
-		"test-cases/languageIn/simple",
-		"test-cases/maxCount/not",
-		"test-cases/maxCount/nested",
-		"test-cases/maxCount/not2",
-		"test-cases/maxCount/notNot",
-		"test-cases/maxCount/simple",
-		"test-cases/maxCount/simpleInversePath",
-//		"test-cases/maxCount/sparqlTarget",
-		"test-cases/maxCount/targetNode",
-		"test-cases/maxExclusive/simple",
-		"test-cases/maxExclusiveMinLength/not",
-		"test-cases/maxExclusiveMinLength/simple",
-		"test-cases/maxInclusive/simple",
-		"test-cases/maxLength/simple",
-		"test-cases/minCount/not",
-		"test-cases/minCount/simple",
-		"test-cases/minCount/targetNode",
-		"test-cases/minExclusive/dateVsTime",
-		"test-cases/minExclusive/simple",
-		"test-cases/minInclusive/simple",
-		"test-cases/minLength/simple",
-		"test-cases/nodeKind/not",
-		"test-cases/nodeKind/simple",
-		"test-cases/nodeKind/simpleInversePath",
-		"test-cases/nodeKind/validateTarget",
-		"test-cases/or/class",
-		"test-cases/or/class2",
-		"test-cases/or/class2InversePath",
-		"test-cases/or/classValidateTarget",
-		"test-cases/or/datatype",
-		"test-cases/or/datatype2",
-		"test-cases/or/datatypeDifferentPaths",
-		"test-cases/or/datatypeNodeShape",
-		"test-cases/or/datatypeTargetNode",
-		"test-cases/or/implicitAnd",
-//		"test-cases/or/implicitAndSparqlTarget",
-		"test-cases/or/inheritance",
-		"test-cases/or/inheritance-deep",
-		"test-cases/or/inheritanceNodeShape",
-		"test-cases/or/maxCount",
-		"test-cases/or/minCount",
-		"test-cases/or/minCountDifferentPath",
-		"test-cases/or/minCountMaxCount",
-		"test-cases/or/multiple",
-		"test-cases/or/nodeKindMinLength",
-		"test-cases/or/nodeKindValidateTarget",
-		"test-cases/pattern/multiple",
-		"test-cases/pattern/simple",
-		"test-cases/propertyShapeWithTarget/simple",
-		"test-cases/uniqueLang/not",
-		"test-cases/uniqueLang/simple",
-		"test-cases/datatype/notNestedPropertyShape",
-		"test-cases/datatype/notNestedPropertyShape2",
-		"test-cases/hasValue/simple",
-		"test-cases/hasValue/and2",
-		"test-cases/hasValue/targetNode",
-		"test-cases/hasValue/targetNode2",
-		"test-cases/hasValueIn/simple",
-		"test-cases/hasValueIn/and",
-		"test-cases/hasValueIn/not",
-		"test-cases/hasValueIn/not2",
-		"test-cases/hasValueIn/targetNode",
-		"test-cases/hasValueIn/targetNode2",
-		"test-cases/languageIn/subtags",
-		"test-cases/languageIn/subtags2",
-		"test-cases/hasValueIn/targetNode2",
-		"test-cases/hasValue/or",
-		"test-cases/hasValue/targetShapeOr",
-		"test-cases/hasValue/targetShapeAnd",
-		"test-cases/hasValue/targetShapeAnd2",
-		"test-cases/hasValue/targetShapeAndOr",
-		"test-cases/hasValue/targetShapeAndOr2",
-		"test-cases/hasValueIn/targetShapeOr",
-		"test-cases/hasValueIn/or",
-		"test-cases/class/simpleNested",
-		"test-cases/class/nestedNode",
-		"test-cases/qualifiedShape/minCountSimple",
-		"test-cases/qualifiedShape/maxCountSimple"
+	);
+	public static final Set<IsolationLevels> ISOLATION_LEVELS = Set.of(
+			IsolationLevels.NONE,
+			IsolationLevels.SNAPSHOT,
+			IsolationLevels.SERIALIZABLE
+	);
 
-		)
-		.distinct()
-		.sorted()
-		.collect(Collectors.toList());
+	boolean fullLogging = false;
 
-	// @formatter:on
-	static boolean fullLogging = false;
-	final String testCasePath;
-	final String path;
-	final ExpectedResult expectedResult;
-	final IsolationLevel isolationLevel;
+	private final static List<TestCase> testCases = getTestsToRun();
+	private final static List<Arguments> testsToRun = getTestsToRunWithoutIsolationLevel(testCases);
+	private final static List<Arguments> testsToRunWithIsolationLevel = getTestsToRunWithIsolationLevel(testCases);
 
-	public AbstractShaclTest(String testCasePath, String path, ExpectedResult expectedResult,
-			IsolationLevel isolationLevel) {
-		this.testCasePath = testCasePath;
-		this.path = path;
-		this.expectedResult = expectedResult;
-		this.isolationLevel = isolationLevel;
+	private static List<Arguments> testCases() {
+		return testsToRun;
 	}
 
-	@Parameterized.Parameters(name = "{2} - {1} - {3}")
-	public static Collection<Object[]> data() {
-
-		return getTestsToRun();
+	private static List<Arguments> testsToRunWithIsolationLevel() {
+		return testsToRunWithIsolationLevel;
 	}
 
-	private static List<String> findTestCases(String testCase, String baseCase) {
+	static class TestCase {
 
-		try {
-			URL resource = AbstractShaclTest.class.getClassLoader().getResource(testCase + "/shacl.ttl");
-			assert Objects.nonNull(resource) : "Could not find: " + testCase + "/shacl.ttl";
-			URI uri = resource.toURI();
-			assert Files.exists(Paths.get(uri)) : uri;
+		private Model shacl;
+		private final String shaclData;
+		private final ExpectedResult expectedResult;
+		private final List<File> queries;
+		private final String initialData;
+		private final String testCasePath;
+		private final String parentTestCasePath;
 
-		} catch (URISyntaxException e) {
-			throw new RuntimeException(e);
+		public TestCase(String shacl, ExpectedResult expectedResult, List<File> queries, String initialData,
+				String parentTestCasePath, String testCasePath) {
+			this.shaclData = shacl;
+			this.expectedResult = expectedResult;
+			this.queries = queries;
+			this.initialData = initialData;
+			this.testCasePath = testCasePath.endsWith("/") ? testCasePath : testCasePath + "/";
+			this.parentTestCasePath = parentTestCasePath;
 		}
 
-		List<String> ret = new ArrayList<>();
+		public Model getShacl() {
+			if (shacl == null) {
+				try {
+					shacl = Rio.parse(new StringReader(shaclData), RDFFormat.TRIG).unmodifiable();
+				} catch (IOException e) {
+					throw new IllegalStateException(e);
+				}
+			}
+			return shacl;
+		}
+
+		public ExpectedResult getExpectedResult() {
+			return expectedResult;
+		}
+
+		public List<File> getQueries() {
+			return queries;
+		}
+
+		public boolean hasInitialData() {
+			return initialData != null;
+		}
+
+		public String getInitialData() {
+			return testCasePath + initialData;
+		}
+
+		public String getTestCasePath() {
+			return testCasePath;
+		}
+
+		public String getParentTestCasePath() {
+			return parentTestCasePath;
+		}
+
+		public String getShaclData() {
+			return shaclData;
+		}
+
+		@Override
+		public String toString() {
+			return testCasePath;
+		}
+	}
+
+	private static Stream<TestCase> findTestCases(String testCase, ExpectedResult baseCase) {
+		String shacl = readShaclFile(testCase);
 
 		URL resource = AbstractShaclTest.class.getClassLoader().getResource(testCase + "/" + baseCase + "/");
 		if (resource == null) {
-			return ret;
+			return Stream.empty();
 		}
 
-		String[] list = new File(resource.getFile()).list();
-		Arrays.sort(list);
+		String[] testCases = Objects.requireNonNull(new File(resource.getFile()).list(),
+				"Could not find test cases for: " + resource);
 
-		for (String caseName : list) {
-			if (caseName.startsWith(".")) {
-				continue;
-			}
-			String path = testCase + "/" + baseCase + "/" + caseName;
-			InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader().getResourceAsStream(path);
-			if (resourceAsStream != null) {
-				ret.add(path);
-				try {
-					resourceAsStream.close();
-				} catch (IOException e) {
-					throw new RuntimeException(e);
-				}
-			}
+		return Arrays.stream(testCases)
+				.filter(s -> !s.startsWith("."))
+				.sorted()
+				.map(caseName -> testCase + "/" + baseCase + "/" + caseName)
+				.map(fullTestCasePath -> {
+					URL fullTestCase = AbstractShaclTest.class.getClassLoader().getResource(fullTestCasePath);
+					if (fullTestCase != null) {
+						File[] files = new File(fullTestCase.getFile()).listFiles();
+						if (files != null) {
+							Optional<String> initialData = Arrays.stream(files)
+									.map(File::getName)
+									.filter(name -> name.equals("initialData.ttl"))
+									.findAny();
+							List<File> queries = Arrays.stream(files)
+									.filter(f -> f.getName().endsWith(".rq"))
+									.sorted(Comparator.comparing(File::getName))
+									.collect(Collectors.toList());
+							return new TestCase(shacl, baseCase, queries, initialData.orElse(null), testCase,
+									fullTestCasePath);
+						}
+					}
+					return null;
+				})
+				.filter(Objects::nonNull);
+	}
 
+	private static String readShaclFile(String testCase) {
+		try (InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader()
+				.getResourceAsStream(testCase + "/shacl.trig")) {
+			assert Objects.nonNull(resourceAsStream) : "Could not find: " + testCase + "/shacl.trig";
+			return IOUtils.toString(resourceAsStream, StandardCharsets.UTF_8);
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
 		}
-
-		return ret;
-
 	}
 
-	@AfterClass
-	public static void afterClass() {
-		GlobalValidationExecutionLogging.loggingEnabled = false;
-	}
+	private static List<Arguments> getTestsToRunWithIsolationLevel(List<TestCase> testCases) {
 
-	private static Collection<Object[]> getTestsToRun() {
-		List<Object[]> ret = new ArrayList<>();
-
-		for (String testCasePath : testCasePaths) {
-			List<Object[]> temp = new ArrayList<>();
-
-			for (ExpectedResult baseCase : ExpectedResult.values()) {
-				List<Object[]> collect = findTestCases(testCasePath, baseCase.name())
+		return testCases.stream()
+				.flatMap(testCase -> ISOLATION_LEVELS
 						.stream()
-						.flatMap(path -> Stream
-								.of(IsolationLevels.NONE, IsolationLevels.SNAPSHOT, IsolationLevels.SERIALIZABLE)
-//								.of(IsolationLevels.NONE)
-								.map(isolationLevel -> new Object[] { testCasePath, path, baseCase, isolationLevel }))
-						.collect(Collectors.toList());
-
-				temp.addAll(collect);
-			}
-			assert !temp.isEmpty() : "There were no test cases for: " + testCasePath;
-			ret.addAll(temp);
-
-		}
-
-		return ret;
+						.map(isolationLevel -> arguments(testCase, isolationLevel))
+				)
+				.collect(Collectors.toList());
 	}
 
-	static void runTestCase(String shaclPath, String dataPath, ExpectedResult expectedResult,
-			IsolationLevel isolationLevel, boolean preloadWithDummyData) {
+	private static List<Arguments> getTestsToRunWithoutIsolationLevel(List<TestCase> testCases) {
 
-		if (!dataPath.endsWith("/")) {
-			dataPath = dataPath + "/";
+		return testCases.stream()
+				.map(Arguments::arguments)
+				.collect(Collectors.toList());
+	}
+
+	private static List<TestCase> getTestsToRun() {
+		URL testCasesUrl = AbstractShaclTest.class.getClassLoader().getResource("test-cases");
+		File testCases = new File(Objects.requireNonNull(testCasesUrl).getFile());
+		String baseTestCasesPath = testCases.getPath();
+
+		List<File> mainTestCases = Arrays.stream(Objects.requireNonNull(testCases.listFiles()))
+				.filter(s -> !s.getName().startsWith("."))
+				.collect(Collectors.toList());
+
+		List<String> innerTestCases = mainTestCases.stream()
+				.flatMap(testCase -> Arrays.stream(Objects.requireNonNull(testCase.listFiles()))
+						.filter(s -> !s.getName().startsWith("."))
+						.map(File::getPath))
+				.map(testCasePath -> testCasePath.replace(baseTestCasesPath, "test-cases"))
+				.filter(testCasePath -> !ignoredTestCases.contains(testCasePath))
+				.sorted()
+				.collect(Collectors.toList());
+
+		List<TestCase> individualTestCases = innerTestCases.stream()
+				.flatMap(testCasePath -> Arrays.stream(ExpectedResult.values())
+						.flatMap(expectedResult -> findTestCases(testCasePath, expectedResult))
+				)
+				.collect(Collectors.toList());
+
+		return individualTestCases;
+	}
+
+	@BeforeAll
+	static void beforeAll() throws IllegalAccessException {
+		IRI[] shapesGraphs = SHAPE_GRAPHS.stream()
+				.map(g -> {
+					if (g.equals(RDF4J.NIL)) {
+						return null;
+					}
+					return g;
+				})
+				.toArray(IRI[]::new);
+
+		FieldUtils.writeDeclaredStaticField(ShaclValidator.class, "SHAPE_CONTEXTS", shapesGraphs, true);
+	}
+
+	@AfterAll
+	static void afterAll() throws IllegalAccessException {
+		FieldUtils.writeDeclaredStaticField(ShaclValidator.class, "SHAPE_CONTEXTS", new Resource[] {}, true);
+	}
+
+	@AfterEach
+	void tearDown() {
+		fullLogging = false;
+	}
+
+	void runTestCase(TestCase testCase, IsolationLevel isolationLevel, boolean preloadWithDummyData) {
+
+		printTestCase(testCase);
+
+		SailRepository shaclRepository = getShaclSail(testCase);
+
+		boolean containsShapesGraphStatements = testCase.getShacl().contains(null, SHACL.SHAPES_GRAPH, null)
+				|| testCase.getShacl().contains(null, RSX.shapesGraph, null);
+		boolean onlyContainsRdf4jShapesGraph = testCase.getShacl().contexts().equals(Set.of(RDF4J.SHACL_SHAPE_GRAPH));
+
+		if (!containsShapesGraphStatements) {
+			Assertions.assertTrue(onlyContainsRdf4jShapesGraph);
+			((ShaclSail) shaclRepository.getSail()).setShapesGraphs(Set.of(RDF4J.SHACL_SHAPE_GRAPH));
 		}
 
-		if (!shaclPath.endsWith("/")) {
-			shaclPath = shaclPath + "/";
-		}
-
-		String shaclFile = shaclPath + "shacl.ttl";
-		logger.debug(shaclFile);
-
-		printFile(shaclFile);
-
-		SailRepository shaclRepository = getShaclSail();
 		try {
-			try {
-				Utils.loadShapeData(shaclRepository, shaclFile);
-				Utils.loadInitialData(shaclRepository, dataPath + "initialData.ttl");
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
 
 			boolean exception = false;
 			boolean ran = false;
@@ -366,40 +354,31 @@ abstract public class AbstractShaclTest {
 
 			}
 
-			URL resource = AbstractShaclTest.class.getClassLoader().getResource(dataPath);
-			List<File> queries = FileUtils.listFiles(new File(resource.getFile()), FILENAME_EXTENSION, false)
-					.stream()
-					.sorted()
-					.collect(Collectors.toList());
-
-			Model validationReportActual = new LinkedHashModel();
-
-			for (File queryFile : queries) {
+			List<File> testCaseQueries = testCase.getQueries();
+			for (File queryFile : testCaseQueries) {
 				try {
 					String query = FileUtils.readFileToString(queryFile, StandardCharsets.UTF_8);
 
 					printCurrentState(shaclRepository);
 
 					ran = true;
-					printFile(dataPath + queryFile.getName());
+					printFile(testCase.getTestCasePath() + queryFile.getName());
 
 					try (SailRepositoryConnection connection = shaclRepository.getConnection()) {
 						connection.begin(isolationLevel);
 						connection.prepareUpdate(query).execute();
-						printCurrentState(shaclRepository);
+						printCurrentState(connection);
 						connection.commit();
 					} catch (RepositoryException sailException) {
 						if (!(sailException.getCause() instanceof ShaclSailValidationException)) {
 							throw sailException;
 						}
 
+						Assertions.assertEquals(testCaseQueries.get(testCaseQueries.size() - 1), queryFile,
+								"Validation should only fail on the very last query");
 						exception = true;
 						logger.debug(sailException.getMessage());
-						validationReportActual = ((ShaclSailValidationException) sailException.getCause())
-								.validationReportAsModel();
 						printResults(sailException);
-					} catch (Exception e) {
-						throw e;
 					}
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -409,10 +388,10 @@ abstract public class AbstractShaclTest {
 
 			if (ran) {
 
-				if (expectedResult == ExpectedResult.valid) {
-					assertFalse("Expected transaction to succeed", exception);
+				if (testCase.expectedResult == ExpectedResult.valid) {
+					Assertions.assertFalse(exception, "Expected transaction to succeed");
 				} else {
-					assertTrue("Expected transaction to fail", exception);
+					Assertions.assertTrue(exception, "Expected transaction to fail");
 				}
 			}
 		} finally {
@@ -421,110 +400,390 @@ abstract public class AbstractShaclTest {
 
 	}
 
+	private void printTestCase(TestCase testCase) {
+		if (!fullLogging) {
+			return;
+		}
+
+		System.out.println("################################################");
+		System.out.println("## " + testCase.testCasePath + " ##");
+		System.out.println("################################################\n");
+		System.out.println("### shacl.ttl ###");
+		System.out.println(removeLeadingPrefixStatements(testCase.getShaclData()));
+		System.out.println("#####################\n\n");
+
+	}
+
+	void runWithShaclValidator(TestCase testCase) {
+
+		SailRepository shapesRepo = new SailRepository(new MemoryStore());
+		SailRepository dataRepo = new SailRepository(new MemoryStore());
+
+		try {
+
+			Utils.loadShapeData(shapesRepo, testCase.getShacl());
+			if (testCase.hasInitialData()) {
+				Utils.loadInitialData(dataRepo, testCase.getInitialData());
+			}
+
+			for (File queryFile : testCase.getQueries()) {
+				try {
+					String query = FileUtils.readFileToString(queryFile, StandardCharsets.UTF_8);
+
+					logger.debug(queryFile.getName());
+
+					try (SailRepositoryConnection connection = dataRepo.getConnection()) {
+						connection.prepareUpdate(query).execute();
+					} catch (MalformedQueryException e) {
+						System.err.println(query + "\n");
+						throw e;
+					}
+
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+
+			}
+
+			printTestCase(testCase);
+
+			printCurrentState(dataRepo);
+
+			ValidationReport validationReport1 = ShaclValidator.validate(dataRepo.getSail(), shapesRepo.getSail());
+
+			Assertions.assertEquals(testCase.expectedResult == ExpectedResult.valid, validationReport1.conforms(),
+					"Validation result does not match expected result");
+
+			ValidationReport validationReport2 = ShaclValidator.validate(dataRepo.getSail(), shapesRepo.getSail());
+
+			Assertions.assertEquals(testCase.expectedResult == ExpectedResult.valid, validationReport2.conforms(),
+					"Validation result does not match expected result");
+
+//			writeActualModelToExpectedModelForDevPurposes(testCase.testCasePath, validationReport1.asModel());
+
+			testValidationReport(testCase.testCasePath, validationReport1.asModel());
+			testValidationReport(testCase.testCasePath, validationReport2.asModel());
+
+		} catch (IOException e) {
+			throw new RuntimeException(e);
+		} finally {
+			try {
+				shapesRepo.shutDown();
+			} finally {
+				dataRepo.shutDown();
+			}
+		}
+
+	}
+
 	private static void testValidationReport(String dataPath, Model validationReportActual) {
 		try {
-			InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader()
-					.getResourceAsStream(dataPath + "report.ttl");
+			InputStream resourceAsStream = getResourceAsStream(dataPath + "report.ttl");
 			if (resourceAsStream == null) {
-				logger.error(dataPath + "report.ttl did not exist. Creating an empty file!");
+				logger.warn(dataPath + "report.ttl did not exist, attempting to create an empty file!");
 
-				String file = AbstractShaclTest.class.getClassLoader()
-						.getResource(dataPath)
+				String file = Objects.requireNonNull(AbstractShaclTest.class.getClassLoader()
+						.getResource(dataPath))
 						.getFile()
 						.replace("/target/test-classes/", "/src/test/resources/");
 				boolean newFile = new File(file + "report.ttl").createNewFile();
-
+				if (!newFile) {
+					logger.error(dataPath + "report.ttl did not exist and could not create an empty file!");
+				}
 			}
+			Model validationReportExpected = getModel(resourceAsStream);
 
-			Model validationReportExpected = Rio.parse(resourceAsStream, "", RDFFormat.TURTLE);
-
-			if (!isIsomorphic(validationReportActual, validationReportExpected)) {
+			if (!Models.isomorphic(validationReportActual, validationReportExpected)) {
 //				writeActualModelToExpectedModelForDevPurposes(dataPath, validationReportActual);
 
-				String validationReportExpectedString = modelToString(validationReportExpected);
-				String validationReportActualString = modelToString(validationReportActual);
-				assertEquals(validationReportExpectedString, validationReportActualString);
+				String validationReportExpectedString = modelToString(validationReportExpected, RDFFormat.TURTLE);
+				String validationReportActualString = modelToString(validationReportActual, RDFFormat.TURTLE);
+				Assertions.assertEquals(validationReportExpectedString, validationReportActualString);
 			}
+
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
 	}
 
-	private static boolean isIsomorphic(Model validationReportActual, Model validationReportExpected) {
-		validationReportActual = normalizeModel(validationReportActual);
-		validationReportExpected = normalizeModel(validationReportExpected);
-
-		String actualString = modelToString(validationReportActual);
-		String expectedString = modelToString(validationReportExpected);
-
-		if (actualString.equals(expectedString)) {
-			return true;
-		}
-
-		return Models.isomorphic(validationReportActual, validationReportExpected);
-//		return true;
-	}
-
-	private static Model normalizeModel(Model model) {
-		StringWriter sw = new StringWriter();
-		Rio.write(model, sw, RDFFormat.TURTLE);
-		try {
-			return Rio.parse(new StringReader(sw.toString()), "", RDFFormat.TURTLE);
-		} catch (IOException e) {
-			throw new IllegalStateException();
-		}
+	private static InputStream getResourceAsStream(String dataPath) {
+		return AbstractShaclTest.class.getClassLoader().getResourceAsStream(dataPath);
 	}
 
 	private static void writeActualModelToExpectedModelForDevPurposes(String dataPath, Model report)
 			throws IOException {
-		String file = AbstractShaclTest.class.getClassLoader()
-				.getResource(dataPath)
+		String file = Objects.requireNonNull(AbstractShaclTest.class.getClassLoader()
+				.getResource(dataPath))
 				.getFile()
 				.replace("/target/test-classes/", "/src/test/resources/");
 		File file1 = new File(file + "report.ttl");
 		try (FileOutputStream fileOutputStream = new FileOutputStream(file1)) {
-			IOUtils.write(modelToString(report), fileOutputStream, StandardCharsets.UTF_8);
+			IOUtils.write(modelToString(report, RDFFormat.TURTLE), fileOutputStream, StandardCharsets.UTF_8);
 		}
 
 	}
 
-	private static void printCurrentState(SailRepository shaclRepository) {
+	void referenceImplementationTestCaseValidation(TestCase testCase) {
+
+		// ignored test cases for shacl extensions
+		if (testCase.testCasePath.startsWith("test-cases/class/complexTargetShape/")) {
+			return;
+		}
+		if (testCase.testCasePath.startsWith("test-cases/class/complexTargetShape2/")) {
+			return;
+		}
+		if (testCase.testCasePath.startsWith("test-cases/class/simpleTargetShape/")) {
+			return;
+		}
+		if (testCase.testCasePath.startsWith("test-cases/datatype/notNodeShapeTargetShape/")) {
+			return;
+		}
+		if (testCase.testCasePath.startsWith("test-cases/hasValue/targetShape")) {
+			return;
+		}
+		if (testCase.testCasePath.startsWith("test-cases/datatype/notTargetShape/")) {
+			return;
+		}
+		if (testCase.testCasePath.startsWith("test-cases/hasValueIn/")) {
+			return;
+		}
+
+		// we support more variations for RDFS than the reference engine
+		if (testCase.testCasePath.contains("subclass")) {
+			return;
+		}
+
+		// uses rsx:nodeShape
+		if (testCase.testCasePath.startsWith("test-cases/qualifiedShape/complex/")) {
+			return;
+		}
+
+		// uses rsx:nodeShape
+		if (testCase.testCasePath.startsWith("test-cases/complex/targetShapeAndQualifiedShape/")) {
+			return;
+		}
+
+		// sh:shapesGraph
+		if (testCase.testCasePath.startsWith("test-cases/datatype/simpleNamedGraph/")) {
+			return;
+		}
+
+		// rsx:DataAndShapesGraphLink
+		if (testCase.testCasePath.startsWith("test-cases/minCount/unionDataset/")) {
+			return;
+		}
+
+		// uses multiple named graphs
+		if (testCase.testCasePath.startsWith("test-cases/minCount/simple/valid/case6/")) {
+			return;
+		}
+
+		if (testCase.testCasePath.startsWith("test-cases/minCount/simple/invalid/case4/")) {
+			return;
+		}
+
+		// the TopBraid SHACL API doesn't agree with other implementations on how sh:closed should work in a property
+		// shape
+		if (testCase.testCasePath.startsWith("test-cases/closed/propertyShape/")) {
+			return;
+		}
+
+		// the TopBraid SHACL API doesn't agree with other implementations on how sh:closed should work in a property
+		// shape
+		if (testCase.testCasePath.startsWith("test-cases/closed/notPropertyShape/")) {
+			return;
+		}
+
+		printTestCase(testCase);
+
+		Dataset shaclDataset = DatasetFactory.create();
+
+		RDFDataMgr.read(shaclDataset, new StringReader(testCase.getShaclData()), "", RDFLanguages.TRIG);
+
+		org.apache.jena.rdf.model.Model shacl = JenaUtil.createMemoryModel();
+
+		Iterator<String> stringIterator = shaclDataset.listNames();
+		while (stringIterator.hasNext()) {
+			String namedGraph = stringIterator.next();
+			shacl.add(shaclDataset.getNamedModel(namedGraph));
+		}
+
+		shacl.add(shaclDataset.getDefaultModel());
+
+		checkShapesConformToW3cShaclRecommendation(shacl);
+
+		org.apache.jena.rdf.model.Model data = JenaUtil.createMemoryModel();
+
+		if (testCase.hasInitialData()) {
+			try (InputStream resourceAsStream = getResourceAsStream(testCase.getInitialData())) {
+				data.read(resourceAsStream, "", org.apache.jena.util.FileUtils.langTurtle);
+			} catch (IOException e) {
+				throw new IllegalStateException(e);
+			}
+		}
+
+		for (File queryFile : testCase.getQueries()) {
+			try {
+				logger.debug(queryFile.getCanonicalPath());
+				String query = FileUtils.readFileToString(queryFile, StandardCharsets.UTF_8);
+				logger.debug(query);
+				UpdateAction.parseExecute(query, data);
+			} catch (IOException e) {
+				throw new IllegalStateException(e);
+			}
+
+		}
+
+		org.apache.jena.rdf.model.Resource report = ValidationUtil.validateModel(data, shacl, false);
+
+		org.apache.jena.rdf.model.Model model = report.getModel();
+		model.setNsPrefix("sh", "http://www.w3.org/ns/shacl#");
+
+		boolean conforms = report.getProperty(SH.conforms).getBoolean();
+
+		try {
+			InputStream resourceAsStream = getResourceAsStream(testCase.getTestCasePath() + "report.ttl");
+			Model validationReportActual = extractValidationReport(getModel(resourceAsStream));
+
+			Model validationReportExpected = Rio.parse(new StringReader(ModelPrinter.get().print(model)),
+					RDFFormat.TRIG);
+
+			validationReportExpected = extractValidationReport(validationReportExpected);
+
+			if (testCase.expectedResult == ExpectedResult.valid) {
+				Assertions.assertTrue(conforms,
+						"Expected test case to conform\n" + modelToString(validationReportExpected, RDFFormat.TURTLE));
+			} else {
+				Assertions.assertFalse(conforms, "Expected test case to not conform\n"
+						+ modelToString(validationReportExpected, RDFFormat.TURTLE));
+			}
+
+			for (Model validationReport : Arrays.asList(validationReportActual, validationReportExpected)) {
+				validationReport.remove(null, RDF4J.TRUNCATED, null);
+				validationReport.remove(null, RSX.dataGraph, null);
+				validationReport.remove(null, RSX.shapesGraph, null);
+				validationReport.remove(null, RSX.actualPairwisePath, null);
+
+				// We don't have any default values for sh:resultMessage
+				validationReport.remove(null, SHACL.RESULT_MESSAGE, null);
+
+				// Remove the contents fo the SPARQL constraint since the reference implementation only seems to
+				// add the Resource of the SPARQL constraint.
+				ArrayList<Statement> sparqlConstraints = Lists
+						.newArrayList(validationReport.getStatements(null, RDF.TYPE, SHACL.SPARQL_CONSTRAINT));
+				for (Statement sparqlConstraint : sparqlConstraints) {
+					validationReport.remove(sparqlConstraint.getSubject(), null, null);
+				}
+
+			}
+
+			validationReportActual = new ValidationReportBnodeDuplicator(validationReportActual).getModel();
+			validationReportExpected = new ValidationReportBnodeDuplicator(validationReportExpected).getModel();
+
+			if (!Models.isomorphic(validationReportActual, validationReportExpected)) {
+
+				String validationReportExpectedString = modelToString(validationReportExpected,
+						RDFFormat.TURTLE);
+				String validationReportActualString = modelToString(validationReportActual, RDFFormat.TURTLE);
+				Assertions.assertEquals(validationReportExpectedString, validationReportActualString);
+			}
+
+		} catch (IOException e) {
+			throw new IllegalStateException();
+		}
+
+	}
+
+	private static Model getModel(InputStream resourceAsStream) throws IOException {
+		try (resourceAsStream) {
+			Model validationReportActual;
+
+			if (resourceAsStream == null) {
+				validationReportActual = new LinkedHashModel();
+			} else {
+				validationReportActual = Rio.parse(resourceAsStream, RDFFormat.TRIG);
+			}
+			return validationReportActual;
+		}
+	}
+
+	private static void checkShapesConformToW3cShaclRecommendation(org.apache.jena.rdf.model.Model shacl) {
+		org.apache.jena.rdf.model.Model w3cShacl = JenaUtil.createMemoryModel();
+		try (InputStream resourceAsStream = getResourceAsStream("w3cshacl.ttl")) {
+			w3cShacl.read(resourceAsStream, "", org.apache.jena.util.FileUtils.langTurtle);
+		} catch (IOException e) {
+			throw new IllegalStateException(e);
+		}
+
+		org.apache.jena.rdf.model.Resource report = ValidationUtil.validateModel(shacl, w3cShacl, false);
+
+		boolean conforms = report.getProperty(SH.conforms).getBoolean();
+
+		if (!conforms) {
+			org.apache.jena.rdf.model.Model model = report.getModel();
+			model.setNsPrefix("sh", "http://www.w3.org/ns/shacl#");
+
+			System.out.println(ModelPrinter.get().print(model));
+
+			Assertions.fail("SHACL does not conform to the W3C SHACL Recommendation");
+		}
+	}
+
+	private void printCurrentState(SailRepository repository) {
+		try (SailRepositoryConnection connection = repository.getConnection()) {
+			printCurrentState(connection);
+		}
+
+	}
+
+	private void printCurrentState(SailRepositoryConnection connection) {
 		if (!fullLogging) {
 			return;
 		}
 
-		try (SailRepositoryConnection connection = shaclRepository.getConnection()) {
+		if (connection.isEmpty()) {
+			System.out.println("########### CURRENT REPOSITORY STATE ###########");
+			System.out.println("\nEMPTY!\n");
+			System.out.println("################################################\n\n");
+		} else {
 
-			if (connection.isEmpty()) {
+			try (Stream<Statement> stream = connection.getStatements(null, null, null, false).stream()) {
+				LinkedHashModel model = stream.collect(Collectors.toCollection(LinkedHashModel::new));
+
+				String prettyPrintedModel = modelToString(model, RDFFormat.TRIG);
+
 				System.out.println("########### CURRENT REPOSITORY STATE ###########");
-				System.out.println("\nEMPTY!\n");
+				System.out.println(prettyPrintedModel);
 				System.out.println("################################################\n\n");
-			} else {
 
-				try (Stream<Statement> stream = connection.getStatements(null, null, null, false).stream()) {
-					LinkedHashModel model = stream.collect(Collectors.toCollection(LinkedHashModel::new));
-
-					String prettyPrintedModel = modelToString(model);
-
-					System.out.println("########### CURRENT REPOSITORY STATE ###########");
-					System.out.println(prettyPrintedModel);
-					System.out.println("################################################\n\n");
-
-				}
 			}
-
 		}
+
 	}
 
-	static String modelToString(Model model) {
+	static String modelToString(Model model, RDFFormat format) {
+
+		ArrayList<Statement> statements = new ArrayList<>(model);
+		ValueComparator valueComparator = new ValueComparator();
+		statements.sort(
+				Comparator
+						.comparing(Statement::getPredicate, valueComparator)
+						.thenComparing(Statement::getSubject, valueComparator)
+						.thenComparing(Statement::getObject, valueComparator)
+		);
+
+		model = new LinkedHashModel(statements);
+
 		model.setNamespace("ex", "http://example.com/ns#");
-		model.setNamespace(FOAF.PREFIX, FOAF.NAMESPACE);
-		model.setNamespace(XSD.PREFIX, XSD.NAMESPACE);
-		model.setNamespace(RDF.PREFIX, RDF.NAMESPACE);
-		model.setNamespace(RDFS.PREFIX, RDFS.NAMESPACE);
+		model.setNamespace(FOAF.NS);
+		model.setNamespace(XSD.NS);
+		model.setNamespace(RDF.NS);
+		model.setNamespace(RDFS.NS);
 		model.setNamespace(SHACL.NS);
 		model.setNamespace(RDF.NS);
 		model.setNamespace(RDFS.NS);
+		model.setNamespace(RSX.NS);
+		model.setNamespace(RDF4J.NS);
 
 		WriterConfig writerConfig = new WriterConfig();
 		writerConfig.set(BasicWriterSettings.PRETTY_PRINT, true);
@@ -533,19 +792,119 @@ abstract public class AbstractShaclTest {
 
 		StringWriter stringWriter = new StringWriter();
 
-		Rio.write(model, stringWriter, RDFFormat.TURTLE, writerConfig);
+		Rio.write(model, stringWriter, format, writerConfig);
 
 		return stringWriter.toString();
 	}
 
-	private static void printFile(String filename) {
+	private static Model extractValidationReport(Model model) {
+
+		Optional<Resource> subject = Models.subject(model.filter(null, RDF.TYPE, SHACL.VALIDATION_REPORT));
+		if (subject.isPresent()) {
+			return ModelExtractor.extract(model, subject.get(), s -> {
+				if (s.getPredicate().equals(SHACL.SOURCE_SHAPE)) {
+					return ModelExtractor.Decision.includeDontFollow;
+				}
+
+				return ModelExtractor.Decision.includeAndFollow;
+			});
+		} else {
+			return model;
+		}
+	}
+
+	static class ModelExtractor {
+
+		enum Decision {
+			includeAndFollow,
+			includeDontFollow,
+			exclude
+		}
+
+		static Model extract(Model model, Resource start, Function<Statement, Decision> decisionFunction) {
+			DynamicModel emptyModel = new DynamicModelFactory().createEmptyModel();
+
+			Set<Statement> breadthFirstSearchBuffer = new HashSet<>();
+			model.getStatements(start, null, null).forEach(breadthFirstSearchBuffer::add);
+
+			while (!breadthFirstSearchBuffer.isEmpty()) {
+				Set<Statement> tempBuffer = new HashSet<>();
+				for (Statement statement : breadthFirstSearchBuffer) {
+					Decision decision = decisionFunction.apply(statement);
+
+					switch (decision) {
+
+					case includeAndFollow:
+						boolean add = emptyModel.add(statement);
+						if (add && statement.getObject() instanceof Resource) {
+							model.getStatements((Resource) statement.getObject(), null, null).forEach(tempBuffer::add);
+						}
+						break;
+					case includeDontFollow:
+						emptyModel.add(statement);
+						break;
+					case exclude:
+						break;
+					}
+				}
+
+				breadthFirstSearchBuffer = tempBuffer;
+
+			}
+
+			return emptyModel;
+		}
+
+	}
+
+	static class ValidationReportBnodeDuplicator {
+
+		private final Model inputModel;
+		private final Set<BNode> toRemove = new HashSet<>();
+		private final Model toReturn = new DynamicModel(new LinkedHashModelFactory());
+
+		public ValidationReportBnodeDuplicator(Model inputModel) {
+			this.inputModel = inputModel;
+		}
+
+		Model getModel() {
+			Resource subject = Models.subject(inputModel.filter(null, RDF.TYPE, SHACL.VALIDATION_REPORT)).get();
+			traverse(subject, subject);
+			for (BNode bNode : toRemove) {
+				toReturn.remove(bNode, null, null);
+				toReturn.remove(null, null, bNode);
+			}
+			return toReturn;
+		}
+
+		private void traverse(Resource subject, Resource override) {
+			for (Statement statement : inputModel.getStatements(subject, null, null)) {
+				Value object = statement.getObject();
+				if (object.isResource()) {
+					if (statement.getObject().isBNode()) {
+						toRemove.add(((BNode) object));
+						object = Values.bnode();
+					}
+					traverse(((Resource) statement.getObject()), (Resource) object);
+				}
+
+				toReturn.add(override, statement.getPredicate(), object);
+
+			}
+
+		}
+
+	}
+
+	private void printFile(String filename) {
 		if (!fullLogging) {
 			return;
 		}
 
 		try {
 			System.out.println("### " + filename + " ###");
-			String s = IOUtils.toString(AbstractShaclTest.class.getClassLoader().getResourceAsStream(filename),
+			String s = IOUtils.toString(
+					Objects.requireNonNull(getResourceAsStream(filename)),
 					StandardCharsets.UTF_8);
 
 			s = removeLeadingPrefixStatements(s);
@@ -558,70 +917,54 @@ abstract public class AbstractShaclTest {
 	}
 
 	private static String removeLeadingPrefixStatements(String s) {
-		String[] split = s.split("\n");
-		s = "";
+		String[] splitByNewLine = s.split("\n");
+
 		boolean skippingPrefixes = true;
 
-		for (String s1 : split) {
+		StringBuilder stringBuilder = new StringBuilder();
+		for (String line : splitByNewLine) {
 			if (skippingPrefixes) {
-				if (!(s1.trim().equals("") ||
-						s1.trim().toLowerCase().startsWith("@prefix") ||
-						s1.trim().toLowerCase().startsWith("@base") ||
-						s1.trim().toLowerCase().startsWith("prefix"))) {
+				if (!(line.trim().equals("") ||
+						line.trim().toLowerCase().startsWith("@prefix") ||
+						line.trim().toLowerCase().startsWith("@base") ||
+						line.trim().toLowerCase().startsWith("prefix"))) {
 					skippingPrefixes = false;
 				}
 			}
 
 			if (!skippingPrefixes) {
-				s += s1 + "\n";
+				stringBuilder.append(line).append("\n");
 			}
 
 		}
-		return s;
+		return stringBuilder.toString();
 	}
 
-	static void runTestCaseSingleTransaction(String shaclPath, String dataPath, ExpectedResult expectedResult,
-			IsolationLevel isolationLevel) {
+	void runTestCaseSingleTransaction(TestCase testCase) {
 
-		if (!dataPath.endsWith("/")) {
-			dataPath = dataPath + "/";
-		}
-
-		if (!shaclPath.endsWith("/")) {
-			shaclPath = shaclPath + "/";
-		}
-
-		SailRepository shaclRepository = getShaclSail();
+		SailRepository shaclRepository = getShaclSail(testCase);
 
 		try {
-			try {
-				Utils.loadShapeData(shaclRepository, shaclPath + "shacl.ttl");
-				Utils.loadInitialData(shaclRepository, dataPath + "initialData.ttl");
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
-
 			boolean exception = false;
 			boolean ran = false;
 			Model validationReportActual = new LinkedHashModel();
 
 			try (SailRepositoryConnection shaclSailConnection = shaclRepository.getConnection()) {
-				shaclSailConnection.begin(isolationLevel);
+				shaclSailConnection.begin(IsolationLevels.NONE);
 
-				URL resource = AbstractShaclTest.class.getClassLoader().getResource(dataPath);
-				List<File> queries = FileUtils.listFiles(new File(resource.getFile()), FILENAME_EXTENSION, false)
-						.stream()
-						.sorted()
-						.collect(Collectors.toList());
-
-				for (File queryFile : queries) {
+				for (File queryFile : testCase.getQueries()) {
 					try {
 						String query = FileUtils.readFileToString(queryFile, StandardCharsets.UTF_8);
 
 						ran = true;
 						logger.debug(queryFile.getName());
 
-						shaclSailConnection.prepareUpdate(query).execute();
+						try {
+							shaclSailConnection.prepareUpdate(query).execute();
+						} catch (MalformedQueryException e) {
+							System.err.println(query + "\n");
+							throw e;
+						}
 
 					} catch (IOException e) {
 						e.printStackTrace();
@@ -645,13 +988,15 @@ abstract public class AbstractShaclTest {
 			}
 
 			if (ran) {
-				testValidationReport(dataPath, validationReportActual);
-
-				if (expectedResult == ExpectedResult.valid) {
-					assertFalse(exception);
+				if (testCase.expectedResult == ExpectedResult.valid) {
+					Assertions.assertFalse(exception,
+							"Expected validation to succeed for " + testCase.getTestCasePath());
 				} else {
-					assertTrue(exception);
+					Assertions.assertTrue(exception, "Expected validation to fail for " + testCase.getTestCasePath());
+					testValidationReport(testCase.testCasePath, validationReportActual);
+
 				}
+
 			}
 		} finally {
 			shaclRepository.shutDown();
@@ -659,38 +1004,17 @@ abstract public class AbstractShaclTest {
 
 	}
 
-	static void runTestCaseRevalidate(String shaclPath, String dataPath, ExpectedResult expectedResult,
-			IsolationLevel isolationLevel) {
+	void runTestCaseRevalidate(TestCase testCase, IsolationLevel isolationLevel) {
 
-		if (!dataPath.endsWith("/")) {
-			dataPath = dataPath + "/";
-		}
-
-		if (!shaclPath.endsWith("/")) {
-			shaclPath = shaclPath + "/";
-		}
-
-		SailRepository shaclRepository = getShaclSail();
+		SailRepository shaclRepository = getShaclSail(testCase);
 		try {
-			try {
-				Utils.loadShapeData(shaclRepository, shaclPath + "shacl.ttl");
-				Utils.loadInitialData(shaclRepository, dataPath + "initialData.ttl");
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
 
 			ValidationReport report = new ValidationReport(true);
 
 			try (SailRepositoryConnection shaclSailConnection = shaclRepository.getConnection()) {
 				shaclSailConnection.begin(isolationLevel, ValidationApproach.Disabled);
 
-				URL resource = AbstractShaclTest.class.getClassLoader().getResource(dataPath);
-				List<File> queries = FileUtils.listFiles(new File(resource.getFile()), FILENAME_EXTENSION, false)
-						.stream()
-						.sorted()
-						.collect(Collectors.toList());
-
-				for (File queryFile : queries) {
+				for (File queryFile : testCase.getQueries()) {
 					try {
 						String query = FileUtils.readFileToString(queryFile, StandardCharsets.UTF_8);
 						shaclSailConnection.prepareUpdate(query).execute();
@@ -700,9 +1024,12 @@ abstract public class AbstractShaclTest {
 					}
 				}
 
+				// testing that bulk validation always validates all the data by committing the transaction with
+				// validation disabled and then running an empty transaction with bulk validation
 				shaclSailConnection.commit();
 
 				shaclSailConnection.begin(ValidationApproach.Bulk);
+//				shaclSailConnection.begin(ValidationApproach.Bulk, QueryEvaluationMode.MINIMAL_COMPLIANT);
 
 				try {
 					shaclSailConnection.commit();
@@ -715,14 +1042,11 @@ abstract public class AbstractShaclTest {
 
 			printResults(report);
 
-			if (!report.conforms()) {
-				testValidationReport(dataPath, report.asModel());
-			}
-
-			if (expectedResult == ExpectedResult.valid) {
-				assertTrue(report.conforms());
+			if (testCase.getExpectedResult() == ExpectedResult.valid) {
+				Assertions.assertTrue(report.conforms());
 			} else {
-				assertFalse(report.conforms());
+				Assertions.assertFalse(report.conforms());
+				testValidationReport(testCase.getTestCasePath(), report.asModel());
 			}
 		} finally {
 			shaclRepository.shutDown();
@@ -730,67 +1054,69 @@ abstract public class AbstractShaclTest {
 
 	}
 
-	static void runParsingTest(String shaclPath, String dataPath, ExpectedResult expectedResult) {
-		if (!dataPath.endsWith("/")) {
-			dataPath = dataPath + "/";
+	void runParsingTest(TestCase testCase) {
+
+		// skip test case with shapes split between multiple graphs
+		if (testCase.testCasePath.startsWith("test-cases/qualifiedShape/complex/")) {
+			return;
 		}
 
-		if (!shaclPath.endsWith("/")) {
-			shaclPath = shaclPath + "/";
-		}
-
-		SailRepository shaclRepository = getShaclSail();
+		SailRepository shaclRepository = getShaclSail(testCase);
 		try {
-			try {
-				Utils.loadShapeData(shaclRepository, shaclPath + "shacl.ttl");
-				Utils.loadInitialData(shaclRepository, dataPath + "initialData.ttl");
-			} catch (IOException e) {
-				throw new RuntimeException(e);
-			}
 
-			List<Shape> shapes = ((ShaclSail) shaclRepository.getSail()).getCurrentShapes();
+			List<ContextWithShape> shapes = ((ShaclSail) shaclRepository.getSail()).getCachedShapes()
+					.getDataAndRelease();
 
-			DynamicModel actual = new DynamicModelFactory().createEmptyModel();
-			shapes.forEach(shape -> shape.toModel(actual));
+			HashSet<Resource> cycleDetection = new HashSet<>();
 
-			try (InputStream resourceAsStream = AbstractShaclTest.class.getClassLoader()
-					.getResourceAsStream(shaclPath + "shacl.ttl")) {
-				Model parse = Rio.parse(resourceAsStream, "", RDFFormat.TURTLE);
+			Model actual = new DynamicModelFactory().createEmptyModel();
+			shapes.forEach(shape -> shape.toModel(actual, cycleDetection));
 
-				// handle implicit targets in SHACL
-				parse.filter(null, RDF.TYPE, RDFS.CLASS).subjects().forEach(s -> {
-					if (parse.contains(s, RDF.TYPE, SHACL.PROPERTY_SHAPE)
-							|| parse.contains(s, RDF.TYPE, SHACL.NODE_SHAPE)) {
-						parse.add(s, SHACL.TARGET_CLASS, s);
-					}
-				});
-				parse.remove(null, RDF.TYPE, RDFS.CLASS);
+			Model expected = new LinkedHashModel(testCase.getShacl());
 
-				// this helps with one test where the schema is in the shacl file
-				parse.remove(null, RDFS.SUBCLASSOF, null);
-
-				// we add inferred NodeShape and PropertyShape, easier to remove when comparing
-				parse.remove(null, RDF.TYPE, SHACL.NODE_SHAPE);
-				parse.remove(null, RDF.TYPE, SHACL.SHAPE);
-				parse.remove(null, RDF.TYPE, SHACL.PROPERTY_SHAPE);
-				actual.remove(null, RDF.TYPE, SHACL.NODE_SHAPE);
-				actual.remove(null, RDF.TYPE, SHACL.SHAPE);
-				actual.remove(null, RDF.TYPE, SHACL.PROPERTY_SHAPE);
-
-				if (!isIsomorphic(parse, actual)) {
-					assertEquals(modelToString(parse), modelToString(actual));
+			// handle implicit targets in SHACL
+			expected.filter(null, RDF.TYPE, RDFS.CLASS).forEach(s -> {
+				if (expected.contains(s.getSubject(), RDF.TYPE, SHACL.PROPERTY_SHAPE)
+						|| expected.contains(s.getSubject(), RDF.TYPE, SHACL.NODE_SHAPE)) {
+					expected.add(s.getSubject(), SHACL.TARGET_CLASS, s.getSubject(), s.getContext());
 				}
+			});
+			expected.remove(null, RDF.TYPE, RDFS.CLASS);
 
-			} catch (IOException e) {
-				throw new RuntimeException(e);
+			// this helps with one test where the schema is in the shacl file
+			expected.remove(null, RDFS.SUBCLASSOF, null);
+
+			expected.remove(null, SHACL.SHAPES_GRAPH, null);
+			expected.filter(null, RDF.TYPE, RSX.DataAndShapesGraphLink).forEach(s -> {
+				expected.remove(s.getSubject(), null, null);
+			});
+
+			// we add inferred NodeShape and PropertyShape, easier to remove when comparing
+			expected.remove(null, RDF.TYPE, SHACL.NODE_SHAPE);
+			expected.remove(null, RDF.TYPE, SHACL.SHAPE);
+			expected.remove(null, RDF.TYPE, SHACL.PROPERTY_SHAPE);
+			actual.remove(null, RDF.TYPE, SHACL.NODE_SHAPE);
+			actual.remove(null, RDF.TYPE, SHACL.SHAPE);
+			actual.remove(null, RDF.TYPE, SHACL.PROPERTY_SHAPE);
+
+			expected.remove(null, RDF.TYPE, DASH.AllObjectsTarget);
+			expected.remove(null, RDF.TYPE, DASH.AllSubjectsTarget);
+			actual.remove(null, RDF.TYPE, DASH.AllObjectsTarget);
+			actual.remove(null, RDF.TYPE, DASH.AllSubjectsTarget);
+
+			if (!Models.isomorphic(expected, actual)) {
+				Assertions.assertEquals(modelToString(expected, RDFFormat.TRIG), modelToString(actual, RDFFormat.TRIG));
 			}
+
+		} catch (InterruptedException e) {
+			throw new IllegalStateException(e);
 		} finally {
 			shaclRepository.shutDown();
 		}
 
 	}
 
-	private static void printResults(ValidationReport report) {
+	private void printResults(ValidationReport report) {
 		if (!fullLogging) {
 			return;
 		}
@@ -798,23 +1124,33 @@ abstract public class AbstractShaclTest {
 		System.out.println("\tValidation Report\n");
 		Model validationReport = report.asModel();
 
+		validationReport.setNamespace(SHACL.NS);
+		validationReport.setNamespace(XSD.NS);
+		validationReport.setNamespace(RDF4J.NS);
+
 		WriterConfig writerConfig = new WriterConfig();
 		writerConfig.set(BasicWriterSettings.PRETTY_PRINT, true);
 		writerConfig.set(BasicWriterSettings.INLINE_BLANK_NODES, true);
 
-		Rio.write(validationReport, System.out, RDFFormat.TURTLE, writerConfig);
+		Rio.write(validationReport, System.out, RDFFormat.TRIG, writerConfig);
 		System.out.println("\n############################################");
 	}
 
-	private static void printResults(RepositoryException sailException) {
-		ValidationReport validationReport = ((ShaclSailValidationException) sailException.getCause())
-				.getValidationReport();
+	private void printResults(RepositoryException sailException) {
+		var shaclSailValidationException = (ShaclSailValidationException) sailException.getCause();
+		ValidationReport validationReport = shaclSailValidationException.getValidationReport();
 		printResults(validationReport);
 	}
 
-	private static SailRepository getShaclSail() {
+	SailRepository getShaclSail(TestCase testCase) {
+		MemoryStore memoryStore = new MemoryStore();
+		// Use strict evaluation for SHACL test suite
+		// FIXME we should be able to set this directly on the ShaclSail (and let it delegate to its base sail), but no
+		// decision has been made yet on where the setter for this sits (I'm not sure we want it at the level of the
+		// Sail interface).
+		memoryStore.setDefaultQueryEvaluationMode(QueryEvaluationMode.STRICT);
 
-		ShaclSail shaclSail = new ShaclSail(new MemoryStore());
+		ShaclSail shaclSail = new ShaclSail(memoryStore);
 		SailRepository repository = new SailRepository(shaclSail);
 
 		shaclSail.setLogValidationPlans(fullLogging);
@@ -826,40 +1162,50 @@ abstract public class AbstractShaclTest {
 		shaclSail.setDashDataShapes(true);
 		shaclSail.setPerformanceLogging(false);
 
+		shaclSail.setShapesGraphs(SHAPE_GRAPHS);
+
 		repository.init();
+
+		try {
+			Utils.loadShapeData(repository, testCase.getShacl());
+			if (testCase.hasInitialData()) {
+				Utils.loadInitialData(repository, testCase.getInitialData());
+			}
+		} catch (Exception e) {
+			repository.shutDown();
+			if (e instanceof RuntimeException) {
+				throw ((RuntimeException) e);
+			}
+			throw new RuntimeException(e);
+		}
 
 		return repository;
 	}
 
-	/**
-	 * Sort and output testCasePaths
-	 *
-	 * @param args
-	 */
-	public static void main(String[] args) {
+	void runWithAutomaticLogging(Runnable r) {
+		LoggerContext loggerContext = (LoggerContext) LoggerFactory.getILoggerFactory();
+		ch.qos.logback.classic.Logger shaclPackageLogger = loggerContext.getLogger("org.eclipse.rdf4j.sail.shacl");
 
-		System.out.println("\n\tprivate static final List<String> testCasePaths = Stream.of(");
-		String testCasesString = testCasePaths
-				.stream()
-				.map(a -> "\t\t\"" + a + "\"")
-				.reduce((a, b) -> a + ",\n" + b)
-				.orElse("");
+		Level originalLogLevel = shaclPackageLogger.getLevel();
 
-		System.out.println(testCasesString);
-		System.out.println("\t)\n" +
-				"\t\t.distinct()\n" +
-				"\t\t.sorted()\n" +
-				"\t\t.collect(Collectors.toList());");
-	}
+		try {
+			r.run();
+		} catch (Throwable t) {
+			fullLogging = true;
 
-	String getShaclPath() {
-		String shaclPath = testCasePath;
+			shaclPackageLogger.setLevel(Level.DEBUG);
 
-		if (!shaclPath.endsWith("/")) {
-			shaclPath = shaclPath + "/";
+			System.out.println("\n##############################################");
+			System.out.println("###### Re-running test with full logging #####");
+			System.out.println("##############################################\n");
+
+			r.run();
+			throw t;
+		} finally {
+			fullLogging = false;
+			shaclPackageLogger.setLevel(originalLogLevel);
+
 		}
-
-		return shaclPath + "shacl.ttl";
 	}
 
 	enum ExpectedResult {

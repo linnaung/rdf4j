@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.hdt;
 
@@ -25,7 +28,7 @@ class HDTDictionarySectionFactory {
 	 * @return dictionary section
 	 * @throws IOException
 	 */
-	protected static HDTDictionarySection parse(InputStream is, String name, long pos) throws IOException {
+	static HDTDictionarySection parse(InputStream is, String name, long pos) throws IOException {
 		int dtype = is.read();
 		if (dtype != HDTDictionarySection.Type.FRONT.getValue()) {
 			throw new UnsupportedOperationException("Dictionary " + name + ": encoding "

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
@@ -91,8 +94,8 @@ public class TupleAndGraphQueryEvaluator {
 	}
 
 	/**
-	 * Evaluate SPARQL or SERQL tuple query and send the output to a writer. If writer is null, the console will be used
-	 * for output.
+	 * Evaluate SPARQL tuple query and send the output to a writer. If writer is null, the console will be used for
+	 * output.
 	 *
 	 * @param queryLn     query language
 	 * @param queryString query string
@@ -138,7 +141,7 @@ public class TupleAndGraphQueryEvaluator {
 	}
 
 	/**
-	 * Evaluate SPARQL or SERQL graph query
+	 * Evaluate SPARQL graph query
 	 *
 	 * @param queryLn     query language
 	 * @param queryString query string
@@ -178,7 +181,7 @@ public class TupleAndGraphQueryEvaluator {
 	}
 
 	/**
-	 * Evaluate a boolean SPARQL or SERQL query
+	 * Evaluate a boolean SPARQL query
 	 *
 	 * @param queryLn     query language
 	 * @param queryString query string
@@ -208,7 +211,7 @@ public class TupleAndGraphQueryEvaluator {
 	}
 
 	/**
-	 * Execute a SPARQL or SERQL update
+	 * Execute a SPARQL update
 	 *
 	 * @param queryLn     query language
 	 * @param queryString query string

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.model.impl;
@@ -14,6 +17,7 @@ import java.util.Collections;
 import java.util.Iterator;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -26,8 +30,6 @@ import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.util.iterators.EmptyIterator;
-import org.eclipse.rdf4j.util.iterators.SingletonIterator;
 
 /**
  * A LinkedHashModel or a TreeModel achieves fast data access at the cost of higher indexing time. The DynamicModel
@@ -35,7 +37,7 @@ import org.eclipse.rdf4j.util.iterators.SingletonIterator;
  * retrieving and removing data. The model will upgrade to a full model (provided by the modelFactory) if more complex
  * operations are called, for instance removing data according to a pattern (eg. all statements with rdf:type as
  * predicate).
- *
+ * <p>
  * DynamicModel is thread safe to the extent that the underlying LinkedHashMap or Model is. The upgrade path is
  * protected by the actual upgrade method being synchronized. The LinkedHashMap storage is not removed once upgraded, so
  * concurrent reads that have started reading from the LinkedHashMap can continue to read even during an upgrade. We do
@@ -68,38 +70,58 @@ public class DynamicModel extends AbstractSet<Statement> implements Model {
 
 	@Override
 	public Optional<Namespace> getNamespace(String prefix) {
-		for (Namespace nextNamespace : namespaces) {
-			if (prefix.equals(nextNamespace.getPrefix())) {
-				return Optional.of(nextNamespace);
+		if (model == null) {
+			for (Namespace nextNamespace : namespaces) {
+				if (prefix.equals(nextNamespace.getPrefix())) {
+					return Optional.of(nextNamespace);
+				}
 			}
+		} else {
+			return model.getNamespace(prefix);
 		}
 		return Optional.empty();
 	}
 
 	@Override
 	public Set<Namespace> getNamespaces() {
-		return namespaces;
+		if (model == null) {
+			return namespaces;
+		} else {
+			return model.getNamespaces();
+		}
 	}
 
 	@Override
 	public Namespace setNamespace(String prefix, String name) {
-		removeNamespace(prefix);
-		Namespace result = new SimpleNamespace(prefix, name);
-		namespaces.add(result);
-		return result;
+		if (model == null) {
+			removeNamespace(prefix);
+			Namespace result = new SimpleNamespace(prefix, name);
+			namespaces.add(result);
+			return result;
+		} else {
+			return model.setNamespace(prefix, name);
+		}
 	}
 
 	@Override
 	public void setNamespace(Namespace namespace) {
-		removeNamespace(namespace.getPrefix());
-		namespaces.add(namespace);
+		if (model == null) {
+			removeNamespace(namespace.getPrefix());
+			namespaces.add(namespace);
+		} else {
+			model.setNamespace(namespace);
+		}
 	}
 
 	@Override
 	public Optional<Namespace> removeNamespace(String prefix) {
-		Optional<Namespace> result = getNamespace(prefix);
-		result.ifPresent(namespaces::remove);
-		return result;
+		if (model == null) {
+			Optional<Namespace> result = getNamespace(prefix);
+			result.ifPresent(namespaces::remove);
+			return result;
+		} else {
+			return model.removeNamespace(prefix);
+		}
 	}
 
 	@Override
@@ -311,9 +333,9 @@ public class DynamicModel extends AbstractSet<Statement> implements Model {
 					.createStatement(subject, predicate, object, contexts[0]);
 			Statement foundStatement = statements.get(statement);
 			if (foundStatement == null) {
-				return EmptyIterator::new;
+				return List.of();
 			}
-			return () -> new SingletonIterator<>(foundStatement);
+			return List.of(foundStatement);
 		} else if (model == null && subject == null && predicate == null && object == null && contexts != null
 				&& contexts.length == 0) {
 			return this;
@@ -336,6 +358,7 @@ public class DynamicModel extends AbstractSet<Statement> implements Model {
 			statements = Collections.unmodifiableMap(statements);
 			Model tempModel = modelFactory.createEmptyModel();
 			tempModel.addAll(statements.values());
+			namespaces.forEach(tempModel::setNamespace);
 			model = tempModel;
 		}
 	}

@@ -4,26 +4,26 @@
 @prefix sh: <http://www.w3.org/ns/shacl#> .
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
 @prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix rsx: <http://rdf4j.org/shacl-extensions#> .
+@prefix rdf4j: <http://rdf4j.org/schema/rdf4j#> .
 
 [] a sh:ValidationReport;
+  rdf4j:truncated false;
   sh:conforms false;
-  <http://rdf4j.org/schema/rdf4j#truncated> false;
   sh:result [ a sh:ValidationResult;
+      rsx:shapesGraph rdf4j:SHACLShapeGraph;
       sh:focusNode ex:validPerson1;
-      sh:value ex:peter;
       sh:resultPath ex:knows;
-      sh:sourceConstraintComponent sh:ClassConstraintComponent;
       sh:resultSeverity sh:Violation;
-      sh:sourceShape _:node1ejq3ukcax1
-    ], [ a sh:ValidationResult;
-      sh:focusNode ex:validPerson1;
-      sh:value ex:steve;
-      sh:resultPath ex:knows;
       sh:sourceConstraintComponent sh:ClassConstraintComponent;
-      sh:resultSeverity sh:Violation;
-      sh:sourceShape _:node1ejq3ukcax1
+      sh:sourceShape [ a sh:PropertyShape;
+          sh:class ex:Person;
+          sh:defaultValue ex:iri1;
+          sh:description "Dette er en beskrivelse"@no-nb, "This is a description";
+          sh:group ex:Group1;
+          sh:name "Person/SecondTarget ex:knows only ex:Person"@en, "Person/SecondTarget ex:knows only ex:Person";
+          sh:order 1;
+          sh:path ex:knows
+        ];
+      sh:value ex:steve
     ] .
-
-_:node1ejq3ukcax1 a sh:PropertyShape;
-  sh:path ex:knows;
-  sh:class ex:Person .

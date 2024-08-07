@@ -1,20 +1,23 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.workbench.commands;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.List;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -44,7 +47,7 @@ public class SavedQueriesServlet extends TransformationServlet {
 		super.init(config);
 		try {
 			this.storage = QueryStorage.getSingletonInstance(this.appConfig);
-		} catch (RepositoryException | IOException e) {
+		} catch (RepositoryException e) {
 			throw new ServletException(e);
 		}
 	}
@@ -55,7 +58,7 @@ public class SavedQueriesServlet extends TransformationServlet {
 		final TupleResultBuilder builder = getTupleResultBuilder(req, resp, resp.getOutputStream());
 		builder.transform(xslPath, "saved-queries.xsl");
 		builder.start();
-		builder.link(Arrays.asList(INFO));
+		builder.link(List.of(INFO));
 		this.getSavedQueries(req, builder);
 		builder.end();
 	}

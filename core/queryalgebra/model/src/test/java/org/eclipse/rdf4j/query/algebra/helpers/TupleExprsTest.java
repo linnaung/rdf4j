@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.helpers;
 
@@ -19,7 +22,7 @@ import org.eclipse.rdf4j.query.algebra.Not;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TupleExprsTest {
 
@@ -35,7 +38,7 @@ public class TupleExprsTest {
 	@Test
 	public void isFilterExistsFunctionOnNormalFilter() {
 		Filter expr = new Filter();
-		expr.setArg(new StatementPattern());
+		expr.setArg(new StatementPattern(new Var("s"), new Var("p"), new Var("o")));
 		expr.setCondition(new Compare(new Var("x", f.createBNode()), new Var("y", f.createBNode())));
 
 		assertThat(isFilterExistsFunction(expr)).isFalse();
@@ -44,7 +47,7 @@ public class TupleExprsTest {
 	@Test
 	public void isFilterExistsFunctionOnNormalNot() {
 		Filter expr = new Filter();
-		expr.setArg(new StatementPattern());
+		expr.setArg(new StatementPattern(new Var("s"), new Var("p"), new Var("o")));
 		expr.setCondition(new Not(new Compare(new Var("x", f.createBNode()), new Var("y", f.createBNode()))));
 
 		assertThat(isFilterExistsFunction(expr)).isFalse();
@@ -53,8 +56,8 @@ public class TupleExprsTest {
 	@Test
 	public void isFilterExistsFunctionOnExists() {
 		Filter expr = new Filter();
-		expr.setArg(new StatementPattern());
-		expr.setCondition(new Exists(new StatementPattern()));
+		expr.setArg(new StatementPattern(new Var("s"), new Var("p"), new Var("o")));
+		expr.setCondition(new Exists(new StatementPattern(new Var("s"), new Var("p"), new Var("o"))));
 
 		assertThat(isFilterExistsFunction(expr)).isTrue();
 
@@ -63,8 +66,8 @@ public class TupleExprsTest {
 	@Test
 	public void isFilterExistsFunctionOnNotExist() {
 		Filter expr = new Filter();
-		expr.setArg(new StatementPattern());
-		expr.setCondition(new Not(new Exists(new StatementPattern())));
+		expr.setArg(new StatementPattern(new Var("s"), new Var("p"), new Var("o")));
+		expr.setCondition(new Not(new Exists(new StatementPattern(new Var("s"), new Var("p"), new Var("o")))));
 
 		assertThat(isFilterExistsFunction(expr)).isTrue();
 	}

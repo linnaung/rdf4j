@@ -1,13 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.algebra;
 
 import org.eclipse.rdf4j.query.algebra.AbstractQueryModelNode;
+import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
 
 /**
@@ -20,10 +24,10 @@ public class StatementSource extends AbstractQueryModelNode {
 
 	private static final long serialVersionUID = 1415552729436432653L;
 
-	public static enum StatementSourceType {
+	public enum StatementSourceType {
 		LOCAL,
 		REMOTE,
-		REMOTE_POSSIBLY;
+		REMOTE_POSSIBLY
 	}
 
 	protected String id;
@@ -39,6 +43,16 @@ public class StatementSource extends AbstractQueryModelNode {
 	public <X extends Exception> void visit(QueryModelVisitor<X> visitor)
 			throws X {
 		visitor.meetOther(this);
+	}
+
+	@Override
+	public <X extends Exception> void visitChildren(QueryModelVisitor<X> visitor) throws X {
+		// no-op
+	}
+
+	@Override
+	public void replaceChildNode(QueryModelNode current, QueryModelNode replacement) {
+		throw new IllegalArgumentException("Node is not a child node: " + current);
 	}
 
 	@Override

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.structures;
 
@@ -15,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.eclipse.rdf4j.federated.FederationContext;
 import org.eclipse.rdf4j.federated.algebra.PassThroughTupleExpr;
+import org.eclipse.rdf4j.federated.evaluation.FederationEvalStrategy;
 import org.eclipse.rdf4j.federated.evaluation.concurrent.ParallelTask;
 import org.eclipse.rdf4j.federated.util.QueryStringUtil;
 import org.eclipse.rdf4j.model.IRI;
@@ -30,11 +34,10 @@ import org.slf4j.LoggerFactory;
 /**
  * Structure to maintain query information during evaluation, is attached to algebra nodes. Each instance is uniquely
  * attached to the query.
- *
+ * <p>
  * The queryId can be used to abort tasks belonging to a particular evaluation.
  *
  * @author Andreas Schwarte
- *
  */
 public class QueryInfo {
 
@@ -56,17 +59,13 @@ public class QueryInfo {
 
 	private final FederationContext federationContext;
 
+	private final FederationEvalStrategy strategy;
+
 	protected boolean done = false;
 
 	protected Set<ParallelTask<?>> scheduledSubtasks = ConcurrentHashMap.newKeySet();
 
-	public QueryInfo(String query, QueryType queryType, boolean incluedInferred,
-			FederationContext federationContext, Dataset dataset) {
-		this(query, null, queryType, 0, incluedInferred, federationContext, dataset);
-	}
-
 	/**
-	 *
 	 * @param query
 	 * @param queryType
 	 * @param maxExecutionTime  the maximum explicit query time in seconds, if 0 use
@@ -76,7 +75,7 @@ public class QueryInfo {
 	 * @param dataset           the {@link Dataset}
 	 */
 	public QueryInfo(String query, String baseURI, QueryType queryType, int maxExecutionTime, boolean includeInferred,
-			FederationContext federationContext, Dataset dataset) {
+			FederationContext federationContext, FederationEvalStrategy strategy, Dataset dataset) {
 		super();
 		this.queryID = federationContext.getQueryManager().getNextQueryId();
 
@@ -92,12 +91,15 @@ public class QueryInfo {
 		this.maxExecutionTimeMs = _maxExecutionTime * 1000;
 		this.includeInferred = includeInferred;
 		this.start = System.currentTimeMillis();
+
+		this.strategy = strategy;
 	}
 
-	public QueryInfo(Resource subj, IRI pred, Value obj, boolean includeInferred,
-			FederationContext federationContext, Dataset dataset) {
-		this(QueryStringUtil.toString(subj, pred, obj), QueryType.GET_STATEMENTS, includeInferred,
-				federationContext, dataset);
+	public QueryInfo(Resource subj, IRI pred, Value obj, int maxExecutionTime, boolean includeInferred,
+			FederationContext federationContext, FederationEvalStrategy strategy, Dataset dataset) {
+		this(QueryStringUtil.toString(subj, pred, obj), null, QueryType.GET_STATEMENTS, maxExecutionTime,
+				includeInferred,
+				federationContext, strategy, dataset);
 	}
 
 	public BigInteger getQueryID() {
@@ -128,7 +130,13 @@ public class QueryInfo {
 	}
 
 	/**
-	 *
+	 * @return the {@link FederationEvalStrategy} active in the current query context
+	 */
+	public FederationEvalStrategy getStrategy() {
+		return this.strategy;
+	}
+
+	/**
 	 * @return the {@link FederationContext} in which this query is executed
 	 */
 	public FederationContext getFederationContext() {
@@ -136,7 +144,6 @@ public class QueryInfo {
 	}
 
 	/**
-	 *
 	 * @return the maximum remaining time in ms until the query runs into a timeout. If negative, timeout has been
 	 *         reached
 	 */
@@ -162,6 +169,7 @@ public class QueryInfo {
 	 */
 	public synchronized void registerScheduledTask(ParallelTask<?> task) throws QueryEvaluationException {
 		if (done) {
+			task.cancel();
 			throw new QueryEvaluationException("Query is aborted or closed, cannot accept new tasks");
 		}
 		scheduledSubtasks.add(task);
@@ -170,7 +178,7 @@ public class QueryInfo {
 	/**
 	 * Returns a {@link TupleQueryResultHandler} if this query is executed using.
 	 * {@link TupleQuery#evaluate(TupleQueryResultHandler)}.
-	 * 
+	 *
 	 * @return the {@link TupleQueryResultHandler} that can be used for pass through
 	 * @see PassThroughTupleExpr
 	 */
@@ -181,7 +189,7 @@ public class QueryInfo {
 	/**
 	 * Set the {@link TupleQueryResultHandler} if the query is executed using
 	 * {@link TupleQuery#evaluate(TupleQueryResultHandler)} allowing for passing through results to the handler.
-	 * 
+	 *
 	 * @param resultHandler the {@link TupleQueryResultHandler}
 	 */
 	public void setResultHandler(TupleQueryResultHandler resultHandler) {
@@ -191,7 +199,6 @@ public class QueryInfo {
 	/**
 	 * Mark the query as aborted and abort all scheduled (future) tasks known at this point in time. Also do not accept
 	 * any new scheduled tasks
-	 *
 	 */
 	public synchronized void abort() {
 		if (done) {
@@ -205,7 +212,6 @@ public class QueryInfo {
 	/**
 	 * Close this query. If exists, all scheduled (future) tasks known at this point in time are aborted. Also do not
 	 * accept any new scheduled tasks
-	 *
 	 */
 	public synchronized void close() {
 
@@ -214,7 +220,7 @@ public class QueryInfo {
 		}
 		done = true;
 
-		abortScheduledTasks();
+		closeScheduledTasks();
 	}
 
 	/**
@@ -222,11 +228,52 @@ public class QueryInfo {
 	 */
 	protected void abortScheduledTasks() {
 
+		Throwable throwable = null;
+
 		for (ParallelTask<?> task : scheduledSubtasks) {
-			task.cancel();
+			try {
+				task.cancel();
+			} catch (Throwable t) {
+				if (throwable != null) {
+					t.addSuppressed(throwable);
+				}
+				throwable = t;
+			}
 		}
 
 		scheduledSubtasks.clear();
+
+		if (throwable != null) {
+			if (throwable instanceof RuntimeException) {
+				throw ((RuntimeException) throwable);
+			}
+			throw ((Error) throwable);
+		}
+	}
+
+	private void closeScheduledTasks() {
+
+		Throwable throwable = null;
+
+		for (ParallelTask<?> task : scheduledSubtasks) {
+			try {
+				task.close();
+			} catch (Throwable t) {
+				if (throwable != null) {
+					t.addSuppressed(throwable);
+				}
+				throwable = t;
+			}
+		}
+
+		scheduledSubtasks.clear();
+
+		if (throwable != null) {
+			if (throwable instanceof RuntimeException) {
+				throw ((RuntimeException) throwable);
+			}
+			throw ((Error) throwable);
+		}
 	}
 
 	@Override
@@ -250,13 +297,9 @@ public class QueryInfo {
 		}
 		QueryInfo other = (QueryInfo) obj;
 		if (queryID == null) {
-			if (other.queryID != null) {
-				return false;
-			}
-		} else if (!queryID.equals(other.queryID)) {
-			return false;
-		}
-		return true;
+			return other.queryID == null;
+		} else
+			return queryID.equals(other.queryID);
 	}
 
 }

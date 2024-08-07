@@ -4,7 +4,7 @@ toc: true
 autonumbering: true
 ---
 
-When submitting a pull request to RDF4J, we sometimes ask that you squash your commits, either so you can clean up the commit history a bit, or for example when some of your commits weren't correctly signed off. Here we explain a simple way to do that.
+When submitting a pull request to RDF4J, we sometimes ask that you squash your commits, to clean up the commit history a bit. Here we explain a simple way to do that.
 
 <!--more-->
 
@@ -12,10 +12,9 @@ When submitting a pull request to RDF4J, we sometimes ask that you squash your c
 
 On the command line, a relatively simple way to squash commits is as follows:
 
-1. Make sure your local _master_ and _develop_ branches are up to date with the upstream.
+1. Make sure your local `main` and `develop` branches are up to date with the upstream.
 2. Check out your pull request branch.
-3. Run `git rebase -i master --signoff` (or `git rebase -i develop --signoff` if your branch started from the _develop_ branch).
-    - The `--signoff` flag here makes sure that the new commit produced by the squash operation is correctly signed off.
+3. Run `git rebase -i main` (or `git rebase -i develop` if your branch started from the _develop_ branch).
     - You should see a list of commits, each commit starting with the word `pick`.
    - Make sure the first commit says "pick" and change the rest from "pick" to "squash".
 4. Save and close the editor.
@@ -39,7 +38,7 @@ commits on your branch, which you are now ready to merge into the
 
 You have some commits that have descriptions like "fixed typo" or "oops". Some messages miss a reference to the issue number. These are the commits that you will want to adjust by squashing, and editing the commit message.
 
-Before you start squashing, first make sure that your local `master` or `develop` branch (the branch that you want to merge your changes into) is up-to-date with the upstream:
+Before you start squashing, first make sure that your local `main` or `develop` branch (the branch that you want to merge your changes into) is up-to-date with the upstream:
 
 ```bash
 git checkout develop
@@ -47,7 +46,7 @@ git pull
 ```
 
 {{< warning >}}
-If you are working on a forked copy of the eclipse/rdf4j Github repository, you will need to make sure that your fork's master/develop branch is up to date with the original as well. See <a href="https://stackoverflow.com/questions/7244321/how-do-i-update-a-github-forked-repository">this Stackoverflow article</a> for tips on how to handle this.
+If you are working on a forked copy of the eclipse/rdf4j Github repository, you will need to make sure that your fork's main/develop branch is up to date with the original as well. See <a href="https://stackoverflow.com/questions/7244321/how-do-i-update-a-github-forked-repository">this Stackoverflow article</a> for tips on how to handle this.
 {{< / warning >}}
 
 You can now switch back to your feature branch:
@@ -59,7 +58,7 @@ git checkout GH-1234-my-feature-branch
 The second step is starting an "interactive rebase", using the following command:
 
 ```bash
-git rebase -i develop --signoff
+git rebase -i develop
 ```
 
 In this command, `develop` identifies the branch against which we
@@ -242,7 +241,7 @@ The first two commits (relating to the class `FooBar`) will be squashed into one
 ## Keeping your feature branch up to date: rebase vs merge
 
 While you are working on a feature in your own branch, in parallel other changes
-can be made on the master/develop branch, by other developers. It is sometimes
+can be made on the main/develop branch, by other developers. It is sometimes
 necessary that you bring your feature branch up-to-date with those changes, so
 that you can reuse their work in your feature, or for example when you've both
 been working on the same part of the code and there are conflicts to be
@@ -279,7 +278,7 @@ However, you can make things easier for yourself, with a few of these tips:
 
 1. make sure that most of the commits you do are already descriptive in the first place, and perhaps squashing more than once if you are working on a large branch, to keep things "tidy as you go".
 2. Do not immediately push every commit that you do, so that you can **amend your latest commit** if you discover a typo or other small change, rather than adding a new separate commit.
-3. If you need to sync your feature branch with the master or develop branch, consider using 'git rebase' instead of 'git merge', so that squashing later on does not become too difficult.
+3. If you need to sync your feature branch with the main or develop branch, consider using 'git rebase' instead of 'git merge', so that squashing later on does not become too difficult.
 
 {{< info >}}
 <strong>Practicing clean git commits is like brushing your teeth</strong>: yes, it's a bit of a chore, and you could use the time to do something more fun, but it's a lot nicer for the people around you (think coffee breath), and also better for you (think having to figure out why something was changed a year from now). And once you're used to doing it, it quickly becomes a habit.

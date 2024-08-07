@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
 
@@ -38,7 +41,7 @@ public class FunctionCall extends AbstractQueryModelNode implements ValueExpr {
 	/**
 	 * Creates a new unary value operator.
 	 *
-	 * @param args The operator's argument, must not be <tt>null</tt>.
+	 * @param args The operator's argument, must not be <var>null</var>.
 	 */
 	public FunctionCall(String uri, ValueExpr... args) {
 		setURI(uri);
@@ -99,16 +102,11 @@ public class FunctionCall extends AbstractQueryModelNode implements ValueExpr {
 		for (ValueExpr arg : args) {
 			arg.visit(visitor);
 		}
-
-		super.visitChildren(visitor);
 	}
 
 	@Override
 	public void replaceChildNode(QueryModelNode current, QueryModelNode replacement) {
-		if (replaceNodeInList(args, current, replacement)) {
-			return;
-		}
-		super.replaceChildNode(current, replacement);
+		replaceNodeInList(args, current, replacement);
 	}
 
 	@Override

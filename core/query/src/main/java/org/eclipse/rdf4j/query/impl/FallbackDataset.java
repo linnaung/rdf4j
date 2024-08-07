@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.impl;
 
@@ -33,9 +36,9 @@ public class FallbackDataset implements Dataset, Serializable {
 		return new FallbackDataset(primary, fallback);
 	}
 
-	private Dataset primary;
+	private final Dataset primary;
 
-	private Dataset fallback;
+	private final Dataset fallback;
 
 	private FallbackDataset(Dataset primary, Dataset secondary) {
 		assert primary != null;
@@ -108,6 +111,14 @@ public class FallbackDataset implements Dataset, Serializable {
 		} else {
 			sb.append("<").append(uri).append(">\n");
 		}
+	}
+
+	public Dataset getPrimary() {
+		return primary;
+	}
+
+	public Dataset getFallback() {
+		return fallback;
 	}
 
 }

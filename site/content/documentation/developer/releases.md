@@ -9,42 +9,42 @@ This document outlines how to create a new release of RDF4J.
 
 ## The simple way: using the release script
 
-In the project root, the script `release.sh` is a shell-script that (almost) fully automates the handling of releases. It creates branches, sets correct version numbers, builds and uploads artifacts, etc. It gives you several prompts along the way to guide you through the process.
+The script `scripts/release.sh` is a shell-script that (almost) fully automates the handling of releases. It creates branches, sets correct version numbers, builds and uploads artifacts, etc. It gives you several prompts along the way to guide you through the process.
 
-The release script should always be run from the `master` branch.
+The release script should always be run from the `main` branch.
 
 If for whatever reason, you wish to manually create a release instead, the following sections detail the manual process.
 
 ## Patch releases
 
-Patch releases are created by branching the `master` branch into a release branch, and
+Patch releases are created by branching the `main` branch into a release branch, and
 when complete, tagging this release branch with the version number before
 release deployment. Once release deployment is complete, the release branch
 is deleted.
 
-IMPORTANT: the `master` branch is always in a release ready state (build
+IMPORTANT: the `main` branch is always in a release ready state (build
 passes, no new features, docs are up to date), so a patch release from the
-`master` branch can be done in an ad-hoc fashion, without the need for a formal
+`main` branch can be done in an ad-hoc fashion, without the need for a formal
 review.
 
 Plans to do a patch release are announced by the project lead on the
 [rdf4j-dev@eclipse.org mailinglist](https://dev.eclipse.org/mailman/listinfo/rdf4j-dev),
 usually about a week in advance, with an open invitation for contributors to
 propose additional fixes to include, which are done as Pull Requests to the
-`master` branch.
+`main` branch.
 
 ### Creating a patch release branch
 
-Any fixes to be included in a patch release must be merged into the `master`
-branch first.  A patch release branch should differ from the `master` branch,
+Any fixes to be included in a patch release must be merged into the `main`
+branch first.  A patch release branch should differ from the `main` branch,
 at the time of release, only by the version number - a patch release branch has
-a patch number version, while the `master` branch has a SNAPSHOT version.  To
+a patch number version, while the `main` branch has a SNAPSHOT version.  To
 create a patch release branch, follow these steps:
 
-1. Check out the `master` branch.
-   E.g. if we're preparing a release 2.2.1, the `master` branch will have the version 2.2.1-SNAPSHOT:
+1. Check out the `main` branch.
+   E.g. if we're preparing a release 2.2.1, the `main` branch will have the version 2.2.1-SNAPSHOT:
 
-    `git checkout master`
+    `git checkout main`
 
 2. Create a new release branch, named `releases/<version>`:
 
@@ -77,7 +77,7 @@ create a patch release branch, follow these steps:
    `git commit -s -a -m "next development iteration"`
    `git push`
 
-6. Finally, create a pull request to merge the release branch back into master. Like branch sync PRs, this PR will be merged by means of a merge-commit, rather than the default 'squash and merge', so as not to lose the version-tagged commit.
+6. Finally, create a pull request to merge the release branch back into main. Like branch sync PRs, this PR will be merged by means of a merge-commit, rather than the default 'squash and merge', so as not to lose the version-tagged commit.
 
 ## Hotfix releases
 
@@ -85,7 +85,7 @@ Hotfix release are patch releases that target a prior minor version (not the
 latest stable release). These are needed when a critical bug was found in a
 production deployment using an earlier version.
 
-A hotfix release use a preceding release as its basis. This means we need to create a release branch not by simply branching from the current `master` branch, but by branching from a specific release tag. To create a patch release branch, follow these steps:
+A hotfix release use a preceding release as its basis. This means we need to create a release branch not by simply branching from the current `main` branch, but by branching from a specific release tag. To create a patch release branch, follow these steps:
 
 1. Check out the tag of the previous release. E.g. if we're preparing a release 2.1.6, the preceding release is 2.1.5, so we do:
 
@@ -111,7 +111,7 @@ A hotfix release use a preceding release as its basis. This means we need to cre
 
     `git push origin releases/2.1.6`
 
-Bug fixes are typically added to a hotfix release branch by [cherry-picking](https://git-scm.com/docs/git-cherry-pick) the relevant commits from the `master` branch.
+Bug fixes are typically added to a hotfix release branch by [cherry-picking](https://git-scm.com/docs/git-cherry-pick) the relevant commits from the `main` branch.
 
 This works as follows:
 
@@ -175,15 +175,15 @@ upload, it will also automatically invoke synchronization with the Central
 Repository.  Note that after successful completion, the artifacts may not be
 available on the Central Repository for several hours.
 
-## Minor and Major releases
+## Eclipse release reviews
 
-Minor and major releases require a formal [release review](https://www.eclipse.org/projects/handbook/#release-review), and because this is the case, they need to be planned well in advance, and the project lead needs to manage what can go into each release, and prepare necessary documentation (both technical and legal) for review.
+At least once a year, the Eclipse Foundation requires a formal [release review](https://www.eclipse.org/projects/handbook/#release-review). We typically try to use a major or minor release for such a review.
 
-We plan each release about 8 weeks in advance. At this stage, the final feature set is not etched in stone but a number of priority features/improvements is identified (via discussion on the mailinglist and/or via issue tracker comments and PRs) and scheduled. A first draft of a release plan is created by the project lead on the [Eclipse RDF4J project site](https://projects.eclipse.org/projects/technology.rdf4j), and the necessary milestones are created in the [issue tracker](https://github.com/eclipse/rdf4j/issues).
+We plan a reviewed release about 8 weeks in advance. At this stage, the final feature set is not etched in stone but a number of priority features/improvements is identified (via discussion on the mailinglist and/or via issue tracker comments and PRs) and scheduled. A first draft of a release plan is created by the project lead on the [Eclipse RDF4J project site](https://projects.eclipse.org/projects/technology.rdf4j), and the necessary milestones are created in the [issue tracker](https://github.com/eclipse/rdf4j/issues).
 
 ### Review planning and application
 
-A release can only be done once its review is successfully concluded. Eclipse release review are announced in regular cycles, and always complete on the first or third Wednesday of each month. For this reason, we schedule our releases to happen on a first or third Thursday.
+Eclipse release review are announced in regular cycles, and always complete on the first or third Wednesday of each month. For this reason, we schedule our reviewed releases to happen on a first or third Thursday.
 
 A release review runs for a week. Although mostly a formality, it does need some careful preparation and planning. It needs to be formally applied for, and this application in turn requires that several pieces of documentation are in order:
 
@@ -211,49 +211,59 @@ For more detailed information about the release review process, see the [Eclipse
 
 ### Branching minor releases
 
-Prior to a minor release, the `develop` branch is merged into the `master` branch
-(along with the `develop` branch's version) to facilitate release review.
-This will increment the `master` version to the latest major/minor SNAPSHOT version.
-After the review is complete the steps to create a minor release are the same as the patch release steps.
+Prior to a minor release, the `develop` branch is merged into the `main` branch
+(along with the `develop` branch's version). This will increment the `main` version to the latest major/minor SNAPSHOT version. 
 
 IMPORTANT: It is important that only features and fixes that have already been scheduled
 for release (via PR milestone labels) be merged into the `develop` branch, so
 that there is no confusion as to what will be included in the next minor release.
 
-Once a minor release is published the `develop` minor version should be incremented to the next SNAPSHOT
-version and any approved features that are scheduled for this next minor
+Once a minor release is published the `develop` minor version should be incremented to the next SNAPSHOT version and any approved features that are scheduled for this next minor
 version should be merged into `develop` branch.
 
-## Optional: publishing docker images
+## Optional: publish a docker image
 
-Occasionally a docker server/workbench image could be built
-and pushed to `https:/hub.docker.com/eclipse/rdf4j-workbench`,
-which is part of the Eclipse organizational account.
+The docker images on hub.docker.com are stored as part of the Eclipse organizational account. 
+
 Since this account is managed separately by the Eclipse Foundation,
 only a limited number of committers will be granted access by the EMO.
 
-The Dockerfiles are stored in `rdf4j-tools/assembly/src/main/dist/docker`,
-and currently there are two supported architectures: `amd64` (Intel/AMD x86-64) and `arm64v8`.
+### Method 1: using the build script and docker push
 
-Note that docker does not support building cross-architecture out of the box,
-so either two systems or some additional software (e.g. QEMU) will be needed. See also
-https://www.ecliptik.com/Cross-Building-and-Running-Multi-Arch-Docker-Images.
+Build the SDK ZIP file and docker image using the `docker/build.sh` script.
+Both the Workbench and the server will be part of the same image.
 
+Log into hub.docker.com:
 
-Go to the previously mentioned docker directory and build the image(s):
+`docker login --username=yourhubusername`
 
-    docker build --build-arg VERSION=2.5.0 --file Dockerfile.amd64 \
-                 --tag eclipse/rdf4j-workbench:amd64-2.5.0-testing .
+Push the image:
 
-Verify the image by running it:
+`docker push eclipse/rdf4j-workbench:VERSION_TAG`
+ 
+`VERSION_TAG` is the version (tag) you want to push, e.g. `4.3.0`
 
-    docker run -p 8080:8080 eclipse/rdf4j-workbench:amd64-2.5.0-testing
+Note that hub.docker.com does not update the `latest` tag automatically,
+the newly created image has also to be tagged `latest` and pushed to hub.docker.com.
 
-After a fews seconds, the workbench should be avaible on `http://localhost:8080/rdf4j-workbench`.
-Check the RDF4J version in System / Information.
+### Method 2: multi-platform docker image using buildx
 
-Log in on `hub.docker.com`, and push the image:
+Since the base image being used is available for multiple architectures,
+it is quite easy to build a [multi-platform image](https://docs.docker.com/build/building/multi-platform/).
+Currently the Workbench/Server image is made available for 64-bit AMD/Intel and ARM v8.
 
-    docker login
-    docker push eclipse/rdf4j-workbench:amd64-2.5.0-testing
+Check if [Docker Buildx](https://docs.docker.com/build/buildx/install/) is installed on your system.
+
+Build the SDK ZIP file using the `docker/build.sh` script mentioned above,
+or download the SDK from https://rdf4j.org/download/ and store the ZIP as `ignore/rdf4j.zip`.
+
+Log into hub.docker.com:
+
+`docker login --username=yourhubusername`
+
+Build and push the image (note the `.` at the end of the command):
+
+`docker buildx build --push --platform linux/arm64/v8,linux/amd64 --tag eclipse/rdf4j-workbench:VERSION_TAG .`
+
+`VERSION_TAG` is the version (tag) you want to push, e.g. `4.3.0`
 

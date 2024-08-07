@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.explanation;
 
@@ -11,7 +14,7 @@ import org.eclipse.rdf4j.common.annotation.Experimental;
 
 /**
  * This is an experimental feature. The interface may be changed, moved or potentially removed in a future release.
- *
+ * <p>
  * The interface is used to implement query explanations (query plan)
  *
  * @since 3.2.0

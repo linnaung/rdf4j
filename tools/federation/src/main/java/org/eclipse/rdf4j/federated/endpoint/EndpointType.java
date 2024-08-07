@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.endpoint;
 
@@ -19,12 +22,12 @@ import java.util.List;
 public enum EndpointType {
 	NativeStore(Arrays.asList("NativeStore", "lsail/NativeStore")),
 	SparqlEndpoint(Arrays.asList("SparqlEndpoint", "api/sparql")),
-	RemoteRepository(Arrays.asList("RemoteRepository")),
-	Other(Arrays.asList("Other"));
+	RemoteRepository(List.of("RemoteRepository")),
+	Other(List.of("Other"));
 
-	private List<String> formatNames;
+	private final List<String> formatNames;
 
-	private EndpointType(List<String> formatNames) {
+	EndpointType(List<String> formatNames) {
 		this.formatNames = formatNames;
 	}
 

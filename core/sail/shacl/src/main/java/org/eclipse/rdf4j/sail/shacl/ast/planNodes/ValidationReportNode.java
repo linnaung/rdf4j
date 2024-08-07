@@ -1,18 +1,21 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Objects;
 import java.util.function.Function;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.shacl.results.ValidationResult;
 
 public class ValidationReportNode implements PlanNode {
@@ -20,48 +23,49 @@ public class ValidationReportNode implements PlanNode {
 	private final Function<ValidationTuple, ValidationResult> validationResultFunction;
 	PlanNode parent;
 	private boolean printed = false;
+	private ValidationExecutionLogger validationExecutionLogger;
 
-	public ValidationReportNode(PlanNode parent,
-			Function<ValidationTuple, ValidationResult> validationResultFunction) {
-		parent = PlanNodeHelper.handleSorting(this, parent);
-		this.parent = parent;
+	public ValidationReportNode(PlanNode parent, Function<ValidationTuple, ValidationResult> validationResultFunction) {
+		this.parent = PlanNodeHelper.handleSorting(this, parent);
 		this.validationResultFunction = validationResultFunction;
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 
-		return new CloseableIteration<ValidationTuple, SailException>() {
+		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			private final CloseableIteration<? extends ValidationTuple, SailException> iterator = parent.iterator();
+			private CloseableIteration<? extends ValidationTuple> iterator;
 
 			@Override
-			public void close() throws SailException {
-				iterator.close();
+			protected void init() {
+				iterator = parent.iterator();
 			}
 
 			@Override
-			public boolean hasNext() throws SailException {
+			public void localClose() {
+				if (iterator != null) {
+					iterator.close();
+				}
+			}
+
+			@Override
+			public boolean localHasNext() {
 				return iterator.hasNext();
 			}
 
 			@Override
-			public ValidationTuple next() throws SailException {
+			public ValidationTuple loggingNext() {
 				ValidationTuple next = iterator.next();
-				next.addValidationResult(validationResultFunction.apply(next));
-				return next;
+				return next.addValidationResult(validationResultFunction);
 			}
 
-			@Override
-			public void remove() throws SailException {
-				iterator.remove();
-			}
 		};
 	}
 
 	@Override
 	public int depth() {
-		return parent.depth();
+		return parent.depth() + 1;
 	}
 
 	@Override
@@ -89,6 +93,7 @@ public class ValidationReportNode implements PlanNode {
 
 	@Override
 	public void receiveLogger(ValidationExecutionLogger validationExecutionLogger) {
+		this.validationExecutionLogger = validationExecutionLogger;
 		parent.receiveLogger(validationExecutionLogger);
 	}
 
@@ -100,5 +105,22 @@ public class ValidationReportNode implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ValidationReportNode that = (ValidationReportNode) o;
+		return validationResultFunction.equals(that.validationResultFunction) && parent.equals(that.parent);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(validationResultFunction, parent);
 	}
 }

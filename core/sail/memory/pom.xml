@@ -4,7 +4,7 @@
 	<parent>
 		<groupId>org.eclipse.rdf4j</groupId>
 		<artifactId>rdf4j-sail</artifactId>
-		<version>3.6.0-SNAPSHOT</version>
+		<version>5.0.3-SNAPSHOT</version>
 	</parent>
 	<artifactId>rdf4j-sail-memory</artifactId>
 	<name>RDF4J: MemoryStore</name>
@@ -37,11 +37,6 @@
 		</dependency>
 		<dependency>
 			<groupId>${project.groupId}</groupId>
-			<artifactId>rdf4j-util</artifactId>
-			<version>${project.version}</version>
-		</dependency>
-		<dependency>
-			<groupId>${project.groupId}</groupId>
 			<artifactId>rdf4j-rio-turtle</artifactId>
 			<version>${project.version}</version>
 			<scope>test</scope>
@@ -70,12 +65,6 @@
 		</dependency>
 		<dependency>
 			<groupId>${project.groupId}</groupId>
-			<artifactId>rdf4j-queryparser-serql</artifactId>
-			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>${project.groupId}</groupId>
 			<artifactId>rdf4j-repository-manager</artifactId>
 			<version>${project.version}</version>
 			<scope>test</scope>
@@ -97,10 +86,6 @@
 		<plugins>
 			<plugin>
 				<artifactId>maven-assembly-plugin</artifactId>
-			</plugin>
-			<plugin>
-				<groupId>com.github.siom79.japicmp</groupId>
-				<artifactId>japicmp-maven-plugin</artifactId>
 			</plugin>
 		</plugins>
 	</build>

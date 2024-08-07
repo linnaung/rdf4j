@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
@@ -29,7 +32,7 @@ public class XMLWriterSettings {
 	 * @see <a href="http://www.w3.org/TR/rdf-syntax-grammar/#section-Syntax-complete-document">RDF/XML
 	 *      specification</a>
 	 */
-	public static final RioSetting<Boolean> INCLUDE_XML_PI = new BooleanRioSetting(
+	public static final BooleanRioSetting INCLUDE_XML_PI = new BooleanRioSetting(
 			"org.eclipse.rdf4j.rio.include_xml_pi", "Include XML Processing Instruction", Boolean.TRUE);
 
 	/**
@@ -43,7 +46,7 @@ public class XMLWriterSettings {
 	 * @see <a href="http://www.w3.org/TR/rdf-syntax-grammar/#section-Syntax-complete-document">RDF/XML
 	 *      specification</a>
 	 */
-	public static final RioSetting<Boolean> INCLUDE_ROOT_RDF_TAG = new BooleanRioSetting(
+	public static final BooleanRioSetting INCLUDE_ROOT_RDF_TAG = new BooleanRioSetting(
 			"org.eclipse.rdf4j.rio.include_root_rdf_tag", "Include Root RDF Tag", Boolean.TRUE);
 
 	/**
@@ -54,7 +57,7 @@ public class XMLWriterSettings {
 	 * <p>
 	 * Can be overridden by setting system property {@code org.eclipse.rdf4j.rio.use_single_quotes}
 	 */
-	public static final RioSetting<Boolean> USE_SINGLE_QUOTES = new BooleanRioSetting(
+	public static final BooleanRioSetting USE_SINGLE_QUOTES = new BooleanRioSetting(
 			"org.eclipse.rdf4j.rio.use_single_quotes", "Use single quotes", Boolean.FALSE);
 
 	/**
@@ -66,7 +69,7 @@ public class XMLWriterSettings {
 	 * <p>
 	 * Can be overridden by setting system property {@code org.eclipse.rdf4j.rio.quotes_to_entities_in_text}
 	 */
-	public static final RioSetting<Boolean> QUOTES_TO_ENTITIES_IN_TEXT = new BooleanRioSetting(
+	public static final BooleanRioSetting QUOTES_TO_ENTITIES_IN_TEXT = new BooleanRioSetting(
 			"org.eclipse.rdf4j.rio.quotes_to_entities_in_text", "Use single quotes", Boolean.FALSE);
 
 	/**

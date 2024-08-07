@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
@@ -11,8 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.eclipse.rdf4j.rio.RioSetting;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public abstract class RioSettingTest<T> {
 
@@ -25,23 +28,23 @@ public abstract class RioSettingTest<T> {
 	 */
 	protected RioSetting<T> subject;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		subject = createRioSetting(TEST_KEY, TEST_DESCRIPTION, getDefaultValue());
 	}
 
 	@Test
-	public void testDefaultValue() throws Exception {
+	public void testDefaultValue() {
 		assertThat(subject.getDefaultValue()).isEqualTo(getDefaultValue());
 	}
 
 	@Test
-	public void testConvert() throws Exception {
+	public void testConvert() {
 		assertThat(subject.convert(getLegalStringValue())).isEqualTo(getConvertedStringValue());
 	}
 
 	@Test
-	public void testConvertIllegal() throws Exception {
+	public void testConvertIllegal() {
 		assertThatThrownBy(() -> subject.convert(getIllegalStringValue()))
 				.isInstanceOf(RioConfigurationException.class);
 	}

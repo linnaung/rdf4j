@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.hdt;
 
@@ -14,7 +17,6 @@ import java.util.zip.CheckedInputStream;
 import org.eclipse.rdf4j.common.io.UncloseableInputStream;
 
 /**
- *
  * @author Bart Hanssens
  */
 class HDTBitmap extends HDTPart {
@@ -48,7 +50,7 @@ class HDTBitmap extends HDTPart {
 
 	@Override
 	protected void parse(InputStream is) throws IOException {
-		long bytes = 0L;
+		long bytes;
 
 		// don't close CheckedInputStream, as it will close the underlying inputstream
 		try (UncloseableInputStream uis = new UncloseableInputStream(is);
@@ -60,7 +62,7 @@ class HDTBitmap extends HDTPart {
 						", but only bitmap v1 is supported");
 			}
 
-			long b = (int) VByte.decode(cis);
+			long b = VByte.decode(cis);
 			if (b > Integer.MAX_VALUE) {
 				throw new UnsupportedOperationException("Maximum number of entries in bitmap exceeded: " + b);
 			}

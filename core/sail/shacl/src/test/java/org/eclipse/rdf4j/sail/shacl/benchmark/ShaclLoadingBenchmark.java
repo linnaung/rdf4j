@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.benchmark;
@@ -11,13 +14,12 @@ package org.eclipse.rdf4j.sail.shacl.benchmark;
 import java.io.StringReader;
 import java.util.concurrent.TimeUnit;
 
-import org.eclipse.rdf4j.IsolationLevels;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.eclipse.rdf4j.sail.shacl.GlobalValidationExecutionLogging;
 import org.eclipse.rdf4j.sail.shacl.ShaclSail;
 import org.eclipse.rdf4j.sail.shacl.ShaclSailConnection;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -39,24 +41,20 @@ import ch.qos.logback.classic.Logger;
  * @author Håvard Ottestad
  */
 @State(Scope.Benchmark)
-@Warmup(iterations = 20)
+@Warmup(iterations = 5)
 @BenchmarkMode({ Mode.AverageTime })
-@Fork(value = 1, jvmArgs = { "-Xms8G", "-Xmx8G", "-XX:+UseSerialGC" })
-//@Fork(value = 1, jvmArgs = {"-Xms8G", "-Xmx8G", "-XX:+UseSerialGC", "-XX:+UnlockCommercialFeatures", "-XX:StartFlightRecording=delay=15s,duration=120s,filename=recording.jfr,settings=ProfilingAggressive.jfc", "-XX:FlightRecorderOptions=samplethreads=true,stackdepth=1024", "-XX:+UnlockDiagnosticVMOptions", "-XX:+DebugNonSafepoints"})
-@Measurement(iterations = 10)
+@Fork(value = 1, jvmArgs = { "-Xms8G", "-Xmx8G" })
+//@Fork(value = 1, jvmArgs = {"-Xms8G", "-Xmx8G", "-XX:+UnlockCommercialFeatures", "-XX:StartFlightRecording=delay=15s,duration=120s,filename=recording.jfr,settings=ProfilingAggressive.jfc", "-XX:FlightRecorderOptions=samplethreads=true,stackdepth=1024", "-XX:+UnlockDiagnosticVMOptions", "-XX:+DebugNonSafepoints"})
+@Measurement(iterations = 5)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class ShaclLoadingBenchmark {
-	{
-		GlobalValidationExecutionLogging.loggingEnabled = false;
-	}
 
-	@Setup(Level.Iteration)
-	public void setUp() throws InterruptedException {
-		System.gc();
-		Thread.sleep(100);
+	@Setup(Level.Trial)
+	public void setUp() {
 		((Logger) LoggerFactory.getLogger(ShaclSailConnection.class.getName()))
 				.setLevel(ch.qos.logback.classic.Level.ERROR);
 		((Logger) LoggerFactory.getLogger(ShaclSail.class.getName())).setLevel(ch.qos.logback.classic.Level.ERROR);
+
 	}
 
 	@Benchmark
@@ -121,7 +119,7 @@ public class ShaclLoadingBenchmark {
 
 				));
 
-				connection.add(data, "", RDFFormat.TURTLE);
+				connection.add(data, "", RDFFormat.TRIG);
 
 			}
 			connection.commit();
@@ -142,7 +140,7 @@ public class ShaclLoadingBenchmark {
 						"                sh:datatype xsd:integer ;",
 						"        ] ."));
 
-				connection.add(shaclRules, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+				connection.add(shaclRules, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 				connection.commit();
 
 			}
@@ -928,48 +926,48 @@ public class ShaclLoadingBenchmark {
 					"                          # sh:severity   sh:Violation",
 					"                  ] ."));
 
-			connection.begin();
-			connection.add(shaclRules1, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules1, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules2, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules2, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules3, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules3, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules4, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules4, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules5, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules5, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules6, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules6, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules7, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules7, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules8, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules8, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules9, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules9, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules10, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules10, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 
-			connection.begin();
-			connection.add(shaclRules11, "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
+			connection.add(shaclRules11, "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 		}
 

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.sail;
 
@@ -12,9 +15,8 @@ import java.util.Objects;
 import java.util.Optional;
 
 import org.apache.http.client.HttpClient;
-import org.eclipse.rdf4j.IsolationLevel;
-import org.eclipse.rdf4j.OpenRDFUtil;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.TransactionSetting;
 import org.eclipse.rdf4j.http.client.HttpClientDependent;
 import org.eclipse.rdf4j.http.client.HttpClientSessionManager;
@@ -101,6 +103,14 @@ public class SailRepositoryConnection extends AbstractRepositoryConnection imple
 	}
 
 	@Override
+	public FederatedServiceResolver getFederatedServiceResolver() {
+		if (sailConnection instanceof FederatedServiceResolverClient) {
+			return ((FederatedServiceResolverClient) sailConnection).getFederatedServiceResolver();
+		}
+		return null;
+	}
+
+	@Override
 	public void setRepositoryResolver(RepositoryResolver resolver) {
 		if (sailConnection instanceof RepositoryResolverClient) {
 			((RepositoryResolverClient) sailConnection).setRepositoryResolver(resolver);
@@ -143,7 +153,7 @@ public class SailRepositoryConnection extends AbstractRepositoryConnection imple
 	public void begin() throws RepositoryException {
 		try {
 			// always call receiveTransactionSettings(...) before calling begin();
-			sailConnection.setTransactionSettings(new TransactionSetting[0]);
+			sailConnection.setTransactionSettings();
 
 			if (getIsolationLevel() != null) {
 				sailConnection.begin(getIsolationLevel());
@@ -159,7 +169,7 @@ public class SailRepositoryConnection extends AbstractRepositoryConnection imple
 	public void begin(IsolationLevel level) throws RepositoryException {
 		try {
 			// always call receiveTransactionSettings(...) before calling begin();
-			sailConnection.setTransactionSettings(new TransactionSetting[0]);
+			sailConnection.setTransactionSettings();
 
 			if (level != null) {
 				sailConnection.begin(level);
@@ -337,12 +347,21 @@ public class SailRepositoryConnection extends AbstractRepositoryConnection imple
 	@Override
 	public RepositoryResult<Statement> getStatements(Resource subj, IRI pred, Value obj, boolean includeInferred,
 			Resource... contexts) throws RepositoryException {
-		OpenRDFUtil.verifyContextNotNull(contexts);
-
+		Objects.requireNonNull(contexts,
+				"contexts argument may not be null; either the value should be cast to Resource or an empty array should be supplied");
+		CloseableIteration<? extends Statement> statements = null;
 		try {
-			return createRepositoryResult(sailConnection.getStatements(subj, pred, obj, includeInferred, contexts));
-		} catch (SailException e) {
-			throw new RepositoryException("Unable to get statements from Sail", e);
+			statements = sailConnection.getStatements(subj, pred, obj, includeInferred, contexts);
+			return createRepositoryResult(statements);
+		} catch (Throwable t) {
+			if (statements != null) {
+				statements.close();
+			}
+			if (t instanceof SailException) {
+				throw new RepositoryException("Unable to get statements from Sail", t);
+			} else {
+				throw t;
+			}
 		}
 	}
 
@@ -357,8 +376,8 @@ public class SailRepositoryConnection extends AbstractRepositoryConnection imple
 			Resource... contexts) throws RepositoryException, RDFHandlerException {
 		handler.startRDF();
 
-		try ( // Export namespace information
-				CloseableIteration<? extends Namespace, RepositoryException> nsIter = getNamespaces()) {
+		// Export namespace information
+		try (var nsIter = getNamespaces()) {
 			while (nsIter.hasNext()) {
 				Namespace ns = nsIter.next();
 				handler.handleNamespace(ns.getPrefix(), ns.getName());
@@ -366,9 +385,7 @@ public class SailRepositoryConnection extends AbstractRepositoryConnection imple
 		}
 
 		// Export statements
-
-		try (CloseableIteration<? extends Statement, RepositoryException> stIter = getStatements(subj, pred, obj,
-				includeInferred, contexts)) {
+		try (var stIter = getStatements(subj, pred, obj, includeInferred, contexts)) {
 			while (stIter.hasNext()) {
 				handler.handleStatement(stIter.next());
 			}
@@ -416,7 +433,8 @@ public class SailRepositoryConnection extends AbstractRepositoryConnection imple
 
 	@Override
 	public void clear(Resource... contexts) throws RepositoryException {
-		OpenRDFUtil.verifyContextNotNull(contexts);
+		Objects.requireNonNull(contexts,
+				"contexts argument may not be null; either the value should be cast to Resource or an empty array should be supplied");
 
 		try {
 			boolean local = startLocalTransaction();
@@ -489,7 +507,7 @@ public class SailRepositoryConnection extends AbstractRepositoryConnection imple
 	/**
 	 * Wraps a CloseableIteration coming from a Sail in a RepositoryResult object, applying the required conversions
 	 */
-	protected <E> RepositoryResult<E> createRepositoryResult(CloseableIteration<? extends E, SailException> sailIter) {
+	protected <E> RepositoryResult<E> createRepositoryResult(CloseableIteration<? extends E> sailIter) {
 		return new RepositoryResult<>(new SailCloseableIteration<E>(sailIter));
 	}
 

@@ -1,16 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.turtle;
 
 import java.util.Arrays;
 
 import org.eclipse.rdf4j.common.text.ASCIIUtil;
-import org.eclipse.rdf4j.common.text.StringUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,7 +38,7 @@ public class TurtleUtil {
 	 * serialization constraints of the Turtle format.
 	 *
 	 * @param uri The URI to split.
-	 * @return The index where the supplied URI can be split, or <tt>-1</tt> if the URI cannot be split.
+	 * @return The index where the supplied URI can be split, or <var>-1</var> if the URI cannot be split.
 	 */
 	public static int findURISplitIndex(String uri) {
 		int uriLength = uri.length();
@@ -268,7 +270,7 @@ public class TurtleUtil {
 	 */
 	public static boolean isPN_PREFIX(String prefix) {
 		// Empty prefixes are not legal, they should always have a colon
-		if (prefix.length() == 0) {
+		if (prefix.isEmpty()) {
 			logger.debug("PN_PREFIX was not valid (empty)");
 			return false;
 		}
@@ -365,7 +367,7 @@ public class TurtleUtil {
 
 	public static boolean isPN_LOCAL(String name) {
 		// Empty names are legal
-		if (name.length() == 0) {
+		if (name.isEmpty()) {
 			return true;
 		}
 
@@ -412,11 +414,11 @@ public class TurtleUtil {
 	 * @return encoded string
 	 */
 	public static String encodeString(String s) {
-		s = StringUtil.gsub("\\", "\\\\", s);
-		s = StringUtil.gsub("\t", "\\t", s);
-		s = StringUtil.gsub("\n", "\\n", s);
-		s = StringUtil.gsub("\r", "\\r", s);
-		s = StringUtil.gsub("\"", "\\\"", s);
+		s = s.replace("\\", "\\\\");
+		s = s.replace("\t", "\\t");
+		s = s.replace("\n", "\\n");
+		s = s.replace("\r", "\\r");
+		s = s.replace("\"", "\\\"");
 		return s;
 	}
 
@@ -430,8 +432,8 @@ public class TurtleUtil {
 		// TODO: not all double quotes need to be escaped. It suffices to encode
 		// the ones that form sequences of 3 or more double quotes, and the ones
 		// at the end of a string.
-		s = StringUtil.gsub("\\", "\\\\", s);
-		s = StringUtil.gsub("\"", "\\\"", s);
+		s = s.replace("\\", "\\\\");
+		s = s.replace("\"", "\\\"");
 		return s;
 	}
 
@@ -442,18 +444,32 @@ public class TurtleUtil {
 	 */
 	@Deprecated
 	public static String encodeURIString(String s) {
-		s = StringUtil.gsub("\\", "\\u005C", s);
-		s = StringUtil.gsub("\t", "\\u0009", s);
-		s = StringUtil.gsub("\n", "\\u000A", s);
-		s = StringUtil.gsub("\r", "\\u000D", s);
-		s = StringUtil.gsub("\"", "\\u0022", s);
-		s = StringUtil.gsub("`", "\\u0060", s);
-		s = StringUtil.gsub("^", "\\u005E", s);
-		s = StringUtil.gsub("|", "\\u007C", s);
-		s = StringUtil.gsub("<", "\\u003C", s);
-		s = StringUtil.gsub(">", "\\u003E", s);
-		s = StringUtil.gsub(" ", "\\u0020", s);
+		s = s.replace("\\", "\\u005C");
+		s = s.replace("\t", "\\u0009");
+		s = s.replace("\n", "\\u000A");
+		s = s.replace("\r", "\\u000D");
+		s = s.replace("\"", "\\u0022");
+		s = s.replace("`", "\\u0060");
+		s = s.replace("^", "\\u005E");
+		s = s.replace("|", "\\u007C");
+		s = s.replace("<", "\\u003C");
+		s = s.replace(">", "\\u003E");
+		s = s.replace(" ", "\\u0020");
 		return s;
+	}
+
+	public static boolean isValidPrefixedName(String s) {
+		if (s == null || s.isEmpty()) {
+			return false;
+		}
+
+		if (!isPN_CHARS_BASE(s.codePointAt(0))) {
+			return false;
+		}
+
+		return s.codePoints() //
+				.skip(1) // Skip the first code point
+				.allMatch(TurtleUtil::isPN_CHARS);
 	}
 
 	/**
@@ -461,7 +477,7 @@ public class TurtleUtil {
 	 *
 	 * @param s An encoded Turtle string.
 	 * @return The unencoded string.
-	 * @exception IllegalArgumentException If the supplied string is not a correctly encoded Turtle string.
+	 * @throws IllegalArgumentException If the supplied string is not a correctly encoded Turtle string.
 	 **/
 	public static String decodeString(String s) {
 		int backSlashIdx = s.indexOf('\\');

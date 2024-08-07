@@ -1,30 +1,41 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
+
 package org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents;
 
 import java.util.Collections;
 import java.util.List;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
-import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.sail.shacl.ConnectionsGroup;
-import org.eclipse.rdf4j.sail.shacl.RdfsSubClassOfReasoner;
-import org.eclipse.rdf4j.sail.shacl.ShaclSail;
 import org.eclipse.rdf4j.sail.shacl.SourceConstraintComponent;
+import org.eclipse.rdf4j.sail.shacl.ValidationSettings;
 import org.eclipse.rdf4j.sail.shacl.ast.Cache;
-import org.eclipse.rdf4j.sail.shacl.ast.HelperTool;
 import org.eclipse.rdf4j.sail.shacl.ast.NodeShape;
 import org.eclipse.rdf4j.sail.shacl.ast.PropertyShape;
+import org.eclipse.rdf4j.sail.shacl.ast.ShaclAstLists;
 import org.eclipse.rdf4j.sail.shacl.ast.ShaclProperties;
+import org.eclipse.rdf4j.sail.shacl.ast.ShaclUnsupportedException;
 import org.eclipse.rdf4j.sail.shacl.ast.Shape;
 import org.eclipse.rdf4j.sail.shacl.ast.SparqlFragment;
 import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
-import org.eclipse.rdf4j.sail.shacl.ast.paths.Path;
+import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher.Variable;
+import org.eclipse.rdf4j.sail.shacl.ast.ValidationQuery;
+import org.eclipse.rdf4j.sail.shacl.ast.planNodes.BufferedSplitter;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.EmptyNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.EqualsJoinValue;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
@@ -33,21 +44,23 @@ import org.eclipse.rdf4j.sail.shacl.ast.planNodes.ShiftToPropertyShape;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnionNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.Unique;
 import org.eclipse.rdf4j.sail.shacl.ast.targets.TargetChain;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.RdfsSubClassOfReasoner;
+import org.eclipse.rdf4j.sail.shacl.wrapper.shape.ShapeSource;
 
-public class OrConstraintComponent extends AbstractConstraintComponent {
+public class OrConstraintComponent extends LogicalOperatorConstraintComponent {
 	List<Shape> or;
 
-	public OrConstraintComponent(Resource id, RepositoryConnection connection,
-			Cache cache, ShaclSail shaclSail) {
+	public OrConstraintComponent(Resource id, ShapeSource shapeSource, Shape.ParseSettings parseSettings, Cache cache) {
 		super(id);
-		or = HelperTool.toList(connection, id, Resource.class)
+		or = ShaclAstLists.toList(shapeSource, id, Resource.class)
 				.stream()
-				.map(r -> new ShaclProperties(r, connection))
+				.map(r -> new ShaclProperties(r, shapeSource))
 				.map(p -> {
 					if (p.getType() == SHACL.NODE_SHAPE) {
-						return NodeShape.getInstance(p, connection, cache, false, shaclSail);
+						return NodeShape.getInstance(p, shapeSource, parseSettings, cache);
 					} else if (p.getType() == SHACL.PROPERTY_SHAPE) {
-						return PropertyShape.getInstance(p, connection, cache, shaclSail);
+						return PropertyShape.getInstance(p, shapeSource, parseSettings, cache);
 					}
 					throw new IllegalStateException("Unknown shape type for " + p.getId());
 				})
@@ -59,17 +72,16 @@ public class OrConstraintComponent extends AbstractConstraintComponent {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
-		if (exported.contains(getId())) {
-			return;
-		}
-		exported.add(getId());
-
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.OR, getId());
-		HelperTool.listToRdf(or.stream().map(Shape::getId).collect(Collectors.toList()), getId(), model);
+		if (!cycleDetection.contains(getId())) {
+			cycleDetection.add(getId());
+			or.forEach(o -> o.toModel(null, null, model, cycleDetection));
+		}
 
-		or.forEach(o -> o.toModel(null, null, model, exported));
-
+		if (!model.contains(getId(), null, null)) {
+			ShaclAstLists.listToRdf(or.stream().map(Shape::getId).collect(Collectors.toList()), getId(), model);
+		}
 	}
 
 	@Override
@@ -90,63 +102,71 @@ public class OrConstraintComponent extends AbstractConstraintComponent {
 	}
 
 	@Override
-	public PlanNode generateSparqlValidationPlan(ConnectionsGroup connectionsGroup, boolean logValidationPlans,
+	public ValidationQuery generateSparqlValidationQuery(ConnectionsGroup connectionsGroup,
+			ValidationSettings validationSettings,
 			boolean negatePlan, boolean negateChildren, Scope scope) {
-		throw new UnsupportedOperationException("Not implemented yet");
+		throw new ShaclUnsupportedException();
 	}
 
 	@Override
-	public PlanNode generateTransactionalValidationPlan(ConnectionsGroup connectionsGroup, boolean logValidationPlans,
+	public PlanNode generateTransactionalValidationPlan(ConnectionsGroup connectionsGroup,
+			ValidationSettings validationSettings,
 			PlanNodeProvider overrideTargetNode, Scope scope) {
-		// if (scope == Scope.nodeShape) {
 
+		StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider = new StatementMatcher.StableRandomVariableProvider();
 		PlanNodeProvider planNodeProvider;
 
 		if (overrideTargetNode != null) {
 			planNodeProvider = overrideTargetNode;
 		} else {
-			planNodeProvider = () -> getAllTargetsPlan(connectionsGroup, scope);
+			planNodeProvider = new BufferedSplitter(
+					getAllTargetsPlan(connectionsGroup, validationSettings.getDataGraph(), scope,
+							stableRandomVariableProvider),
+					false);
 		}
 
 		PlanNode orPlanNodes = or.stream()
 				.map(or -> or.generateTransactionalValidationPlan(
 						connectionsGroup,
-						logValidationPlans,
+						validationSettings,
 						planNodeProvider,
 						scope
 				)
 				)
-				.reduce((a, b) -> new EqualsJoinValue(a, b, true))
-				.orElse(new EmptyNode());
+				.reduce((a, b) -> new EqualsJoinValue(a, b, false))
+				.orElse(EmptyNode.getInstance());
 
-		PlanNode invalid = new Unique(orPlanNodes);
-
-		return invalid;
+		return Unique.getInstance(orPlanNodes, false);
 	}
 
 	@Override
-	public PlanNode getAllTargetsPlan(ConnectionsGroup connectionsGroup, Scope scope) {
+	public PlanNode getAllTargetsPlan(ConnectionsGroup connectionsGroup, Resource[] dataGraph, Scope scope,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 		PlanNode allTargets;
 
 		if (scope == Scope.propertyShape) {
 			PlanNode allTargetsPlan = getTargetChain()
-					.getEffectiveTarget("target_", Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner())
-					.getPlanNode(connectionsGroup, Scope.nodeShape, true);
+					.getEffectiveTarget(Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner(),
+							stableRandomVariableProvider)
+					.getPlanNode(connectionsGroup, dataGraph, Scope.nodeShape, true, null);
 
-			allTargets = new Unique(new ShiftToPropertyShape(allTargetsPlan));
+			allTargets = Unique.getInstance(new ShiftToPropertyShape(allTargetsPlan), true);
 		} else {
 			allTargets = getTargetChain()
-					.getEffectiveTarget("target_", scope, connectionsGroup.getRdfsSubClassOfReasoner())
-					.getPlanNode(connectionsGroup, scope, true);
+					.getEffectiveTarget(scope, connectionsGroup.getRdfsSubClassOfReasoner(),
+							stableRandomVariableProvider)
+					.getPlanNode(connectionsGroup, dataGraph, scope, true, null);
 
 		}
 
 		PlanNode planNode = or.stream()
-				.map(or -> or.getAllTargetsPlan(connectionsGroup, scope))
-				.reduce(UnionNode::new)
-				.orElse(new EmptyNode());
+				.map(or -> or.getAllTargetsPlan(connectionsGroup, dataGraph, scope,
+						new StatementMatcher.StableRandomVariableProvider()))
+				.distinct()
+				.reduce(UnionNode::getInstanceDedupe)
+				.orElse(EmptyNode.getInstance());
 
-		return new Unique(new UnionNode(allTargets, planNode));
+		return Unique.getInstance(UnionNode.getInstanceDedupe(allTargets, planNode), false);
 	}
 
 	@Override
@@ -161,172 +181,50 @@ public class OrConstraintComponent extends AbstractConstraintComponent {
 	}
 
 	@Override
-	public boolean requiresEvaluation(ConnectionsGroup connectionsGroup, Scope scope) {
-		return or.stream().anyMatch(c -> c.requiresEvaluation(connectionsGroup, scope));
+	public boolean requiresEvaluation(ConnectionsGroup connectionsGroup, Scope scope, Resource[] dataGraph,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
+		for (Shape c : or) {
+			if (c.requiresEvaluation(connectionsGroup, scope, dataGraph, stableRandomVariableProvider)) {
+				return true;
+			}
+		}
+		return false;
 	}
 
-//	@Override
-//	public String buildSparqlValidNodes_rsx_targetShape(Var subject, Var object, RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
-//		if (scope == Scope.propertyShape) {
-//			// within property shape
-//			String objectVariable = randomVariable();
-//			String pathQuery1 = getTargetChain().getPath().get().getTargetQueryFragment(subject, object, null);
-//
-//			String collect = or.stream()
-//				.map(l -> l.stream()
-//					.map(p -> p.buildSparqlValidNodes(objectVariable))
-//					.reduce((a, b) -> a + " && " + b))
-//				.filter(Optional::isPresent)
-//				.map(Optional::get)
-//				.collect(Collectors.joining(" ) || ( ", "( ",
-//					" )"));
-//
-//			String query = pathQuery1 + "\n FILTER (! EXISTS {\n" + pathQuery1.replaceAll("(?m)^", "\t")
-//				+ "\n\tFILTER(!(" + collect + "))\n})";
-//
-//			String pathQuery2 = getPath().getQuery(targetVar, randomVariable(), null);
-//
-//			query = "{\n" + VALUES_INJECTION_POINT + "\n " + query.replaceAll("(?m)^", "\t")
-//				+ " \n} UNION {\n\t" + VALUES_INJECTION_POINT + "\n\t" + targetVar + " "
-//				+ randomVariable() + " "
-//				+ randomVariable() + ".\n\tFILTER(NOT EXISTS {\n " + pathQuery2.replaceAll("(?m)^", "\t")
-//				+ " \n})\n}";
-//
-//			return query;
-//		} else if (!childrenHasOwnPathRecursive()) {
-//
-//			return or.stream()
-//				.map(l -> l.stream()
-//					.map(p -> p.buildSparqlValidNodes(targetVar))
-//					.reduce((a, b) -> a + " && " + b))
-//				.filter(Optional::isPresent)
-//				.map(Optional::get)
-//				.collect(Collectors.joining(" ) || ( ", "( ",
-//					" )"));
-//		} else {
-//			// within node shape
-//			return or.stream()
-//				.map(l -> l.stream().map(p -> p.buildSparqlValidNodes(targetVar)).reduce((a, b) -> a + "\n" + b))
-//				.filter(Optional::isPresent)
-//				.map(Optional::get)
-//				.map(s -> s.replaceAll("(?m)^", "\t"))
-//				.collect(
-//					Collectors.joining("\n} UNION {\n" + VALUES_INJECTION_POINT + "\n",
-//						"{\n" + VALUES_INJECTION_POINT + "\n",
-//						"\n}"));
-//		}
-//	}
+	@Override
+	public SparqlFragment buildSparqlValidNodes_rsx_targetShape(Variable<Value> subject,
+			Variable<Value> object,
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
+
+		return buildSparqlValidNodes_rsx_targetShape_inner(subject, object, rdfsSubClassOfReasoner, scope,
+				stableRandomVariableProvider, or,
+				getTargetChain(),
+				SparqlFragment::union, SparqlFragment::or);
+
+	}
 
 	@Override
-	public SparqlFragment buildSparqlValidNodes_rsx_targetShape(StatementMatcher.Variable subject,
-			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
+	public List<Literal> getDefaultMessage() {
+		return List.of();
+	}
 
-		boolean isFilterCondition = or.stream()
-				.map(o -> o.buildSparqlValidNodes_rsx_targetShape(subject, object, rdfsSubClassOfReasoner, scope))
-				.map(SparqlFragment::isFilterCondition)
-				.findFirst()
-				.orElse(false);
-
-		if (scope == Scope.nodeShape) {
-
-			if (!isFilterCondition) {
-				String collect = or
-						.stream()
-						.map(shape -> shape.buildSparqlValidNodes_rsx_targetShape(subject, object,
-								rdfsSubClassOfReasoner, scope))
-						.map(SparqlFragment::getFragment)
-						.map(s -> s.replaceAll("(?m)^", "\t"))
-						.collect(
-								Collectors.joining(
-										"\n} UNION {\n" + VALUES_INJECTION_POINT + "\n",
-										"{\n" + VALUES_INJECTION_POINT + "\n",
-										"\n}"));
-				return SparqlFragment.bgp(collect);
-
-			} else {
-				String collect = or
-						.stream()
-						.map(shape -> shape.buildSparqlValidNodes_rsx_targetShape(subject, object,
-								rdfsSubClassOfReasoner, scope))
-						.map(SparqlFragment::getFragment)
-						.collect(Collectors.joining(" ) || ( ", "( ", " )"));
-				return SparqlFragment.filterCondition(collect);
-
-			}
-		} else if (scope == Scope.propertyShape) {
-
-			if (!isFilterCondition) {
-				throw new UnsupportedOperationException();
-			} else {
-
-				Path path = getTargetChain().getPath().get();
-
-				String collect = or
-						.stream()
-						.map(shape -> shape.buildSparqlValidNodes_rsx_targetShape(subject, object,
-								rdfsSubClassOfReasoner, scope))
-						.map(SparqlFragment::getFragment)
-						.collect(Collectors.joining(" ) || ( ", "( ",
-								" )"));
-
-				String pathQuery1 = path.getTargetQueryFragment(subject, object, rdfsSubClassOfReasoner);
-
-				String query = pathQuery1 + "\n FILTER (! EXISTS {\n" + pathQuery1.replaceAll("(?m)^", "\t")
-						+ "\n\tFILTER(!(" + collect + "))\n})";
-
-				String pathQuery2 = path.getTargetQueryFragment(subject,
-						new StatementMatcher.Variable(UUID.randomUUID().toString().replace("-", "")),
-						rdfsSubClassOfReasoner);
-
-				query = "{\n" +
-						VALUES_INJECTION_POINT + "\n " +
-						"" + query.replaceAll("(?m)^", "\t") + " \n" +
-						"} UNION {\n" +
-						"\t " + VALUES_INJECTION_POINT + "\n" +
-						"\t ?" + subject.getName() + " " + randomVariable() + " " + randomVariable() + ".\n" +
-						"\t FILTER(NOT EXISTS {\n " +
-						"" + pathQuery2.replaceAll("(?m)^", "\t")
-						+ " \n" +
-						"})\n" +
-						"}";
-
-				return SparqlFragment.bgp(query);
-			}
-		} else {
-			throw new UnsupportedOperationException("Unknown scope: " + scope);
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
 		}
 
-	}
+		OrConstraintComponent that = (OrConstraintComponent) o;
 
-	private String randomVariable() {
-		return "?" + UUID.randomUUID().toString().replace("-", "");
+		return or.equals(that.or);
 	}
 
 	@Override
-	public Stream<StatementMatcher> getStatementMatchers_rsx_targetShape(StatementMatcher.Variable subject,
-			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
-
-		StatementMatcher subjectPattern = new StatementMatcher(
-				object,
-				null,
-				null
-		);
-
-		StatementMatcher objectPattern = new StatementMatcher(
-				null,
-				null,
-				object
-		);
-
-		Stream<StatementMatcher> statementPatternStream = or.stream()
-				.flatMap(c -> c.getStatementMatchers_rsx_targetShape(object,
-						new StatementMatcher.Variable("someVarName"),
-						rdfsSubClassOfReasoner, Scope.nodeShape));
-
-		return Stream.concat(statementPatternStream, Stream.of(subjectPattern, objectPattern));
-
+	public int hashCode() {
+		return or.hashCode() + "OrConstraintComponent".hashCode();
 	}
-
 }

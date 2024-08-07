@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.benchmark;
@@ -18,11 +21,9 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
-import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.eclipse.rdf4j.sail.shacl.GlobalValidationExecutionLogging;
+import org.eclipse.rdf4j.sail.shacl.ShaclSail;
 import org.eclipse.rdf4j.sail.shacl.ShaclSailConnection;
 import org.eclipse.rdf4j.sail.shacl.Utils;
-import org.eclipse.rdf4j.sail.shacl.testimp.TestNotifyingSail;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -42,15 +43,12 @@ import ch.qos.logback.classic.Logger;
  * @author Håvard Ottestad
  */
 @State(Scope.Benchmark)
-@Warmup(iterations = 20)
+@Warmup(iterations = 5)
 @BenchmarkMode({ Mode.AverageTime })
-@Fork(value = 1, jvmArgs = { "-Xmx64M", "-XX:+UseSerialGC" })
-@Measurement(iterations = 10)
+@Fork(value = 1, jvmArgs = { "-Xmx64M" })
+@Measurement(iterations = 5)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class NotMaxCountBenchmarkEmpty {
-	{
-		GlobalValidationExecutionLogging.loggingEnabled = false;
-	}
 
 	private List<List<Statement>> allStatements;
 
@@ -74,12 +72,7 @@ public class NotMaxCountBenchmarkEmpty {
 	@Benchmark
 	public void shacl() throws Exception {
 
-		SailRepository repository = new SailRepository(Utils.getInitializedShaclSail("shaclNotMaxCountBenchmark.ttl"));
-
-		try (SailRepositoryConnection connection = repository.getConnection()) {
-			connection.begin();
-			connection.commit();
-		}
+		SailRepository repository = new SailRepository(Utils.getInitializedShaclSail("shaclNotMaxCountBenchmark.trig"));
 
 		try (SailRepositoryConnection connection = repository.getConnection()) {
 			for (List<Statement> statements : allStatements) {
@@ -93,22 +86,16 @@ public class NotMaxCountBenchmarkEmpty {
 	}
 
 	@Benchmark
-	public void noShacl() {
+	public void shaclBulk() throws Exception {
 
-		SailRepository repository = new SailRepository(new TestNotifyingSail(new MemoryStore()));
-
-		repository.init();
+		SailRepository repository = new SailRepository(Utils.getInitializedShaclSail("shaclNotMaxCountBenchmark.trig"));
 
 		try (SailRepositoryConnection connection = repository.getConnection()) {
-			connection.begin();
-			connection.commit();
-		}
-		try (SailRepositoryConnection connection = repository.getConnection()) {
+			connection.begin(ShaclSail.TransactionSettings.ValidationApproach.Bulk);
 			for (List<Statement> statements : allStatements) {
-				connection.begin();
 				connection.add(statements);
-				connection.commit();
 			}
+			connection.commit();
 		}
 		repository.shutDown();
 

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.performance;
 
@@ -12,6 +15,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 import org.eclipse.rdf4j.federated.performance.RepositoryPerformance.TestVocabulary.DRUGBANK;
 import org.eclipse.rdf4j.federated.util.FedXUtil;
@@ -51,7 +55,7 @@ public class RepositoryPerformance {
 
 		private static final int MAX_INSTANCES = Integer.MAX_VALUE;
 		private static final int N_QUERIES = 100;
-		private ExecutorService executor = Executors.newFixedThreadPool(30);
+		private final ExecutorService executor = Executors.newFixedThreadPool(30);
 
 		private final IRI type;
 
@@ -63,7 +67,7 @@ public class RepositoryPerformance {
 
 			RepositoryConnection conn = null;
 			long testStart = System.currentTimeMillis();
-			long start = 0;
+			long start;
 
 			try {
 				System.out.println("Creating connection ...");
@@ -118,36 +122,23 @@ public class RepositoryPerformance {
 			System.out.println("Done. Overall duration: " + (System.currentTimeMillis() - testStart) + "ms");
 		}
 
-		private List<IRI> retrieveInstances(RepositoryConnection conn) throws Exception {
-
-			List<IRI> res = new ArrayList<>();
-			RepositoryResult<Statement> qres = null;
-			try {
-				qres = conn.getStatements(null, RDF.TYPE, type, false);
-				while (qres.hasNext() && res.size() < MAX_INSTANCES) {
-					Statement next = qres.next();
-					res.add((IRI) next.getObject());
-				}
-			} finally {
-				try {
-					if (qres != null) {
-						qres.close();
-					}
-				} catch (Exception ignore) {
-				}
+		private List<IRI> retrieveInstances(RepositoryConnection conn) {
+			try (RepositoryResult<Statement> qres = conn.getStatements(null, RDF.TYPE, type, false)) {
+				return qres.stream()
+						.limit(MAX_INSTANCES)
+						.map(Statement::getObject)
+						.map(o -> ((IRI) o))
+						.collect(Collectors.toList());
 			}
-			return res;
 		}
 
-		private int runQuery(RepositoryConnection conn, IRI instance) throws Exception {
+		private int runQuery(RepositoryConnection conn, IRI instance) {
 
 			long start = System.currentTimeMillis();
 			TupleQuery query = conn.prepareTupleQuery(QueryLanguage.SPARQL,
 					"SELECT * WHERE { <" + instance.stringValue() + "> ?p ?o }");
 
-			TupleQueryResult res = null;
-			try {
-				res = query.evaluate();
+			try (TupleQueryResult res = query.evaluate()) {
 				int count = 0;
 				while (res.hasNext()) {
 					res.next();
@@ -156,16 +147,12 @@ public class RepositoryPerformance {
 				System.out.println("Instance " + instance.stringValue() + " has " + count + " results. Duration: "
 						+ (System.currentTimeMillis() - start) + "ms");
 				return count;
-			} finally {
-				if (res != null) {
-					res.close();
-				}
 			}
 		}
 
-		abstract RepositoryConnection getConnection() throws Exception;
+		abstract RepositoryConnection getConnection();
 
-		abstract void shutdown() throws Exception;
+		abstract void shutdown();
 	}
 
 	static class SparqlRepositoryPerformanceTest extends PerformanceBase {
@@ -180,14 +167,14 @@ public class RepositoryPerformance {
 		Repository repo = null;
 
 		@Override
-		RepositoryConnection getConnection() throws Exception {
+		RepositoryConnection getConnection() {
 			repo = new SPARQLRepository(sparqlEndpoint);
 			repo.init();
 			return repo.getConnection();
 		}
 
 		@Override
-		void shutdown() throws Exception {
+		void shutdown() {
 			repo.shutDown();
 		}
 
@@ -207,14 +194,14 @@ public class RepositoryPerformance {
 		Repository repo = null;
 
 		@Override
-		RepositoryConnection getConnection() throws Exception {
+		RepositoryConnection getConnection() {
 			repo = new HTTPRepository(repositoryServer, repositoryName);
 			repo.init();
 			return repo.getConnection();
 		}
 
 		@Override
-		void shutdown() throws Exception {
+		void shutdown() {
 			repo.shutDown();
 		}
 
@@ -239,7 +226,7 @@ public class RepositoryPerformance {
 		} catch (Exception e) {
 			System.out.println("Error while performing RemoteRepository test: " + e.getMessage());
 		}
-//		} 
+//		}
 
 		System.out.println("done");
 

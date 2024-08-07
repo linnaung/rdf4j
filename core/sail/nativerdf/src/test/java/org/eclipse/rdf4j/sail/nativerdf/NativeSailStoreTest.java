@@ -1,14 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 
@@ -21,19 +24,18 @@ import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.TemporaryFolder;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
 
 /**
  * An extension of RDFStoreTest for testing the class {@link NativeStore}.
  */
 public class NativeSailStoreTest {
 
-	@Rule
-	public TemporaryFolder tempFolder = new TemporaryFolder();
+	@TempDir
+	File tempFolder;
 
 	protected Repository repo;
 
@@ -50,9 +52,10 @@ public class NativeSailStoreTest {
 	protected final Statement S2 = F.createStatement(F.createIRI("http://example.org/2"), RDFS.LABEL,
 			F.createLiteral("two"));
 
-	@Before
-	public void before() throws Exception {
-		File dataDir = tempFolder.newFolder("dbmodel");
+	@BeforeEach
+	public void before() {
+		File dataDir = new File(tempFolder, "dbmodel");
+		dataDir.mkdir();
 		repo = new SailRepository(new NativeStore(dataDir, "spoc,posc"));
 		repo.init();
 
@@ -69,9 +72,9 @@ public class NativeSailStoreTest {
 			conn.remove((IRI) null, null, null, CTX_1);
 		}
 		try (RepositoryConnection conn = repo.getConnection()) {
-			assertTrue("Statement 0 incorrectly removed", conn.hasStatement(S0, false));
-			assertFalse("Statement 1 still not removed", conn.hasStatement(S1, false, CTX_1));
-			assertTrue("Statement 2 incorrectly removed", conn.hasStatement(S2, false, CTX_2));
+			assertTrue(conn.hasStatement(S0, false), "Statement 0 incorrectly removed");
+			assertFalse(conn.hasStatement(S1, false, CTX_1), "Statement 1 still not removed");
+			assertTrue(conn.hasStatement(S2, false, CTX_2), "Statement 2 incorrectly removed");
 		}
 	}
 
@@ -81,9 +84,9 @@ public class NativeSailStoreTest {
 			conn.remove((IRI) null, null, null, (Resource) null);
 		}
 		try (RepositoryConnection conn = repo.getConnection()) {
-			assertFalse("Statement 0 still not removed", conn.hasStatement(S0, false));
-			assertTrue("Statement 1 incorrectly removed", conn.hasStatement(S1, false, CTX_1));
-			assertTrue("Statement 2 incorrectly removed", conn.hasStatement(S2, false, CTX_2));
+			assertFalse(conn.hasStatement(S0, false), "Statement 0 still not removed");
+			assertTrue(conn.hasStatement(S1, false, CTX_1), "Statement 1 incorrectly removed");
+			assertTrue(conn.hasStatement(S2, false, CTX_2), "Statement 2 incorrectly removed");
 		}
 	}
 
@@ -93,9 +96,9 @@ public class NativeSailStoreTest {
 			conn.remove((IRI) null, null, null, CTX_INV);
 		}
 		try (RepositoryConnection conn = repo.getConnection()) {
-			assertTrue("Statement 0 incorrectly removed", conn.hasStatement(S0, false));
-			assertTrue("Statement 1 incorrectly removed", conn.hasStatement(S1, false, CTX_1));
-			assertTrue("Statement 2 incorrectly removed", conn.hasStatement(S2, false, CTX_2));
+			assertTrue(conn.hasStatement(S0, false), "Statement 0 incorrectly removed");
+			assertTrue(conn.hasStatement(S1, false, CTX_1), "Statement 1 incorrectly removed");
+			assertTrue(conn.hasStatement(S2, false, CTX_2), "Statement 2 incorrectly removed");
 		}
 	}
 
@@ -105,9 +108,9 @@ public class NativeSailStoreTest {
 			conn.remove((IRI) null, null, null, CTX_1, CTX_2);
 		}
 		try (RepositoryConnection conn = repo.getConnection()) {
-			assertTrue("Statement 0 incorrectly removed", conn.hasStatement(S0, false));
-			assertFalse("Statement 1 still not removed", conn.hasStatement(S1, false, CTX_1));
-			assertFalse("Statement 2 still not removed", conn.hasStatement(S2, false, CTX_2));
+			assertTrue(conn.hasStatement(S0, false), "Statement 0 incorrectly removed");
+			assertFalse(conn.hasStatement(S1, false, CTX_1), "Statement 1 still not removed");
+			assertFalse(conn.hasStatement(S2, false, CTX_2), "Statement 2 still not removed");
 		}
 	}
 
@@ -117,14 +120,14 @@ public class NativeSailStoreTest {
 			conn.clear(CTX_1, CTX_2);
 		}
 		try (RepositoryConnection conn = repo.getConnection()) {
-			assertTrue("Statement 0 incorrectly removed", conn.hasStatement(S0, false));
-			assertFalse("Statement 1 still not removed", conn.hasStatement(S1, false, CTX_1));
-			assertFalse("Statement 2 still not removed", conn.hasStatement(S2, false, CTX_2));
+			assertTrue(conn.hasStatement(S0, false), "Statement 0 incorrectly removed");
+			assertFalse(conn.hasStatement(S1, false, CTX_1), "Statement 1 still not removed");
+			assertFalse(conn.hasStatement(S2, false, CTX_2), "Statement 2 still not removed");
 		}
 	}
 
-	@After
-	public void after() throws Exception {
+	@AfterEach
+	public void after() {
 		repo.shutDown();
 	}
 }

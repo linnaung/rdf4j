@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.turtle;
 
@@ -47,7 +50,6 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandlerException;
-import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFWriter;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
@@ -57,7 +59,7 @@ import org.eclipse.rdf4j.rio.helpers.BasicWriterSettings;
  * An implementation of the RDFWriter interface that writes RDF documents in Turtle format. The Turtle format is defined
  * in <a href="http://www.dajobe.org/2004/01/turtle/">in this document</a>.
  */
-public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSink {
+public class TurtleWriter extends AbstractRDFWriter implements CharSink {
 
 	private static final int LINE_WRAP = 80;
 
@@ -95,6 +97,7 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 	private Boolean xsdStringToPlainLiteral;
 	private Boolean prettyPrint;
 	private boolean inlineBNodes;
+	private Boolean abbreviateNumbers;
 
 	private ModelFactory modelFactory = new LinkedHashModelFactory();
 
@@ -157,6 +160,7 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 		settings.add(BasicWriterSettings.XSD_STRING_TO_PLAIN_LITERAL);
 		settings.add(BasicWriterSettings.PRETTY_PRINT);
 		settings.add(BasicWriterSettings.INLINE_BLANK_NODES);
+		settings.add(TurtleWriterSettings.ABBREVIATE_NUMBERS);
 		return settings;
 	}
 
@@ -168,6 +172,7 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 			xsdStringToPlainLiteral = getWriterConfig().get(BasicWriterSettings.XSD_STRING_TO_PLAIN_LITERAL);
 			prettyPrint = getWriterConfig().get(BasicWriterSettings.PRETTY_PRINT);
 			inlineBNodes = getWriterConfig().get(BasicWriterSettings.INLINE_BLANK_NODES);
+			abbreviateNumbers = getWriterConfig().get(TurtleWriterSettings.ABBREVIATE_NUMBERS);
 
 			if (isBuffering()) {
 				this.bufferedStatements = getModelFactory().createEmptyModel();
@@ -221,14 +226,14 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 				// Namespace not yet mapped to a prefix, try to give it the
 				// specified prefix
 
-				boolean isLegalPrefix = prefix.length() == 0 || TurtleUtil.isPN_PREFIX(prefix);
+				boolean isLegalPrefix = prefix.isEmpty() || TurtleUtil.isPN_PREFIX(prefix);
 
 				if (!isLegalPrefix || namespaceTable.containsValue(prefix)) {
 					// Specified prefix is not legal or the prefix is already in
 					// use,
 					// generate a legal unique prefix
 
-					if (prefix.length() == 0 || !isLegalPrefix) {
+					if (prefix.isEmpty() || !isLegalPrefix) {
 						prefix = "ns";
 					}
 
@@ -532,11 +537,20 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 	}
 
 	protected void writeURI(IRI uri) throws IOException {
-		String uriString = uri.toString();
+		String prefix = null;
+		if (TurtleUtil.isValidPrefixedName(uri.getLocalName())) {
+			prefix = namespaceTable.get(uri.getNamespace());
+			if (prefix != null) {
+				// Namespace is mapped to a prefix; write abbreviated URI
+				writer.write(prefix);
+				writer.write(":");
+				writer.write(uri.getLocalName());
+				return;
+			}
+		}
 
 		// Try to find a prefix for the URI's namespace
-		String prefix = null;
-
+		String uriString = uri.toString();
 		int splitIdx = TurtleUtil.findURISplitIndex(uriString);
 		if (splitIdx > 0) {
 			String namespace = uriString.substring(0, splitIdx);
@@ -611,7 +625,7 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 	}
 
 	protected void writeTriple(Triple triple, boolean canShorten) throws IOException {
-		throw new IOException(getRDFFormat().getName() + " does not support RDF* triples");
+		throw new IOException(getRDFFormat().getName() + " does not support RDF-star triples");
 	}
 
 	protected void writeTripleRDFStar(Triple triple, boolean canShorten) throws IOException {
@@ -633,7 +647,7 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 		String label = lit.getLabel();
 		IRI datatype = lit.getDatatype();
 
-		if (prettyPrint) {
+		if (prettyPrint && abbreviateNumbers) {
 			if (XSD.INTEGER.equals(datatype) || XSD.DECIMAL.equals(datatype)
 					|| XSD.DOUBLE.equals(datatype) || XSD.BOOLEAN.equals(datatype)) {
 				try {
@@ -845,19 +859,25 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 	}
 
 	private Optional<Resource> nextSubject(Model contextData, Set<Resource> processedSubjects) {
+		// first try finding a subject that has not yet been processed and is not the object of another
+		// unprocessed subject
 		for (Resource subject : contextData.subjects()) {
 			if (processedSubjects.contains(subject)) {
 				continue;
 			}
-			if (subject instanceof BNode && inlineBNodes) {
+			if (subject.isBNode() && inlineBNodes) {
 				Set<Resource> otherSubjects = contextData.filter(null, null, subject).subjects();
 				if (otherSubjects.stream().anyMatch(s -> !processedSubjects.contains(s))) {
+					// Other unprocessed subject using this subject as an object is present. Skip this one for now.
 					continue;
 				}
 			}
 			return Optional.of(subject);
 		}
-		return Optional.empty();
+
+		// Ensure we did not inadvertently miss any subjects. This can happen when there is a cyclic relation between
+		// blank nodes.
+		return contextData.subjects().stream().filter(subject -> !processedSubjects.contains(subject)).findAny();
 	}
 
 	private void processSubject(Model contextData, Resource subject, Set<Resource> processedSubjects) {
@@ -869,6 +889,9 @@ public class TurtleWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 
 		// give rdf:type preference over other predicates.
 		processPredicate(contextData, subject, RDF.TYPE, processedSubjects, processedPredicates);
+
+		// handle RDF Collection statements separately, to make sure we process them in the correct order
+		processPredicate(contextData, subject, RDF.FIRST, processedSubjects, processedPredicates);
 
 		// retrieve other statement from this context with the same
 		// subject, and output them grouped by predicate

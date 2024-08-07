@@ -1,14 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.anyString;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -17,10 +20,10 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 
-import org.eclipse.rdf4j.RDF4JException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 import com.github.jsonldjava.utils.JsonUtils;
 
@@ -32,27 +35,27 @@ public class ConvertTest extends AbstractCommandTest {
 	private Convert cmd;
 	private File from;
 
-	@Before
+	@BeforeEach
 	public void setup() throws IOException, RDF4JException {
 		when(mockConsoleIO.askProceed("File exists, continue ?", false)).thenReturn(Boolean.TRUE);
 		cmd = new Convert(mockConsoleIO, mockConsoleState, defaultSettings);
 
-		from = LOCATION.newFile("alien.ttl");
+		from = new File(locationFile, "alien.ttl");
 		copyFromResource("convert/alien.ttl", from);
 	}
 
-	@After
+	@AfterEach
 	@Override
 	public void tearDown() {
 		from.delete();
 	}
 
 	@Test
-	public final void testConvert() throws IOException {
-		File json = LOCATION.newFile("alien.jsonld");
+	public final void testConvert() {
+		File json = new File(locationFile, "alien.jsonld");
 		cmd.execute("convert", from.getAbsolutePath(), json.getAbsolutePath());
 
-		assertTrue("File is empty", json.length() > 0);
+		assertTrue(json.length() > 0, "File is empty");
 
 		Object o = null;
 		try {
@@ -60,17 +63,17 @@ public class ConvertTest extends AbstractCommandTest {
 		} catch (IOException ioe) {
 			//
 		}
-		assertTrue("Invalid JSON", o != null);
+		assertTrue(o != null, "Invalid JSON");
 	}
 
 	@Test
-	public final void testConvertWorkDir() throws IOException {
+	public final void testConvertWorkDir() {
 		setWorkingDir(cmd);
 
-		File json = LOCATION.newFile("alien.jsonld");
+		File json = new File(locationFile, "alien.jsonld");
 		cmd.execute("convert", from.getName(), json.getName());
 
-		assertTrue("File is empty", json.length() > 0);
+		assertTrue(json.length() > 0, "File is empty");
 
 		Object o = null;
 		try {
@@ -78,14 +81,14 @@ public class ConvertTest extends AbstractCommandTest {
 		} catch (IOException ioe) {
 			//
 		}
-		assertTrue("Invalid JSON", o != null);
+		assertTrue(o != null, "Invalid JSON");
 	}
 
 	@Test
 	public final void testConvertParseError() throws IOException {
-		File wrong = LOCATION.newFile("wrong.nt");
+		File wrong = new File(locationFile, "wrong.nt");
 		Files.write(wrong.toPath(), "error".getBytes());
-		File json = LOCATION.newFile("empty.jsonld");
+		File json = new File(locationFile, "empty.jsonld");
 
 		cmd.execute("convert", wrong.toString(), json.toString());
 		verify(mockConsoleIO).writeError(anyString());
@@ -93,8 +96,8 @@ public class ConvertTest extends AbstractCommandTest {
 	}
 
 	@Test
-	public final void testConvertInvalidFormat() throws IOException {
-		File qyx = LOCATION.newFile("alien.qyx");
+	public final void testConvertInvalidFormat() {
+		File qyx = new File(locationFile, "alien.qyx");
 		cmd.execute("convert", from.toString(), qyx.toString());
 		verify(mockConsoleIO).writeError("No RDF writer for " + qyx.toString());
 	}

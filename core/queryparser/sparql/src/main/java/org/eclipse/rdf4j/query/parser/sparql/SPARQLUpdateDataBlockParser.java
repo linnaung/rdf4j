@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.parser.sparql;
 
@@ -27,7 +30,7 @@ import org.eclipse.rdf4j.rio.turtle.TurtleUtil;
  * <li>it introduces the 'GRAPH' keyword in front of each named graph identifier
  * <li>it does not allow the occurrence of blank nodes.
  * <li>it does not require curly braces around the default graph.
- * <li>it adds support for RDF* triples (from TriG*).</li>
+ * <li>it adds support for RDF-star triples (from TriG-star).</li>
  * </ul>
  *
  * @author Jeen Broekstra

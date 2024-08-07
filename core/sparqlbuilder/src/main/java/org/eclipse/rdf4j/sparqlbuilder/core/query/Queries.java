@@ -1,9 +1,12 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core.query;
@@ -28,9 +31,7 @@ public class Queries {
 	 * Create a SPARQL Select query
 	 *
 	 * @param projectables the initial set of {@link Projectable}(s), if any, to select
-	 *
 	 * @return a new {@link SelectQuery}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#select">SPARQL Select Query</a>
 	 */
 	public static SelectQuery SELECT(Projectable... projectables) {
@@ -42,7 +43,6 @@ public class Queries {
 	 *
 	 * @param select the {@link Projection} to set initially
 	 * @return a new {@link SelectQuery}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#select">SPARQL Select Query</a>
 	 */
 	public static SelectQuery SELECT(Projection select) {
@@ -54,7 +54,6 @@ public class Queries {
 	 *
 	 * @param patterns the initial set of {@link TriplePattern}(s), if any, to construct
 	 * @return a new {@link ConstructQuery}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#construct">SPARQL Construct Query</a>
 	 */
 	public static ConstructQuery CONSTRUCT(TriplePattern... patterns) {
@@ -66,7 +65,6 @@ public class Queries {
 	 *
 	 * @param construct the {@link GraphTemplate} to set initially
 	 * @return a new {@link ConstructQuery}
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#construct">SPARQL Construct Query</a>
 	 */
 	public static ConstructQuery CONSTRUCT(GraphTemplate construct) {
@@ -77,9 +75,7 @@ public class Queries {
 	 * Create a SPARQL INSERT DATA query
 	 *
 	 * @param triples the initial set of {@link TriplePattern}(s), if any, to use
-	 *
 	 * @return a new {@link InsertDataQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#insertData"> SPARQL INSERT DATA Query</a>
 	 */
 	public static InsertDataQuery INSERT_DATA(TriplePattern... triples) {
@@ -90,9 +86,7 @@ public class Queries {
 	 * Create a SPARQL INSERT DATA query
 	 *
 	 * @param triplesTemplate the {@link TriplesTemplate} to set initially
-	 *
 	 * @return a new {@link InsertDataQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#insertData"> SPARQL INSERT DATA Query</a>
 	 */
 	public static InsertDataQuery INSERT_DATA(TriplesTemplate triplesTemplate) {
@@ -103,9 +97,7 @@ public class Queries {
 	 * Create a SPARQL DELETE DATA query
 	 *
 	 * @param triples the initial set of {@link TriplePattern}(s), if any, to use
-	 *
 	 * @return a new {@link DeleteDataQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#deleteData"> SPARQL DELETE DATA Query</a>
 	 */
 	public static DeleteDataQuery DELETE_DATA(TriplePattern... triples) {
@@ -116,9 +108,7 @@ public class Queries {
 	 * Create a SPARQL DELETE DATA query
 	 *
 	 * @param triplesTemplate the {@link TriplesTemplate} to set initially
-	 *
 	 * @return a new {@link DeleteDataQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#deleteData"> SPARQL DELETE DATA Query</a>
 	 */
 	public static DeleteDataQuery DELETE_DATA(TriplesTemplate triplesTemplate) {
@@ -129,7 +119,6 @@ public class Queries {
 	 * Creates a SPARQL Modify query
 	 *
 	 * @return a new {@link ModifyQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#deleteInsert"> SPARQL Modify Query</a>
 	 */
 	public static ModifyQuery MODIFY() {
@@ -141,7 +130,6 @@ public class Queries {
 	 *
 	 * @param triples the initial set of {@link TriplePattern}(s), if any, to use
 	 * @return a new {@link ModifyQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#delete"> SPARQL DELETE Query</a>
 	 */
 	public static ModifyQuery DELETE(TriplePattern... triples) {
@@ -153,7 +141,6 @@ public class Queries {
 	 *
 	 * @param triples the initial set of {@link TriplePattern}(s), if any, to use
 	 * @return a new {@link ModifyQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#insert"> SPARQL INSERT Query</a>
 	 */
 	public static ModifyQuery INSERT(TriplePattern... triples) {
@@ -164,7 +151,6 @@ public class Queries {
 	 * Creates a SPARQL LOAD query
 	 *
 	 * @return a new {@link LoadQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#load"> SPARQL LOAD Query</a>
 	 */
 	public static LoadQuery LOAD() {
@@ -175,7 +161,6 @@ public class Queries {
 	 * Creates a SPARQL CLEAR Query
 	 *
 	 * @return a new {@link ClearQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#clear"> SPARQL CLEAR Query</a>
 	 */
 	public static ClearQuery CLEAR() {
@@ -186,7 +171,6 @@ public class Queries {
 	 * Creates a SPARQL CREATE Query
 	 *
 	 * @return a new {@link CreateQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#create"> SPARQL CREATE Query</a>
 	 */
 	public static CreateQuery CREATE() {
@@ -197,7 +181,6 @@ public class Queries {
 	 * Creates a SPARQL DROP Query
 	 *
 	 * @return a new {@link DropQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#drop"> SPARQL DROP Query</a>
 	 */
 	public static DropQuery DROP() {
@@ -208,7 +191,6 @@ public class Queries {
 	 * Creates a SPARQL COPY Query
 	 *
 	 * @return a new {@link CopyQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#copy"> SPARQL COPY Query</a>
 	 */
 	public static CopyQuery COPY() {
@@ -219,7 +201,6 @@ public class Queries {
 	 * Creates a SPARQL MOVE Query
 	 *
 	 * @return a new {@link MoveQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#move"> SPARQL MOVE Query</a>
 	 */
 	public static MoveQuery MOVE() {
@@ -230,7 +211,6 @@ public class Queries {
 	 * Creates a new SPARQL ADD Query
 	 *
 	 * @return a new {@link AddQuery}
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#add"> SPARQL ADD Query</a>
 	 */
 	public static AddQuery ADD() {

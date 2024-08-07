@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.parser.sparql.function;
 
@@ -23,7 +26,6 @@ import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
  * the given input IRI and outputs a single literal of the form "related to v1, v2, v3".
  *
  * @author Jeen Broekstra
- *
  */
 public class TestTripleSourceCustomFunction implements Function {
 

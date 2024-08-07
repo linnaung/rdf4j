@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.sparql.federation;
 
@@ -15,7 +18,6 @@ import org.eclipse.rdf4j.http.client.SharedHttpClientSessionManager;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedService;
-import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 
 /**
  * The {@link SPARQLServiceResolver} is used to manage a set of {@link FederatedService} instances, which are used to
@@ -28,16 +30,20 @@ import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceRes
  * @author James Leigh
  */
 public class SPARQLServiceResolver extends AbstractFederatedServiceResolver
-		implements FederatedServiceResolver, HttpClientDependent, SessionManagerDependent {
+		implements HttpClientDependent, SessionManagerDependent {
 
 	public SPARQLServiceResolver() {
 		super();
 	}
 
-	/** independent life cycle */
+	/**
+	 * independent life cycle
+	 */
 	private volatile HttpClientSessionManager client;
 
-	/** dependent life cycle */
+	/**
+	 * dependent life cycle
+	 */
 	private volatile SharedHttpClientSessionManager dependentClient;
 
 	@Override

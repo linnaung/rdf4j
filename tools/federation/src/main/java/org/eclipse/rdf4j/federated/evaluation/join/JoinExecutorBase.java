@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.join;
 
@@ -34,12 +37,12 @@ public abstract class JoinExecutorBase<T> extends ParallelExecutorBase<T> {
 
 	/* Variables */
 	protected Set<String> joinVars; // might be unknown (i.e. null for some implementations)
-	protected CloseableIteration<T, QueryEvaluationException> leftIter;
+	protected CloseableIteration<T> leftIter;
 
-	public JoinExecutorBase(FederationEvalStrategy strategy, CloseableIteration<T, QueryEvaluationException> leftIter,
+	public JoinExecutorBase(FederationEvalStrategy strategy, CloseableIteration<T> leftIter,
 			TupleExpr rightArg,
 			BindingSet bindings, QueryInfo queryInfo) throws QueryEvaluationException {
-		super(strategy, queryInfo);
+		super(queryInfo);
 		this.leftIter = leftIter;
 		this.rightArg = rightArg;
 		this.bindings = bindings;

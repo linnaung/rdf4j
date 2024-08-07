@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio.text.tsv;
 
@@ -16,7 +19,6 @@ import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 import org.eclipse.rdf4j.common.io.CharSink;
-import org.eclipse.rdf4j.common.text.StringUtil;
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -36,8 +38,8 @@ import org.eclipse.rdf4j.query.resultio.TupleQueryResultWriter;
 /**
  * TupleQueryResultWriter for the SPARQL TSV (Tab-Separated Values) format.
  *
- * @see <a href="http://www.w3.org/TR/sparql11-results-csv-tsv/#tsv">SPARQL 1.1 Query Results TSV Format</a>
  * @author Jeen Broekstra
+ * @see <a href="http://www.w3.org/TR/sparql11-results-csv-tsv/#tsv">SPARQL 1.1 Query Results TSV Format</a>
  */
 public class SPARQLResultsTSVWriter extends AbstractQueryResultWriter implements TupleQueryResultWriter, CharSink {
 
@@ -199,7 +201,7 @@ public class SPARQLResultsTSVWriter extends AbstractQueryResultWriter implements
 			// Append the literal's datatype
 			writer.write("^^");
 			writeURI(datatype);
-		} else if (label.length() > 0 && encoded.equals(label) && label.charAt(0) != '<' && label.charAt(0) != '_'
+		} else if (!label.isEmpty() && encoded.equals(label) && label.charAt(0) != '<' && label.charAt(0) != '_'
 				&& !label.matches("^[\\+\\-]?[\\d\\.].*")) {
 			// no need to include double quotes
 			writer.write(encoded);
@@ -211,11 +213,11 @@ public class SPARQLResultsTSVWriter extends AbstractQueryResultWriter implements
 	}
 
 	private static String encodeString(String s) {
-		s = StringUtil.gsub("\\", "\\\\", s);
-		s = StringUtil.gsub("\t", "\\t", s);
-		s = StringUtil.gsub("\n", "\\n", s);
-		s = StringUtil.gsub("\r", "\\r", s);
-		s = StringUtil.gsub("\"", "\\\"", s);
+		s = s.replace("\\", "\\\\");
+		s = s.replace("\t", "\\t");
+		s = s.replace("\n", "\\n");
+		s = s.replace("\r", "\\r");
+		s = s.replace("\"", "\\\"");
 		return s;
 	}
 

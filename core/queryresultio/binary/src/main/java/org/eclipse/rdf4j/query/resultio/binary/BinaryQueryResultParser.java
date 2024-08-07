@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio.binary;
 
@@ -53,6 +56,8 @@ import org.eclipse.rdf4j.query.impl.ListBindingSet;
 import org.eclipse.rdf4j.query.resultio.AbstractTupleQueryResultParser;
 import org.eclipse.rdf4j.query.resultio.QueryResultParseException;
 import org.eclipse.rdf4j.query.resultio.TupleQueryResultFormat;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Reader for the binary tuple result format. The format is explained in {@link BinaryQueryResultConstants}.
@@ -67,9 +72,13 @@ public class BinaryQueryResultParser extends AbstractTupleQueryResultParser {
 
 	private int formatVersion;
 
-	private CharsetDecoder charsetDecoder = StandardCharsets.UTF_8.newDecoder();
+	private final CharsetDecoder charsetDecoder = StandardCharsets.UTF_8.newDecoder();
+
+	private static final Logger logger = LoggerFactory.getLogger(BinaryQueryResultParser.class);
 
 	private String[] namespaceArray = new String[32];
+
+	private static final int INVALID_CONTENT_LIMIT = 8 * 1024;
 
 	/*--------------*
 	 * Constructors *
@@ -185,7 +194,8 @@ public class BinaryQueryResultParser extends AbstractTupleQueryResultParser {
 					value = readTriple();
 					break;
 				default:
-					throw new IOException("Unkown record type: " + recordTypeMarker);
+					logger.error(extractInvalidContentAsString(recordTypeMarker));
+					throw new QueryResultParseException("Could not parse the query result.");
 				}
 
 				currentTuple.add(value);
@@ -211,7 +221,7 @@ public class BinaryQueryResultParser extends AbstractTupleQueryResultParser {
 	private void processError() throws IOException, QueryResultParseException {
 		byte errTypeFlag = in.readByte();
 
-		QueryErrorType errType = null;
+		QueryErrorType errType;
 		if (errTypeFlag == MALFORMED_QUERY_ERROR) {
 			errType = QueryErrorType.MALFORMED_QUERY_ERROR;
 		} else if (errTypeFlag == QUERY_EVALUATION_ERROR) {
@@ -262,7 +272,7 @@ public class BinaryQueryResultParser extends AbstractTupleQueryResultParser {
 		String label = readString();
 
 		if (recordTypeMarker == DATATYPE_LITERAL_RECORD_MARKER) {
-			IRI datatype = null;
+			IRI datatype;
 
 			int dtTypeMarker = in.readByte();
 			switch (dtTypeMarker) {
@@ -291,6 +301,28 @@ public class BinaryQueryResultParser extends AbstractTupleQueryResultParser {
 		} else {
 			return readStringV2();
 		}
+	}
+
+	/**
+	 * Used when trying to parse some invalid content. Reads the remaining bytes as string in order to provide more
+	 * user-friendly error message. Sets the max limit of the returned string, if its length > INVALID_CONTENT_LIMIT,
+	 * the returned string is trimmed and "..." is appended in order to prevent displaying too long result.
+	 */
+	private String extractInvalidContentAsString(int recordTypeMarker) throws IOException {
+		byte[] remainingBytes = new byte[INVALID_CONTENT_LIMIT];
+		IOUtil.readBytes(in, remainingBytes);
+
+		ByteBuffer byteBuf = ByteBuffer.wrap(remainingBytes);
+		CharBuffer charBuf = charsetDecoder.decode(byteBuf);
+
+		String remainingSymbols = charBuf.toString();
+
+		String result = remainingSymbols;
+		if (remainingSymbols.contains("Exception")) {
+			result = remainingSymbols.substring(0, remainingSymbols.lastIndexOf(')') + 1);
+		}
+
+		return Character.toString(recordTypeMarker) + result + "...";
 	}
 
 	/**

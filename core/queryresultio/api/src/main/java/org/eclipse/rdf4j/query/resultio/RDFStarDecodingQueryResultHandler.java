@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio;
 
@@ -18,13 +21,13 @@ import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
 import org.eclipse.rdf4j.rio.helpers.RDFStarUtil;
 
 /**
- * A {@link QueryResultHandler} that delegates all results to another handler and processes RDF* triples encoded as
- * special IRIs back to RDF* triple values.
+ * A {@link QueryResultHandler} that delegates all results to another handler and processes RDF-star triples encoded as
+ * special IRIs back to RDF-star triple values.
  *
  * @author Pavel Mihaylov
  */
 class RDFStarDecodingQueryResultHandler implements TupleQueryResultHandler, BooleanQueryResultHandler {
-	private QueryResultHandler delegate;
+	private final QueryResultHandler delegate;
 
 	RDFStarDecodingQueryResultHandler(QueryResultHandler delegate) {
 		this.delegate = delegate;

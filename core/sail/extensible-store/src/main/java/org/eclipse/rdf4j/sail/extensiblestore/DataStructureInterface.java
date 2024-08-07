@@ -1,16 +1,22 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.extensiblestore;
 
 import java.util.Collection;
+import java.util.Comparator;
+import java.util.Set;
 
 import org.eclipse.rdf4j.common.annotation.Experimental;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.common.order.StatementOrder;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
@@ -41,20 +47,26 @@ public interface DataStructureInterface {
 		}
 	}
 
-	CloseableIteration<? extends ExtensibleStatement, SailException> getStatements(
+	CloseableIteration<? extends ExtensibleStatement> getStatements(
 			Resource subject,
 			IRI predicate,
 			Value object,
 			boolean inferred,
-			Resource... context);
+			Resource... contexts);
 
 	// flush this DataStructure to make added and removed data visible to read operations
+
+	default CloseableIteration<? extends ExtensibleStatement> getStatements(StatementOrder statementOrder,
+			Resource subject, IRI predicate, Value object, boolean inferred, Resource... contexts) {
+		throw new SailException("StatementOrder not supported by: " + this.getClass().getSimpleName());
+	}
+
 	void flushForReading();
 
 	void init();
 
 	default void clear(boolean inferred, Resource[] contexts) {
-		try (CloseableIteration<? extends ExtensibleStatement, SailException> statements = getStatements(null, null,
+		try (CloseableIteration<? extends ExtensibleStatement> statements = getStatements(null, null,
 				null,
 				inferred, contexts)) {
 			while (statements.hasNext()) {
@@ -69,7 +81,7 @@ public interface DataStructureInterface {
 	default boolean removeStatementsByQuery(Resource subj, IRI pred, Value obj, boolean inferred, Resource[] contexts) {
 
 		boolean deleted = false;
-		try (CloseableIteration<? extends ExtensibleStatement, SailException> statements = getStatements(subj, pred,
+		try (CloseableIteration<? extends ExtensibleStatement> statements = getStatements(subj, pred,
 				obj,
 				inferred, contexts)) {
 			while (statements.hasNext()) {
@@ -87,4 +99,14 @@ public interface DataStructureInterface {
 		long explicit = getStatements(null, null, null, false).stream().count();
 		return inferred + explicit;
 	}
+
+	default Set<StatementOrder> getSupportedOrders(Resource subj, IRI pred, Value obj, boolean inferred,
+			Resource... contexts) {
+		return Set.of();
+	}
+
+	default Comparator<Value> getComparator() {
+		return null;
+	}
+
 }

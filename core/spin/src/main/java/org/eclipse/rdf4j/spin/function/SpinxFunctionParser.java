@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.spin.function;
 
@@ -18,7 +21,7 @@ import javax.script.ScriptEngine;
 import javax.script.ScriptEngineManager;
 import javax.script.ScriptException;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
@@ -65,19 +68,9 @@ public class SpinxFunctionParser implements FunctionParser {
 		try {
 			if (file != null) {
 				String ns = funcUri.getNamespace();
-				try {
-					Reader reader = new InputStreamReader(
-							new URL(new URL(ns.substring(0, ns.length() - 1)), file).openStream());
-					try {
-						engine.eval(reader);
-
-					} finally {
-						try {
-							reader.close();
-						} catch (IOException e) {
-							// ignore
-						}
-					}
+				try (Reader reader = new InputStreamReader(
+						new URL(new URL(ns.substring(0, ns.length() - 1)), file).openStream())) {
+					engine.eval(reader);
 				} catch (IOException e) {
 					throw new QueryEvaluationException(e);
 				}

@@ -1,9 +1,12 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.rdf;
@@ -95,6 +98,18 @@ public class Rdf {
 	}
 
 	/**
+	 * creates a label-less blank node, identified by the supplied predicate-object lists
+	 *
+	 * @param predicate the predicate of the initial predicate-object list to populate this blank node with
+	 * @param objects   the objects of the initial predicate-object list to populate this blank node with
+	 * @return a new {@link PropertiesBlankNode} instance
+	 * @see <a href="https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynBlankNodes"> Blank node syntax</a>
+	 */
+	public static PropertiesBlankNode bNode(IRI predicate, RdfObject... objects) {
+		return bNode(Rdf.iri(predicate), objects);
+	}
+
+	/**
 	 * create an empty anonymous blank node
 	 *
 	 * @return an empty {@link AnonymousBlankNode} instance
@@ -178,6 +193,17 @@ public class Rdf {
 	}
 
 	/**
+	 * Create a {@link RdfPredicateObjectList}
+	 *
+	 * @param predicate the {@link RdfPredicate} of the predicate-object list
+	 * @param objects   the {@link RdfObject}(s) of the list
+	 * @return a new {@link RdfPredicateObjectList}
+	 */
+	public static RdfPredicateObjectList predicateObjectList(IRI predicate, RdfObject... objects) {
+		return predicateObjectList(Rdf.iri(predicate), objects);
+	}
+
+	/**
 	 * Create a {@link RdfPredicateObjectListCollection} with an initial {@link RdfPredicateObjectList}
 	 *
 	 * @param predicate the {@link RdfPredicate} of the initial {@link RdfPredicateObjectList}
@@ -187,6 +213,18 @@ public class Rdf {
 	public static RdfPredicateObjectListCollection predicateObjectListCollection(RdfPredicate predicate,
 			RdfObject... objects) {
 		return new RdfPredicateObjectListCollection().andHas(predicate, objects);
+	}
+
+	/**
+	 * Create a {@link RdfPredicateObjectListCollection} with an initial {@link RdfPredicateObjectList}
+	 *
+	 * @param predicate the {@link RdfPredicate} of the initial {@link RdfPredicateObjectList}
+	 * @param objects   the {@link RdfObject}(s) of the initial {@link RdfPredicateObjectList}
+	 * @return a new {@link RdfPredicateObjectListCollection}
+	 */
+	public static RdfPredicateObjectListCollection predicateObjectListCollection(IRI predicate,
+			RdfObject... objects) {
+		return predicateObjectListCollection(Rdf.iri(predicate), objects);
 	}
 
 	/**

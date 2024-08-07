@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.performance;
 
@@ -73,7 +76,7 @@ public class FedXPerformanceTest extends SPARQLBaseTest {
 		// warm-up
 		for (String query : queries) {
 			long start = System.currentTimeMillis();
-			execute(basePackage + query + ".rq", basePackage + query + ".srx", false);
+			execute(basePackage + query + ".rq", basePackage + query + ".srx", false, true);
 			long duration = System.currentTimeMillis() - start;
 			System.out.println("Warmup " + query + " (Duration: " + duration + ")");
 		}
@@ -89,7 +92,7 @@ public class FedXPerformanceTest extends SPARQLBaseTest {
 				SingleQueryRun queryRun = new SingleQueryRun(query);
 				run.addRun(queryRun);
 				long start = System.currentTimeMillis();
-				execute(basePackage + query + ".rq", basePackage + query + ".srx", false);
+				execute(basePackage + query + ".rq", basePackage + query + ".srx", false, true);
 				long duration = System.currentTimeMillis() - start;
 				queryRun.duration = duration;
 			}
@@ -125,7 +128,7 @@ public class FedXPerformanceTest extends SPARQLBaseTest {
 				basePackage + "data4.ttl"));
 
 		String query = "query12";
-		execute(basePackage + query + ".rq", basePackage + query + ".srx", false);
+		execute(basePackage + query + ".rq", basePackage + query + ".srx", false, true);
 	}
 
 	static class Run {

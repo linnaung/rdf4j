@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.helpers;
 
@@ -15,22 +18,28 @@ import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
 import org.eclipse.rdf4j.sail.SailConnectionListener;
 import org.eclipse.rdf4j.sail.SailException;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 
 /**
- * Some general tests for {@link NogifyingSailConnectionWrapper} expected behaviour.
+ * Some general tests for {@link NotifyingSailConnectionWrapper} expected behaviour.
  *
  * @author Dale Visser
  */
 public class NotifyingSailConnectionWrapperTest {
 
-	@BeforeClass
-	public static void setUpClass() throws Exception {
+	@BeforeAll
+	public static void setUpClass() {
 		System.setProperty("org.eclipse.rdf4j.repository.debug", "true");
+	}
+
+	@AfterAll
+	public static void afterAll() {
+		System.setProperty("org.eclipse.rdf4j.repository.debug", "false");
 	}
 
 	/**
@@ -63,13 +72,13 @@ public class NotifyingSailConnectionWrapperTest {
 
 	TestListener listener = new TestListener();
 
-	@Before
+	@BeforeEach
 	public void setUp() throws SailException {
 		wrapper = new NotifyingSailConnectionWrapper(delegate);
 		factory = SimpleValueFactory.getInstance();
 	}
 
-	@After
+	@AfterEach
 	public void tearDown() throws SailException {
 		wrapper.close();
 	}

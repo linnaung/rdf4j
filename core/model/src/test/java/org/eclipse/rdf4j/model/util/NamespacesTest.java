@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.util;
 
@@ -29,8 +32,8 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.SESAME;
 import org.eclipse.rdf4j.model.vocabulary.SKOS;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Peter Ansell
@@ -45,8 +48,8 @@ public class NamespacesTest {
 
 	private String testName2;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		testPrefix1 = "ns1";
 		testPrefix2 = "ns2";
 		testName1 = "http://example.org/ns1#";
@@ -113,7 +116,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapClear() throws Exception {
+	public final void testWrapClear() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 		// Check no exceptions when calling clear on empty backing set
@@ -134,7 +137,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapContainsKey() throws Exception {
+	public final void testWrapContainsKey() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 		// Check no exceptions when calling containsKey on empty backing set
@@ -153,7 +156,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapContainsValue() throws Exception {
+	public final void testWrapContainsValue() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 		// Check no exceptions when calling containsKey on empty backing set
@@ -172,7 +175,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapEntrySet() throws Exception {
+	public final void testWrapEntrySet() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 
@@ -201,7 +204,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapGet() throws Exception {
+	public final void testWrapGet() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 		assertNull(testMap.get(testPrefix1));
@@ -217,7 +220,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapIsEmpty() throws Exception {
+	public final void testWrapIsEmpty() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 		assertTrue(testMap.isEmpty());
@@ -233,7 +236,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapKeySet() throws Exception {
+	public final void testWrapKeySet() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 
@@ -261,7 +264,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapPut() throws Exception {
+	public final void testWrapPut() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 
@@ -301,7 +304,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapPutAll() throws Exception {
+	public final void testWrapPutAll() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 
@@ -357,7 +360,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapRemove() throws Exception {
+	public final void testWrapRemove() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 
@@ -413,7 +416,7 @@ public class NamespacesTest {
 	 * Test method for {@link org.eclipse.rdf4j.model.util.Namespaces#wrap(java.util.Set)}.
 	 */
 	@Test
-	public final void testWrapValues() throws Exception {
+	public final void testWrapValues() {
 		Set<Namespace> testSet = new LinkedHashSet<>();
 		Map<String, String> testMap = Namespaces.wrap(testSet);
 

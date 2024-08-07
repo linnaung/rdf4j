@@ -7,6 +7,7 @@
 **/.settings
 bin
 **/bin
+**/.factorypath
 
 # Eclipse Plug-In Settings
 .pmd
@@ -27,6 +28,9 @@ dependency-reduced-pom.xml
 *.ipr
 *.iws
 
+# Hugo
+.hugo_build.lock
+
 # Mac nonsense
 .DS_Store
 
@@ -34,9 +38,17 @@ dependency-reduced-pom.xml
 **/nb-configuration.xml
 **/nbactions*.xml
 *.jfr
+compliance/repository/overlays
 **/webapp/META-INF/context.xml
 /core/sail/elasticsearch-store/tempElasticsearchDownload/*
 tempElasticsearchDownload
 cache.db
 formatter-maven-cache.properties
 compliance/*/overlays
+docker/ignore
+/core/queryparser/sparql/JavaCC/javacc/
+/scripts/temp/
+org.eclipse.dash.licenses-1.0.2.jar
+e2e/node_modules
+e2e/playwright-report
+e2e/test-results

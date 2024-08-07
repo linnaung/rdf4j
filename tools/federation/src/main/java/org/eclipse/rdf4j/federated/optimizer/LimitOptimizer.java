@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.optimizer;
 
@@ -13,7 +16,7 @@ import org.eclipse.rdf4j.query.algebra.Projection;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.Slice;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
-import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
+import org.eclipse.rdf4j.query.algebra.helpers.AbstractSimpleQueryModelVisitor;
 
 /**
  * An optimizer that attempts to push upper limits into BGPs of the query.
@@ -24,12 +27,16 @@ import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
  * @author Andreas Schwarte
  *
  */
-public class LimitOptimizer extends AbstractQueryModelVisitor<OptimizationException> implements FedXOptimizer {
+public class LimitOptimizer extends AbstractSimpleQueryModelVisitor<OptimizationException> implements FedXOptimizer {
 
 	/**
 	 * Helper variable that contains an applicable limit for the current scope. Set to -1 if no limit is applicable.
 	 */
 	private long applicableLimitInScope = -1;
+
+	public LimitOptimizer() {
+		super(true);
+	}
 
 	@Override
 	public void optimize(TupleExpr tupleExpr) {
@@ -39,6 +46,9 @@ public class LimitOptimizer extends AbstractQueryModelVisitor<OptimizationExcept
 		} catch (RuntimeException e) {
 			throw e;
 		} catch (Exception e) {
+			if (e instanceof InterruptedException) {
+				Thread.currentThread().interrupt();
+			}
 			throw new RuntimeException(e);
 		}
 	}
@@ -55,6 +65,18 @@ public class LimitOptimizer extends AbstractQueryModelVisitor<OptimizationExcept
 			applicableLimitInScope = node.getLimit();
 		}
 		super.meet(node);
+
+		TupleExpr expr = node.getArg();
+		// if the top most element is a statement (e.g. for an ASK query with single statement pattern),
+		// i.e. no join, union or
+		// any other complex pattern, we can push the limit
+		// => this case typically represents a query with a single BGP
+		if (expr instanceof FedXStatementPattern) {
+			if (applicableLimitInScope > 0) {
+				pushLimit((FedXStatementPattern) expr, applicableLimitInScope);
+			}
+		}
+
 		applicableLimitInScope = -1;
 
 	}
