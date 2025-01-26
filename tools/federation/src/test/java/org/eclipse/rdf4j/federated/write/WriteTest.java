@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.write;
 
@@ -50,7 +53,7 @@ public class WriteTest extends SPARQLBaseTest {
 		ep1.setWritable(true);
 		Endpoint ep2 = iter.next();
 
-		List<Statement> stmts = null;
+		List<Statement> stmts;
 		Statement st = simpleStatement();
 
 		try (RepositoryConnection conn = fedxRule.getRepository().getConnection()) {
@@ -173,7 +176,7 @@ public class WriteTest extends SPARQLBaseTest {
 		prepareTest(Arrays.asList("/tests/basic/data_emptyStore.ttl", "/tests/basic/data_emptyStore.ttl"));
 
 		// configure the test write strategy factory
-		fedxRule.getFederationContext().getConfig().withWriteStrategyFactory(TestWriteStrategyFactory.class);
+		fedxRule.getFederationContext().getFederation().setWriteStrategyFactory(new TestWriteStrategyFactory());
 
 		try (RepositoryConnection conn = fedxRule.getRepository().getConnection()) {
 			Update update = conn.prepareUpdate(QueryLanguage.SPARQL,
@@ -196,7 +199,7 @@ public class WriteTest extends SPARQLBaseTest {
 	}
 
 	@BeforeEach
-	public void clearWriteOperations() throws Exception {
+	public void clearWriteOperations() {
 		writeOperations.set(0);
 	}
 

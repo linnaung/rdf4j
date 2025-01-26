@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio;
 
@@ -21,7 +24,7 @@ public interface RDFWriter extends RDFHandler {
 	/**
 	 * Gets the RDF format that this RDFWriter uses.
 	 */
-	public RDFFormat getRDFFormat();
+	RDFFormat getRDFFormat();
 
 	/**
 	 * Sets all supplied writer configuration options.
@@ -29,19 +32,19 @@ public interface RDFWriter extends RDFHandler {
 	 * @param config a writer configuration object.
 	 * @return Either a copy of this writer, if it is immutable, or this object, to allow chaining of method calls.
 	 */
-	public RDFWriter setWriterConfig(WriterConfig config);
+	RDFWriter setWriterConfig(WriterConfig config);
 
 	/**
 	 * Retrieves the current writer configuration as a single object.
 	 *
 	 * @return a writer configuration object representing the current configuration of the writer.
 	 */
-	public WriterConfig getWriterConfig();
+	WriterConfig getWriterConfig();
 
 	/**
 	 * @return A collection of {@link RioSetting}s that are supported by this RDFWriter.
 	 */
-	public Collection<RioSetting<?>> getSupportedSettings();
+	Collection<RioSetting<?>> getSupportedSettings();
 
 	/**
 	 * Set a setting on the writer, and return this writer object to allow chaining.
@@ -50,6 +53,6 @@ public interface RDFWriter extends RDFHandler {
 	 * @param value   The value to change.
 	 * @return Either a copy of this writer, if it is immutable, or this object, to allow chaining of method calls.
 	 */
-	public <T> RDFWriter set(RioSetting<T> setting, T value);
+	<T> RDFWriter set(RioSetting<T> setting, T value);
 
 }

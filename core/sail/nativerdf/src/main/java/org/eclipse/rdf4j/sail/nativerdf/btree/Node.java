@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.btree;
 
@@ -19,31 +22,43 @@ import org.eclipse.rdf4j.common.io.ByteArrayUtil;
 
 class Node {
 
-	/** This node's ID. */
+	/**
+	 * This node's ID.
+	 */
 	private final int id;
 
 	private final BTree tree;
 
-	/** This node's data. */
+	/**
+	 * This node's data.
+	 */
 	private final byte[] data;
 
-	/** The number of values containined in this node. */
+	/**
+	 * The number of values containined in this node.
+	 */
 	private int valueCount;
 
-	/** The number of objects currently 'using' this node. */
+	/**
+	 * The number of objects currently 'using' this node.
+	 */
 	private final AtomicInteger usageCount = new AtomicInteger(0);
 
-	/** Flag indicating whether the contents of data has changed. */
+	/**
+	 * Flag indicating whether the contents of data has changed.
+	 */
 	private boolean dataChanged;
 
-	/** Registered listeners that want to be notified of changes to the node. */
+	/**
+	 * Registered listeners that want to be notified of changes to the node.
+	 */
 	private final ConcurrentLinkedDeque<NodeListener> listeners = new ConcurrentLinkedDeque<>();
 
 	/**
 	 * Creates a new Node object with the specified ID.
 	 *
-	 * @param id The node's ID, must be larger than <tt>0</tt>.
-	 * @throws IllegalArgumentException If the specified <tt>id</tt> is &lt;= <tt>0</tt>.
+	 * @param id The node's ID, must be larger than <var>0</var>.
+	 * @throws IllegalArgumentException If the specified <var>id</var> is &lt;= <var>0</var>.
 	 */
 	public Node(int id, BTree tree) {
 		if (id <= 0) {
@@ -108,7 +123,7 @@ class Node {
 	/**
 	 * Checks if this node has any values.
 	 *
-	 * @return <tt>true</tt> if this node has no values, <tt>fals</tt> if it has.
+	 * @return <var>true</var> if this node has no values, <var>fals</var> if it has.
 	 */
 	public boolean isEmpty() {
 		return valueCount == 0;
@@ -212,7 +227,7 @@ class Node {
 		dataChanged = true;
 	}
 
-	public Node getChildNode(int nodeIdx) throws IOException {
+	public Node getChildNode(int nodeIdx) {
 		assert nodeIdx >= 0 : "nodeIdx must be positive, is: " + nodeIdx;
 		assert nodeIdx <= valueCount : "nodeIdx out of range (" + nodeIdx + " > " + valueCount + ")";
 
@@ -471,7 +486,7 @@ class Node {
 	}
 
 	/**
-	 * Shifts the data between <tt>startOffset</tt> (inclusive) and <tt>endOffset</tt> (exclusive) <tt>shift</tt>
+	 * Shifts the data between <var>startOffset</var> (inclusive) and <var>endOffset</var> (exclusive) <var>shift</var>
 	 * positions to the right. Negative shift values can be used to shift data to the left.
 	 */
 	private void shiftData(int startOffset, int endOffset, int shift) {
@@ -479,8 +494,8 @@ class Node {
 	}
 
 	/**
-	 * Clears the data between <tt>startOffset</tt> (inclusive) and <tt>endOffset</tt> (exclusive). All bytes in this
-	 * range will be set to 0.
+	 * Clears the data between <var>startOffset</var> (inclusive) and <var>endOffset</var> (exclusive). All bytes in
+	 * this range will be set to 0.
 	 */
 	private void clearData(int startOffset, int endOffset) {
 		Arrays.fill(data, startOffset, endOffset, (byte) 0);

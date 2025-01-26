@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.hdt;
 
@@ -12,17 +15,16 @@ import java.io.InputStream;
 
 /**
  * Variable byte encoding for numbers.
- *
+ * <p>
  * A variable number of bytes is used to encode (unsigned) numeric values, the first bit (MSB) of each byte indicates if
  * there are more bytes to read, the other 7 bits are used to encode the value.
- *
+ * <p>
  * In this implementation, the MSB is set to <code>1</code> if this byte is the last one.
- *
+ * <p>
  * E.g: <code>10000001</code> is value 1, <code>00000001 10000001</code> is 128 (decimal). Note that the value is stored
  * little-endian, so in this example <code>10000001 00000001</code>.
  *
  * @author Bart.Hanssens
- *
  * @see <a href="https://nlp.stanford.edu/IR-book/html/htmledition/variable-byte-codes-1.html">Variable byte codes</a>
  */
 public class VByte {
@@ -70,7 +72,7 @@ public class VByte {
 		int i = 0;
 		do {
 			buffer[i] = (byte) is.read();
-		} while (i < buffer.length && hasNext(buffer[i++]));
+		} while (i + 1 < buffer.length && hasNext(buffer[i++]));
 		return decode(buffer, i);
 	}
 
@@ -80,15 +82,14 @@ public class VByte {
 	 * @param b     byte array
 	 * @param start starting position
 	 * @return decode value
-	 * @throws IOException
 	 */
-	public static long decodeFrom(byte[] b, int start) throws IOException {
+	public static long decodeFrom(byte[] b, int start) {
 		byte[] buffer = new byte[8];
 
 		int i = 0;
 		do {
 			buffer[i] = b[start + i];
-		} while (i < buffer.length && hasNext(buffer[i++]));
+		} while (i + 1 < buffer.length && hasNext(buffer[i++]));
 		return decode(buffer, i);
 	}
 

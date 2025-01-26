@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.solr;
 
@@ -13,6 +16,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Properties;
 import java.util.Set;
 
@@ -36,9 +40,9 @@ import org.eclipse.rdf4j.sail.lucene.DocumentDistance;
 import org.eclipse.rdf4j.sail.lucene.DocumentResult;
 import org.eclipse.rdf4j.sail.lucene.DocumentScore;
 import org.eclipse.rdf4j.sail.lucene.LuceneSail;
+import org.eclipse.rdf4j.sail.lucene.QuerySpec;
 import org.eclipse.rdf4j.sail.lucene.SearchDocument;
 import org.eclipse.rdf4j.sail.lucene.SearchFields;
-import org.eclipse.rdf4j.sail.lucene.SearchQuery;
 import org.eclipse.rdf4j.sail.lucene.util.GeoUnits;
 import org.locationtech.spatial4j.context.SpatialContext;
 import org.locationtech.spatial4j.context.SpatialContextFactory;
@@ -274,47 +278,31 @@ public class SolrIndex extends AbstractSearchIndex {
 		}
 	}
 
-	@Override
-	public void beginReading() throws IOException {
-	}
-
-	@Override
-	public void endReading() throws IOException {
-	}
-
 	// //////////////////////////////// Methods for querying the index
-
-	/**
-	 * Parse the passed query.To be removed, no longer used.
-	 *
-	 * @param query       string
-	 * @param propertyURI
-	 * @return the parsed query
-	 * @throws ParseException when the parsing brakes
-	 */
-	@Override
-	@Deprecated
-	protected SearchQuery parseQuery(String query, IRI propertyURI) throws MalformedQueryException {
-		SolrQuery q = prepareQuery(propertyURI, new SolrQuery(query));
-		return new SolrSearchQuery(q, this);
-	}
 
 	/**
 	 * Parse the passed query.
 	 *
 	 * @param subject
-	 * @param query       string
-	 * @param propertyURI
-	 * @param highlight
+	 * @param spec    query to process
 	 * @return the parsed query
 	 * @throws MalformedQueryException
 	 * @throws IOException
+	 * @throws IllegalArgumentException if the spec contains a multi-param query
 	 */
 	@Override
-	protected Iterable<? extends DocumentScore> query(Resource subject, String query, IRI propertyURI,
-			boolean highlight) throws MalformedQueryException, IOException {
+	protected Iterable<? extends DocumentScore> query(Resource subject, QuerySpec spec)
+			throws MalformedQueryException, IOException {
+		if (spec.getQueryPatterns().size() != 1) {
+			throw new IllegalArgumentException("Multi-param query not implemented!");
+		}
+		QuerySpec.QueryParam param = spec.getQueryPatterns().iterator().next();
+		IRI propertyURI = param.getProperty();
+		boolean highlight = param.isHighlight();
+		String query = param.getQuery();
 		SolrQuery q = prepareQuery(propertyURI, new SolrQuery(query));
 		if (highlight) {
+			q.set("hl.method", "unified");
 			q.setHighlight(true);
 			String field = (propertyURI != null) ? SearchFields.getPropertyField(propertyURI) : "*";
 			q.addHighlightField(field);
@@ -330,11 +318,12 @@ public class SolrIndex extends AbstractSearchIndex {
 			q.addField(SearchFields.URI_FIELD_NAME);
 		}
 		q.addField("score");
+		int numDocs = Objects.requireNonNullElse(spec.getNumDocs(), -1);
 		try {
 			if (subject != null) {
-				response = search(subject, q);
+				response = search(subject, q, numDocs);
 			} else {
-				response = search(q);
+				response = search(q, numDocs);
 			}
 		} catch (SolrServerException e) {
 			throw new IOException(e);
@@ -349,22 +338,6 @@ public class SolrIndex extends AbstractSearchIndex {
 		});
 	}
 
-	// /**
-	// * Parses an id-string used for a context filed (a serialized resource)
-	// back to a resource.
-	// * <b>CAN RETURN NULL</b>
-	// * Inverse method of {@link #getResourceID(Resource)}
-	// * @param idString
-	// * @return null if the passed idString was the {@link #CONTEXT_NULL}
-	// constant
-	// */
-	// private Resource getContextResource(String idString) {
-	// if (CONTEXT_NULL.equals(idString))
-	// return null;
-	// else
-	// return getResource(idString);
-	// }
-
 	/**
 	 * Evaluates the given query only for the given resource.
 	 *
@@ -375,10 +348,25 @@ public class SolrIndex extends AbstractSearchIndex {
 	 * @throws IOException
 	 */
 	public QueryResponse search(Resource resource, SolrQuery query) throws SolrServerException, IOException {
+		return search(resource, query, -1);
+	}
+
+	/**
+	 * Evaluates the given query only for the given resource.
+	 *
+	 * @param resource
+	 * @param query
+	 * @param numDocs
+	 * @return response
+	 * @throws SolrServerException
+	 * @throws IOException
+	 */
+	public QueryResponse search(Resource resource, SolrQuery query, int numDocs)
+			throws SolrServerException, IOException {
 		// rewrite the query
 		String idQuery = termQuery(SearchFields.URI_FIELD_NAME, SearchFields.getResourceID(resource));
 		query.setQuery(query.getQuery() + " AND " + idQuery);
-		return search(query);
+		return search(query, numDocs);
 	}
 
 	@Override
@@ -582,14 +570,35 @@ public class SolrIndex extends AbstractSearchIndex {
 	 * @throws IOException
 	 */
 	public QueryResponse search(SolrQuery query) throws SolrServerException, IOException {
-		int nDocs;
-		if (maxDocs > 0) {
-			nDocs = maxDocs;
-		} else {
-			long docCount = client.query(query.setRows(0)).getResults().getNumFound();
-			nDocs = Math.max((int) Math.min(docCount, Integer.MAX_VALUE), 1);
+		return search(query, -1);
+	}
+
+	/**
+	 * Evaluates the given query and returns the results as a TopDocs instance.
+	 *
+	 * @param query
+	 * @param numDocs
+	 * @return query response
+	 * @throws SolrServerException
+	 * @throws IOException
+	 */
+	public QueryResponse search(SolrQuery query, int numDocs) throws SolrServerException, IOException {
+		if (numDocs < -1) {
+			throw new IllegalArgumentException("numDocs should be 0 or greater if defined by the user");
 		}
-		return client.query(query.setRows(nDocs));
+
+		int size = defaultNumDocs;
+		if (numDocs >= 0) {
+			// If the user has set numDocs we will use that. If it is 0 then the implementation may end up throwing an
+			// exception.
+			size = Math.min(maxDocs, numDocs);
+		}
+
+		if (size < 0) {
+			long docCount = client.query(query.setRows(0)).getResults().getNumFound();
+			size = Math.max((int) Math.min(docCount, maxDocs), 1);
+		}
+		return client.query(query.setRows(size));
 	}
 
 	private SolrQuery prepareQuery(IRI propertyURI, SolrQuery query) {
@@ -614,14 +623,10 @@ public class SolrIndex extends AbstractSearchIndex {
 	 */
 	@Override
 	public synchronized void clearContexts(Resource... contexts) throws IOException {
-
-		// logger.warn("Clearing contexts operation did not change the index: contexts are not indexed at the moment");
-
 		logger.debug("deleting contexts: {}", Arrays.toString(contexts));
 		// these resources have to be read from the underlying rdf store
 		// and their triples have to be added to the luceneindex after deletion of
 		// documents
-		// HashSet<Resource> resourcesToUpdate = new HashSet<Resource>();
 
 		try {
 			// remove all contexts passed

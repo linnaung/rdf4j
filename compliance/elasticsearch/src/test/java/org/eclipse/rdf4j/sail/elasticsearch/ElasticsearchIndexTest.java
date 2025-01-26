@@ -1,25 +1,25 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearch;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
-import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
@@ -115,12 +115,12 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 
 	@Override
 	protected Collection<Class<? extends Plugin>> transportClientPlugins() {
-		return Arrays.asList(ReindexPlugin.class);
+		return List.of(ReindexPlugin.class);
 	}
 
 	@Override
 	protected Collection<Class<? extends Plugin>> nodePlugins() {
-		return Arrays.asList(ReindexPlugin.class);
+		return List.of(ReindexPlugin.class);
 	}
 
 	@After
@@ -131,6 +131,9 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 		} finally {
 			super.tearDown();
 		}
+
+		org.eclipse.rdf4j.common.concurrent.locks.Properties.setLockTrackingEnabled(false);
+
 	}
 
 	@Test
@@ -148,7 +151,7 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 				.setTypes(index.getTypes())
 				.get()
 				.getHits()
-				.getTotalHits();
+				.getTotalHits().value;
 		assertEquals(1, count);
 
 		SearchHits hits = client.prepareSearch(index.getIndexName())
@@ -178,7 +181,11 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 		// See if everything remains consistent. We must create a new
 		// IndexReader
 		// in order to be able to see the updates
-		count = client.prepareSearch(index.getIndexName()).setTypes(index.getTypes()).get().getHits().getTotalHits();
+		count = client.prepareSearch(index.getIndexName())
+				.setTypes(index.getTypes())
+				.get()
+				.getHits()
+				.getTotalHits().value;
 		assertEquals(1, count); // #docs should *not* have increased
 
 		hits = client.prepareSearch(index.getIndexName())
@@ -204,7 +211,7 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 				.setSource(new SearchSourceBuilder().size(0).query(QueryBuilders.queryStringQuery(object1.getLabel())))
 				.get()
 				.getHits()
-				.getTotalHits();
+				.getTotalHits().value;
 		assertEquals(1, count);
 
 		count = client.prepareSearch(index.getIndexName())
@@ -212,7 +219,7 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 				.setSource(new SearchSourceBuilder().size(0).query(QueryBuilders.queryStringQuery(object2.getLabel())))
 				.get()
 				.getHits()
-				.getTotalHits();
+				.getTotalHits().value;
 		assertEquals(1, count);
 
 		// remove the first statement
@@ -224,7 +231,11 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 		// still
 		// exists
 
-		count = client.prepareSearch(index.getIndexName()).setTypes(index.getTypes()).get().getHits().getTotalHits();
+		count = client.prepareSearch(index.getIndexName())
+				.setTypes(index.getTypes())
+				.get()
+				.getHits()
+				.getTotalHits().value;
 		assertEquals(1, count);
 
 		hits = client.prepareSearch(index.getIndexName())
@@ -252,7 +263,11 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 		// check that there are no documents left (i.e. the last Document was
 		// removed completely, rather than its remaining triple removed)
 
-		count = client.prepareSearch(index.getIndexName()).setTypes(index.getTypes()).get().getHits().getTotalHits();
+		count = client.prepareSearch(index.getIndexName())
+				.setTypes(index.getTypes())
+				.get()
+				.getHits()
+				.getTotalHits().value;
 		assertEquals(0, count);
 	}
 
@@ -275,7 +290,7 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 				.setTypes(index.getTypes())
 				.get()
 				.getHits()
-				.getTotalHits();
+				.getTotalHits().value;
 		assertEquals(2, count);
 
 		// check the documents
@@ -290,9 +305,7 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 		assertStatement(statement22, document);
 
 		// check if the text field stores all added string values
-		Set<String> texts = new HashSet<>();
-		texts.add("cats");
-		texts.add("dogs");
+		HashSet<String> texts = new HashSet<>(List.of("cats", "dogs"));
 		// FIXME
 		// assertTexts(texts, document);
 
@@ -339,11 +352,10 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 
 		// create a Repository wrapping the LuceneSail
 		SailRepository repository = new SailRepository(sail);
-		repository.initialize();
 
 		// now add the statements through the repo
 		// add statements with context
-		try (SailRepositoryConnection connection = repository.getConnection();) {
+		try (SailRepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
 			connection.add(statementContext111, statementContext111.getContext());
 			connection.add(statementContext121, statementContext121.getContext());
@@ -361,7 +373,7 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 
 			// delete context 1
 			connection.begin();
-			connection.clear(new Resource[] { CONTEXT_1 });
+			connection.clear(CONTEXT_1);
 			connection.commit();
 			assertNoStatement(statementContext111);
 			assertNoStatement(statementContext121);
@@ -391,11 +403,10 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 
 		// create a Repository wrapping the LuceneSail
 		SailRepository repository = new SailRepository(sail);
-		repository.initialize();
 
 		// now add the statements through the repo
 		// add statements with context
-		try (SailRepositoryConnection connection = repository.getConnection();) {
+		try (SailRepositoryConnection connection = repository.getConnection()) {
 			connection.begin();
 			connection.add(statementContext111, statementContext111.getContext());
 			connection.add(statementContext121, statementContext121.getContext());
@@ -413,7 +424,7 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 
 			// delete context 2
 			connection.begin();
-			connection.clear(new Resource[] { CONTEXT_2 });
+			connection.clear(CONTEXT_2);
 			connection.commit();
 			assertStatement(statementContext111);
 			assertStatement(statementContext121);
@@ -434,10 +445,10 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 		Literal literal2 = vf.createLiteral("hi there, too", STRING);
 		Literal literal3 = vf.createLiteral("1.0");
 		Literal literal4 = vf.createLiteral("1.0", FLOAT);
-		assertEquals("Is the first literal accepted?", true, index.accept(literal1));
-		assertEquals("Is the second literal accepted?", true, index.accept(literal2));
-		assertEquals("Is the third literal accepted?", true, index.accept(literal3));
-		assertEquals("Is the fourth literal accepted?", false, index.accept(literal4));
+		assertTrue("Is the first literal accepted?", index.accept(literal1));
+		assertTrue("Is the second literal accepted?", index.accept(literal2));
+		assertTrue("Is the third literal accepted?", index.accept(literal3));
+		assertFalse("Is the fourth literal accepted?", index.accept(literal4));
 	}
 
 	private void assertStatement(Statement statement) throws Exception {
@@ -456,10 +467,6 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 		assertNoStatement(statement, document);
 	}
 
-	/**
-	 * @param statement112
-	 * @param document
-	 */
 	private void assertStatement(Statement statement, SearchDocument document) {
 		List<String> fields = document.getProperty(SearchFields.getPropertyField(statement.getPredicate()));
 		assertNotNull("field " + statement.getPredicate() + " not found in document " + document, fields);
@@ -471,10 +478,6 @@ public class ElasticsearchIndexTest extends ESIntegTestCase {
 		fail("Statement not found in document " + statement);
 	}
 
-	/**
-	 * @param statement112
-	 * @param document
-	 */
 	private void assertNoStatement(Statement statement, SearchDocument document) {
 		List<String> fields = document.getProperty(SearchFields.getPropertyField(statement.getPredicate()));
 		if (fields == null) {

@@ -1,46 +1,67 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
+
 package org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents;
 
+import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
 import org.eclipse.rdf4j.sail.shacl.SourceConstraintComponent;
+import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher.Variable;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.FilterPlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.NodeKindFilter;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
 
-public class NodeKindConstraintComponent extends SimpleAbstractConstraintComponent {
+public class NodeKindConstraintComponent extends AbstractSimpleConstraintComponent {
 
 	NodeKind nodeKind;
 
 	public NodeKindConstraintComponent(Resource nodeKind) {
+		super();
 		this.nodeKind = NodeKind.from(nodeKind);
 	}
 
 	@Override
-	String getSparqlFilterExpression(String varName, boolean negated) {
+	String getSparqlFilterExpression(Variable<Value> variable, boolean negated) {
 		if (negated) {
-			return "(isIRI(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.IRI + ">, <"
+			return "(isIRI(" + variable.asSparqlVariable() + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.IRI + ">, <"
 					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.IRI_OR_LITERAL + "> ) ) ||\n" +
-					"\t\t(isLiteral(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.LITERAL + ">, " +
+					"(isLiteral(" + variable.asSparqlVariable() + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.LITERAL
+					+ ">, " +
 					"<" + SHACL.BLANK_NODE_OR_LITERAL + ">, <" + SHACL.IRI_OR_LITERAL + "> ) ) ||\n" +
-					"\t\t(isBlank(?" + varName + " && <" + nodeKind.iri + "> IN ( <" + SHACL.BLANK_NODE + ">, <"
-					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.BLANK_NODE_OR_LITERAL + "> ) ))";
+					"(isBlank(" + variable.asSparqlVariable() + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.BLANK_NODE
+					+ ">, <"
+					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.BLANK_NODE_OR_LITERAL + "> ) )";
 		} else {
-			return "!((isIRI(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.IRI + ">, <"
+			return "!((isIRI(" + variable.asSparqlVariable() + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.IRI + ">, <"
 					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.IRI_OR_LITERAL + "> ) ) ||\n" +
-					"\t\t(isLiteral(?" + varName + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.LITERAL + ">, " +
+					"(isLiteral(" + variable.asSparqlVariable() + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.LITERAL
+					+ ">, " +
 					"<" + SHACL.BLANK_NODE_OR_LITERAL + ">, <" + SHACL.IRI_OR_LITERAL + "> ) ) ||\n" +
-					"\t\t(isBlank(?" + varName + " && <" + nodeKind.iri + "> IN ( <" + SHACL.BLANK_NODE + ">, <"
-					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.BLANK_NODE_OR_LITERAL + "> ) )))";
+					"(isBlank(" + variable.asSparqlVariable() + ") && <" + nodeKind.iri + "> IN ( <" + SHACL.BLANK_NODE
+					+ ">, <"
+					+ SHACL.BLANK_NODE_OR_IRI + ">, <" + SHACL.BLANK_NODE_OR_LITERAL + "> ) ))";
 		}
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.NODE_KIND_PROP, nodeKind.iri);
 	}
 
@@ -55,8 +76,8 @@ public class NodeKindConstraintComponent extends SimpleAbstractConstraintCompone
 	}
 
 	@Override
-	Function<PlanNode, FilterPlanNode> getFilterAttacher() {
-		return (parent) -> new NodeKindFilter(parent, nodeKind);
+	Function<PlanNode, FilterPlanNode> getFilterAttacher(ConnectionsGroup connectionsGroup) {
+		return (parent) -> new NodeKindFilter(parent, nodeKind, connectionsGroup);
 	}
 
 	public enum NodeKind {
@@ -69,7 +90,7 @@ public class NodeKindConstraintComponent extends SimpleAbstractConstraintCompone
 		IRIOrLiteral(SHACL.IRI_OR_LITERAL),
 		;
 
-		IRI iri;
+		private final IRI iri;
 
 		NodeKind(IRI iri) {
 			this.iri = iri;
@@ -84,5 +105,29 @@ public class NodeKindConstraintComponent extends SimpleAbstractConstraintCompone
 
 			throw new IllegalStateException("Unknown nodeKind: " + resource);
 		}
+	}
+
+	@Override
+	public List<Literal> getDefaultMessage() {
+		return List.of();
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+
+		NodeKindConstraintComponent that = (NodeKindConstraintComponent) o;
+
+		return nodeKind == that.nodeKind;
+	}
+
+	@Override
+	public int hashCode() {
+		return nodeKind.hashCode() + "NodeKindConstraintComponent".hashCode();
 	}
 }

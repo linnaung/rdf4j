@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.union;
 
@@ -16,7 +19,6 @@ import org.eclipse.rdf4j.federated.evaluation.concurrent.ParallelTaskBase;
 import org.eclipse.rdf4j.federated.structures.QueryInfo;
 import org.eclipse.rdf4j.federated.util.QueryStringUtil;
 import org.eclipse.rdf4j.query.BindingSet;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 
 /**
@@ -44,7 +46,7 @@ public class ParallelUnionTask extends ParallelTaskBase<BindingSet> {
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> performTask() throws Exception {
+	protected CloseableIteration<BindingSet> performTaskInternal() throws Exception {
 		TripleSource tripleSource = endpoint.getTripleSource();
 		return tripleSource.getStatements(stmt, bindings, filterExpr, queryInfo);
 	}

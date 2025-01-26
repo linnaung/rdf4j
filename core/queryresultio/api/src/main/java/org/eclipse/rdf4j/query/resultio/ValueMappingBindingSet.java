@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio;
 
@@ -22,8 +25,8 @@ import org.eclipse.rdf4j.query.BindingSet;
  * @author Pavel Mihaylov
  */
 class ValueMappingBindingSet extends AbstractBindingSet {
-	private BindingSet delegate;
-	private Function<Value, Value> mapper;
+	private final BindingSet delegate;
+	private final Function<Value, Value> mapper;
 
 	ValueMappingBindingSet(BindingSet delegate, Function<Value, Value> mapper) {
 		this.delegate = delegate;
@@ -32,8 +35,8 @@ class ValueMappingBindingSet extends AbstractBindingSet {
 
 	@Override
 	public Iterator<Binding> iterator() {
-		return new Iterator<Binding>() {
-			Iterator<Binding> idelegate = delegate.iterator();
+		return new Iterator<>() {
+			final Iterator<Binding> idelegate = delegate.iterator();
 
 			@Override
 			public boolean hasNext() {

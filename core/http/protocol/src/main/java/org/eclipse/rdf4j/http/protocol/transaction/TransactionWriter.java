@@ -1,17 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.protocol.transaction;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
-
-import javax.xml.bind.DatatypeConverter;
+import java.util.Base64;
 
 import org.eclipse.rdf4j.common.xml.XMLUtil;
 import org.eclipse.rdf4j.common.xml.XMLWriter;
@@ -28,10 +30,12 @@ import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.util.Literals;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.Dataset;
+import org.eclipse.rdf4j.rio.helpers.RDFStarUtil;
 
 /**
  * Serializes of an RDF transaction.
@@ -250,6 +254,8 @@ public class TransactionWriter {
 			serialize((IRI) resource, xmlWriter);
 		} else if (resource instanceof BNode) {
 			serialize((BNode) resource, xmlWriter);
+		} else if (resource instanceof Triple) {
+			serialize((Triple) resource, xmlWriter);
 		} else if (resource == null) {
 			serializeNull(xmlWriter);
 		} else {
@@ -292,7 +298,7 @@ public class TransactionWriter {
 
 			if (!valid) {
 				xmlWriter.setAttribute(TransactionXMLConstants.ENCODING_ATT, "base64");
-				label = DatatypeConverter.printBase64Binary(label.getBytes(StandardCharsets.UTF_8));
+				label = Base64.getEncoder().encodeToString(label.getBytes(StandardCharsets.UTF_8));
 			}
 
 			xmlWriter.textElement(TransactionXMLConstants.LITERAL_TAG, label);
@@ -303,5 +309,14 @@ public class TransactionWriter {
 
 	protected void serializeNull(XMLWriter xmlWriter) throws IOException {
 		xmlWriter.emptyElement(TransactionXMLConstants.NULL_TAG);
+	}
+
+	protected void serialize(Triple triple, XMLWriter xmlWriter) throws IOException {
+		if (triple != null) {
+			Value convertBase64 = RDFStarUtil.toRDFEncodedValue(triple);
+			xmlWriter.textElement(TransactionXMLConstants.TRIPLE_TAG, convertBase64.stringValue());
+		} else {
+			serializeNull(xmlWriter);
+		}
 	}
 }

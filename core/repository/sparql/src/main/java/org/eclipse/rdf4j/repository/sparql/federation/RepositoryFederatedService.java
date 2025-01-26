@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.sparql.federation;
 
@@ -16,7 +19,6 @@ import java.util.Set;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.EmptyIteration;
-import org.eclipse.rdf4j.common.iteration.Iterations;
 import org.eclipse.rdf4j.common.iteration.SilentIteration;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -64,7 +66,7 @@ public class RepositoryFederatedService implements FederatedService {
 		 * @param inputBindings
 		 * @throws QueryEvaluationException
 		 */
-		public BatchingServiceIteration(CloseableIteration<BindingSet, QueryEvaluationException> inputBindings,
+		public BatchingServiceIteration(CloseableIteration<BindingSet> inputBindings,
 				int blockSize, Service service) throws QueryEvaluationException {
 			super(inputBindings, null, EmptyBindingSet.getInstance());
 			this.blockSize = blockSize;
@@ -83,7 +85,7 @@ public class RepositoryFederatedService implements FederatedService {
 					}
 					blockBindings.add(leftIter.next());
 				}
-				CloseableIteration<BindingSet, QueryEvaluationException> materializedIter = new CollectionIteration<>(
+				CloseableIteration<BindingSet> materializedIter = new CollectionIteration<>(
 						blockBindings);
 				addResult(evaluateInternal(service, materializedIter, service.getBaseURI()));
 			}
@@ -95,7 +97,6 @@ public class RepositoryFederatedService implements FederatedService {
 	 * {@link RepositoryFederatedService#select(Service, Set, BindingSet, String)} routine.
 	 *
 	 * @author Andreas Schwarte
-	 *
 	 */
 	private class FallbackServiceIteration extends JoinExecutorBase<BindingSet> {
 
@@ -125,14 +126,13 @@ public class RepositoryFederatedService implements FederatedService {
 	 * Wrapper iteration which closes a {@link RepositoryConnection} upon {@link #close()}
 	 *
 	 * @author Andreas Schwarte
-	 *
 	 */
-	private static class CloseConnectionIteration implements CloseableIteration<BindingSet, QueryEvaluationException> {
+	private static class CloseConnectionIteration implements CloseableIteration<BindingSet> {
 
-		private final CloseableIteration<BindingSet, QueryEvaluationException> delegate;
+		private final CloseableIteration<BindingSet> delegate;
 		private final RepositoryConnection connection;
 
-		private CloseConnectionIteration(CloseableIteration<BindingSet, QueryEvaluationException> delegate,
+		private CloseConnectionIteration(CloseableIteration<BindingSet> delegate,
 				RepositoryConnection connection) {
 			super();
 			this.delegate = delegate;
@@ -180,7 +180,7 @@ public class RepositoryFederatedService implements FederatedService {
 	private boolean useFreshConnection = true;
 
 	// flag indicating whether the repository shall be closed in #shutdown()
-	protected boolean shutDown = true;
+	protected boolean shutDown;
 
 	private RepositoryConnection managedConn = null;
 
@@ -206,7 +206,7 @@ public class RepositoryFederatedService implements FederatedService {
 	 * Insert bindings into SELECT query and evaluate
 	 */
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> select(Service service, Set<String> projectionVars,
+	public CloseableIteration<BindingSet> select(Service service, Set<String> projectionVars,
 			BindingSet bindings, String baseUri) throws QueryEvaluationException {
 
 		RepositoryConnection conn = null;
@@ -227,7 +227,7 @@ public class RepositoryFederatedService implements FederatedService {
 			TupleQueryResult res = query.evaluate();
 
 			// insert original bindings again
-			CloseableIteration<BindingSet, QueryEvaluationException> result = new InsertBindingSetCursor(res, bindings);
+			CloseableIteration<BindingSet> result = new InsertBindingSetCursor(res, bindings);
 
 			if (useFreshConnection) {
 				result = new CloseConnectionIteration(result, conn);
@@ -293,8 +293,8 @@ public class RepositoryFederatedService implements FederatedService {
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(Service service,
-			CloseableIteration<BindingSet, QueryEvaluationException> bindings, String baseUri)
+	public CloseableIteration<BindingSet> evaluate(Service service,
+			CloseableIteration<BindingSet> bindings, String baseUri)
 			throws QueryEvaluationException {
 
 		if (boundJoinBlockSize > 0) {
@@ -312,8 +312,8 @@ public class RepositoryFederatedService implements FederatedService {
 	 * clause, if this yields an exception fall back to the naive implementation. This method deals with SILENT
 	 * SERVICEs.
 	 */
-	protected CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternal(Service service,
-			CloseableIteration<BindingSet, QueryEvaluationException> bindings, String baseUri)
+	protected CloseableIteration<BindingSet> evaluateInternal(Service service,
+			CloseableIteration<BindingSet> bindings, String baseUri)
 			throws QueryEvaluationException {
 
 		// materialize all bindings (to allow for fallback in case of errors)
@@ -333,7 +333,7 @@ public class RepositoryFederatedService implements FederatedService {
 
 		// below we need to take care for SILENT services
 		RepositoryConnection conn = null;
-		CloseableIteration<BindingSet, QueryEvaluationException> result = null;
+		CloseableIteration<BindingSet> result = null;
 		try {
 			// fallback to simple evaluation (just a single binding)
 			if (allBindings.size() == 1) {
@@ -361,7 +361,7 @@ public class RepositoryFederatedService implements FederatedService {
 
 			conn = useFreshConnection ? freshConnection() : getConnection();
 			TupleQuery query = conn.prepareTupleQuery(QueryLanguage.SPARQL, queryString, baseUri);
-			TupleQueryResult res = null;
+			TupleQueryResult res;
 			query.setMaxExecutionTime(60); // TODO how to retrieve max query value
 			// from actual setting?
 			res = query.evaluate();
@@ -385,7 +385,9 @@ public class RepositoryFederatedService implements FederatedService {
 			if (useFreshConnection) {
 				closeQuietly(conn);
 			}
-			Iterations.closeCloseable(result);
+			if (result != null) {
+				result.close();
+			}
 			if (service.isSilent()) {
 				return new CollectionIteration<>(allBindings);
 			}
@@ -404,7 +406,9 @@ public class RepositoryFederatedService implements FederatedService {
 			if (useFreshConnection) {
 				closeQuietly(conn);
 			}
-			Iterations.closeCloseable(result);
+			if (result != null) {
+				result.close();
+			}
 			if (service.isSilent()) {
 				return new CollectionIteration<>(allBindings);
 			}
@@ -413,7 +417,9 @@ public class RepositoryFederatedService implements FederatedService {
 			if (useFreshConnection) {
 				closeQuietly(conn);
 			}
-			Iterations.closeCloseable(result);
+			if (result != null) {
+				result.close();
+			}
 			// suppress special exceptions (e.g. UndeclaredThrowable with wrapped
 			// QueryEval) if silent
 			if (service.isSilent()) {
@@ -432,10 +438,10 @@ public class RepositoryFederatedService implements FederatedService {
 	 * @param baseUri     the base URI
 	 * @return resulting iteration
 	 */
-	private CloseableIteration<BindingSet, QueryEvaluationException> evaluateInternalFallback(Service service,
+	private CloseableIteration<BindingSet> evaluateInternalFallback(Service service,
 			List<BindingSet> allBindings, String baseUri) {
 
-		CloseableIteration<BindingSet, QueryEvaluationException> res = new FallbackServiceIteration(service,
+		CloseableIteration<BindingSet> res = new FallbackServiceIteration(service,
 				allBindings, baseUri);
 
 		if (service.isSilent()) {
@@ -487,7 +493,6 @@ public class RepositoryFederatedService implements FederatedService {
 	}
 
 	/**
-	 *
 	 * @param boundJoinBlockSize the bound join block size, 0 to evaluate all in a single request
 	 */
 	public void setBoundJoinBlockSize(int boundJoinBlockSize) {
@@ -495,7 +500,6 @@ public class RepositoryFederatedService implements FederatedService {
 	}
 
 	/**
-	 *
 	 * @param flag whether to use a fresh {@link RepositoryConnection} for each individual query
 	 */
 	public void setUseFreshConnection(boolean flag) {

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
@@ -101,7 +104,7 @@ public class Convert extends ConsoleCommand {
 			return;
 		}
 		Optional<RDFFormat> fmtFrom = Rio.getParserFormatForFileName(fileFrom);
-		if (!fmtFrom.isPresent()) {
+		if (fmtFrom.isEmpty()) {
 			writeError("No RDF parser for " + fileFrom);
 			return;
 		}
@@ -113,7 +116,7 @@ public class Convert extends ConsoleCommand {
 			return;
 		}
 		Optional<RDFFormat> fmtTo = Rio.getWriterFormatForFileName(fileTo);
-		if (!fmtTo.isPresent()) {
+		if (fmtTo.isEmpty()) {
 			writeError("No RDF writer for " + fileTo);
 			return;
 		}

@@ -1,13 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.protocol;
 
-import org.eclipse.rdf4j.OpenRDFUtil;
+import java.util.Objects;
+
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Triple;
@@ -22,27 +26,47 @@ public abstract class Protocol {
 	 *
 	 * @author Jeen Broekstra
 	 */
-	public static enum Action {
-		/** adding data */
+	public enum Action {
+		/**
+		 * adding data
+		 */
 		ADD,
-		/** deleting data */
+		/**
+		 * deleting data
+		 */
 		DELETE,
-		/** getStatements or exportStatements */
+		/**
+		 * getStatements or exportStatements
+		 */
 		GET,
-		/** retrieving repository size */
+		/**
+		 * retrieving repository size
+		 */
 		SIZE,
-		/** SPARQL or SeRQL query */
+		/**
+		 * SPARQL query
+		 */
 		QUERY,
-		/** SPARQL Update */
+		/**
+		 * SPARQL Update
+		 */
 		UPDATE,
-		/** Keep alive ping @since 2.3 */
+		/**
+		 * Keep alive ping @since 2.3
+		 */
 		PING,
-		/** prepare */
+		/**
+		 * prepare
+		 */
 		PREPARE,
-		/** commit */
+		/**
+		 * commit
+		 */
 		COMMIT,
-		/** rollback */
-		ROLLBACK;
+		/**
+		 * rollback
+		 */
+		ROLLBACK
 	}
 
 	/**
@@ -50,7 +74,7 @@ public abstract class Protocol {
 	 * are initialize before static fields.
 	 */
 	@Deprecated
-	public static enum TIMEOUT {
+	public enum TIMEOUT {
 		CACHE;
 
 		/**
@@ -187,10 +211,10 @@ public abstract class Protocol {
 	/**
 	 * Parameter name for the isolation level used in transactions.
 	 *
-	 * @deprecated since 3.3.0. Use <code>transaction-setting__isolation-level</code> instead.
 	 * @see #TRANSACTION_SETTINGS_PREFIX
+	 * @deprecated Use <code>transaction-setting__isolation-level</code> instead.
 	 */
-	@Deprecated
+	@Deprecated(since = "3.3.0")
 	public static final String ISOLATION_LEVEL_PARAM_NAME = "isolation-level";
 
 	/**
@@ -256,22 +280,22 @@ public abstract class Protocol {
 	public static final String SIZE = "size";
 
 	/**
-	 * MIME type for transactions: <tt>application/x-rdftransaction</tt>.
+	 * MIME type for transactions: <var>application/x-rdftransaction</var>.
 	 */
 	public static final String TXN_MIME_TYPE = "application/x-rdftransaction";
 
 	/**
-	 * MIME type for www forms: <tt>application/x-www-form-urlencoded</tt>.
+	 * MIME type for www forms: <var>application/x-www-form-urlencoded</var>.
 	 */
 	public static final String FORM_MIME_TYPE = "application/x-www-form-urlencoded";
 
 	/**
-	 * MIME type for SPARQL update: <tt>application/sparql-query</tt>.
+	 * MIME type for SPARQL update: <var>application/sparql-query</var>.
 	 */
 	public static final String SPARQL_QUERY_MIME_TYPE = "application/sparql-query";
 
 	/**
-	 * MIME type for SPARQL update: <tt>application/sparql-update</tt>.
+	 * MIME type for SPARQL update: <var>application/sparql-update</var>.
 	 */
 	public static final String SPARQL_UPDATE_MIME_TYPE = "application/sparql-update";
 
@@ -334,7 +358,6 @@ public abstract class Protocol {
 	 *
 	 * @param repositoryLocation the location of a repository implementing this REST protocol.
 	 * @return the location of the configuration resource for the specified repository
-	 *
 	 */
 	public static final String getRepositoryConfigLocation(String repositoryLocation) {
 		return repositoryLocation + "/" + CONFIG;
@@ -428,9 +451,9 @@ public abstract class Protocol {
 	/**
 	 * Encodes a value in a canonical serialized string format, for use in a URL query parameter.
 	 *
-	 * @param value The value to encode, possibly <tt>null</tt>.
+	 * @param value The value to encode, possibly <var>null</var>.
 	 * @return The protocol-serialized representation of the supplied value, or {@link #NULL_PARAM_VALUE} if the
-	 *         supplied value was <tt>null</tt>.
+	 *         supplied value was <var>null</var>.
 	 */
 	public static String encodeValue(Value value) {
 		return NTriplesUtil.toNTriplesString(value);
@@ -487,9 +510,9 @@ public abstract class Protocol {
 	/**
 	 * Encodes a context resource for use in a URL.
 	 *
-	 * @param context The context to encode, possibly <tt>null</tt>.
+	 * @param context The context to encode, possibly <var>null</var>.
 	 * @return The protocol-serialized representation of the supplied context, or {@link #NULL_PARAM_VALUE} if the
-	 *         supplied value was <tt>null</tt>.
+	 *         supplied value was <var>null</var>.
 	 */
 	public static String encodeContext(Resource context) {
 		if (context == null) {
@@ -524,12 +547,13 @@ public abstract class Protocol {
 	/**
 	 * Encode context resources for use in a URL.
 	 *
-	 * @param contexts the contexts to encode, must not be <tt>null</tt>.
+	 * @param contexts the contexts to encode, must not be <var>null</var>.
 	 * @return the encoded contexts
-	 * @throws IllegalArgumentException If the <tt>contexts</tt> is <tt>null</tt>.
+	 * @throws IllegalArgumentException If the <var>contexts</var> is <var>null</var>.
 	 */
 	public static String[] encodeContexts(Resource... contexts) {
-		OpenRDFUtil.verifyContextNotNull(contexts);
+		Objects.requireNonNull(contexts,
+				"contexts argument may not be null; either the value should be cast to Resource or an empty array should be supplied");
 
 		String[] result = new String[contexts.length];
 		for (int index = 0; index < contexts.length; index++) {
@@ -544,7 +568,7 @@ public abstract class Protocol {
 	 *
 	 * @param encodedValues the encoded values
 	 * @param valueFactory  the factory to use for constructing the Resources
-	 * @return the decoded Resources, or an empty array if the supplied <tt>encodedValues</tt> was <tt>null</tt>.
+	 * @return the decoded Resources, or an empty array if the supplied <var>encodedValues</var> was <var>null</var>.
 	 */
 	public static Resource[] decodeContexts(String[] encodedValues, ValueFactory valueFactory) {
 		Resource[] result;

@@ -1,12 +1,17 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core;
+
+import static org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf.iri;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
@@ -14,7 +19,6 @@ import org.eclipse.rdf4j.sparqlbuilder.constraint.Expression;
 import org.eclipse.rdf4j.sparqlbuilder.graphpattern.GraphPattern;
 import org.eclipse.rdf4j.sparqlbuilder.graphpattern.TriplePattern;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.Iri;
-import org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf;
 
 /**
  * A class to with static methods to create SPARQL query elements.
@@ -57,6 +61,16 @@ public class SparqlBuilder {
 	}
 
 	/**
+	 * Create a SPARQL Base declaration
+	 *
+	 * @param iri the base iri
+	 * @return a Base object
+	 */
+	public static Base base(IRI iri) {
+		return new Base(iri);
+	}
+
+	/**
 	 * Create a SPARQL Prefix declaration
 	 *
 	 * @param alias the alias of the prefix
@@ -64,6 +78,17 @@ public class SparqlBuilder {
 	 * @return a Prefix object
 	 */
 	public static Prefix prefix(String alias, Iri iri) {
+		return new Prefix(alias, iri);
+	}
+
+	/**
+	 * Create a SPARQL Prefix declaration
+	 *
+	 * @param alias the alias of the prefix
+	 * @param iri   the iri the alias refers to
+	 * @return a Prefix object
+	 */
+	public static Prefix prefix(String alias, IRI iri) {
 		return new Prefix(alias, iri);
 	}
 
@@ -78,23 +103,23 @@ public class SparqlBuilder {
 	}
 
 	/**
-	 * Create SPARQL Prefix declaration from the given {@link Namespace}.
-	 *
-	 * @param namespace the {@link Namespace} to convert to a prefix declaration.
-	 * @return a Prefix object.
-	 */
-	public static Prefix prefix(Namespace namespace) {
-		return prefix(namespace.getPrefix(), Rdf.iri(namespace.getName()));
-	}
-
-	/**
 	 * Create a SPARQL default Prefix declaration
 	 *
 	 * @param iri the default iri prefix as an {@link IRI}.
 	 * @return a Prefix object
 	 */
 	public static Prefix prefix(IRI iri) {
-		return prefix(Rdf.iri(iri));
+		return prefix(iri(iri));
+	}
+
+	/**
+	 * Create SPARQL Prefix declaration from the given {@link Namespace}.
+	 *
+	 * @param namespace the {@link Namespace} to convert to a prefix declaration.
+	 * @return a Prefix object.
+	 */
+	public static Prefix prefix(Namespace namespace) {
+		return prefix(namespace.getPrefix(), iri(namespace.getName()));
 	}
 
 	/**
@@ -119,6 +144,17 @@ public class SparqlBuilder {
 	}
 
 	/**
+	 * Create a default graph reference
+	 *
+	 * @param iri the source of the graph
+	 * @return a From clause
+	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#rdfDataset"> RDF Datasets</a>
+	 */
+	public static From from(IRI iri) {
+		return new From(iri);
+	}
+
+	/**
 	 * Create a named graph reference
 	 *
 	 * @param iri the source of the graph
@@ -126,6 +162,17 @@ public class SparqlBuilder {
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#rdfDataset"> RDF Datasets</a>
 	 */
 	public static From fromNamed(Iri iri) {
+		return new From(iri, true);
+	}
+
+	/**
+	 * Create a named graph reference
+	 *
+	 * @param iri the source of the graph
+	 * @return a named From clause
+	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#rdfDataset"> RDF Datasets</a>
+	 */
+	public static From fromNamed(IRI iri) {
 		return new From(iri, true);
 	}
 

@@ -1,19 +1,22 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.iterator;
 
-import java.util.Iterator;
 import java.util.List;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.ConvertingIteration;
 import org.eclipse.rdf4j.federated.evaluation.SparqlFederationEvalStrategy;
 import org.eclipse.rdf4j.federated.util.QueryStringUtil;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
@@ -32,7 +35,7 @@ import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
  * @since 3.0
  */
 public class BoundJoinVALUESConversionIteration
-		extends ConvertingIteration<BindingSet, BindingSet, QueryEvaluationException> {
+		extends ConvertingIteration<BindingSet, BindingSet> {
 
 	/**
 	 * The binding name for the index
@@ -41,7 +44,7 @@ public class BoundJoinVALUESConversionIteration
 
 	protected final List<BindingSet> bindings;
 
-	public BoundJoinVALUESConversionIteration(CloseableIteration<BindingSet, QueryEvaluationException> iter,
+	public BoundJoinVALUESConversionIteration(CloseableIteration<BindingSet> iter,
 			List<BindingSet> bindings) {
 		super(iter);
 		this.bindings = bindings;
@@ -50,10 +53,8 @@ public class BoundJoinVALUESConversionIteration
 	@Override
 	protected BindingSet convert(BindingSet bIn) throws QueryEvaluationException {
 		QueryBindingSet res = new QueryBindingSet();
-		int bIndex = Integer.parseInt(bIn.getBinding(INDEX_BINDING_NAME).getValue().stringValue());
-		Iterator<Binding> bIter = bIn.iterator();
-		while (bIter.hasNext()) {
-			Binding b = bIter.next();
+		int bIndex = ((Literal) bIn.getValue(BoundJoinVALUESConversionIteration.INDEX_BINDING_NAME)).intValue();
+		for (Binding b : bIn) {
 			if (b.getName().equals(INDEX_BINDING_NAME)) {
 				continue;
 			}

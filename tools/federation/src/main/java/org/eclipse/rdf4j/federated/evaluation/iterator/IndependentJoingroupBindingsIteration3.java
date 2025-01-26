@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.iterator;
 
@@ -26,17 +29,17 @@ import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
  *
  * @author Andreas Schwarte
  */
-public class IndependentJoingroupBindingsIteration3 extends LookAheadIteration<BindingSet, QueryEvaluationException> {
+public class IndependentJoingroupBindingsIteration3 extends LookAheadIteration<BindingSet> {
 
 	// a pattern matcher for the binding resolver, pattern: myVar_%outerID%#bindingId, e.g. name_0#0
 	protected static final Pattern pattern = Pattern.compile("(.*)_(.*)_(.*)");
 
 	protected final List<BindingSet> bindings;
-	protected final CloseableIteration<BindingSet, QueryEvaluationException> iter;
+	protected final CloseableIteration<BindingSet> iter;
 	protected ArrayList<BindingSet> result = null;
 	protected int currentIdx = 0;
 
-	public IndependentJoingroupBindingsIteration3(CloseableIteration<BindingSet, QueryEvaluationException> iter,
+	public IndependentJoingroupBindingsIteration3(CloseableIteration<BindingSet> iter,
 			List<BindingSet> bindings) {
 		this.bindings = bindings;
 		this.iter = iter;
@@ -96,7 +99,7 @@ public class IndependentJoingroupBindingsIteration3 extends LookAheadIteration<B
 //			int tmp = b.getName().indexOf("_");
 //			String pattern = b.getName().substring(tmp+1);
 //			String split[] = pattern.split("_");
-//			
+//
 //			int bIndex = Integer.parseInt(split[0]);
 //			int bindingsIdx = Integer.parseInt(split[1]);
 //			BindingInfo bInfo = new BindingInfo(b.getName().substring(0, tmp), bindingsIdx, b.getValue());
@@ -130,7 +133,12 @@ public class IndependentJoingroupBindingsIteration3 extends LookAheadIteration<B
 		return res;
 	}
 
-	protected class BindingInfo {
+	@Override
+	protected void handleClose() throws QueryEvaluationException {
+		iter.close();
+	}
+
+	protected static class BindingInfo {
 		public final String name;
 		public final int bindingsIdx;
 		public final Value value;

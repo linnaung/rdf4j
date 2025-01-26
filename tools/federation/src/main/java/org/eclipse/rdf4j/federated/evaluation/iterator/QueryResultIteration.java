@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.iterator;
 
@@ -19,7 +22,7 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
  * query in fedx (potentially subqueries are still running, and jobs are scheduled).
  *
  * If some external component calls close() on this iteration AND if the corresponding query is still running, the query
- * is aborted within FedX. An example case would be Sesame's QueryInteruptIterations, which is used to enforce
+ * is aborted within FedX. An example case would be RDF4J's QueryInteruptIterations, which is used to enforce
  * maxQueryTime.
  *
  * If the query is finished, the FederationManager is notified that the query is done, and the query is removed from the
@@ -28,16 +31,16 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
  * @author Andreas Schwarte
  *
  */
-public class QueryResultIteration extends AbstractCloseableIteration<BindingSet, QueryEvaluationException> {
+public class QueryResultIteration extends AbstractCloseableIteration<BindingSet> {
 
 	// TODO apply this class and provide test case
 
-	protected final CloseableIteration<BindingSet, QueryEvaluationException> inner;
+	protected final CloseableIteration<BindingSet> inner;
 	protected final QueryInfo queryInfo;
 	protected final QueryManager qm;
 
 	public QueryResultIteration(
-			CloseableIteration<BindingSet, QueryEvaluationException> inner, QueryInfo queryInfo) {
+			CloseableIteration<BindingSet> inner, QueryInfo queryInfo) {
 		super();
 		this.inner = inner;
 		this.queryInfo = queryInfo;
@@ -76,8 +79,15 @@ public class QueryResultIteration extends AbstractCloseableIteration<BindingSet,
 
 	@Override
 	protected void handleClose() throws QueryEvaluationException {
-		inner.close();
-		abortQuery();
+		try {
+			inner.close();
+		} finally {
+			try {
+				abortQuery();
+			} finally {
+				queryInfo.close();
+			}
+		}
 	}
 
 	/**

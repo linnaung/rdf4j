@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.solr.examples;
 
@@ -47,7 +50,7 @@ public class SolrSailExample {
 	 * Create a LuceneSail and add some triples to it, ask a query.
 	 */
 	public static void createSimple() throws Exception {
-		// create a sesame memory sail
+		// create an RDF4J memory sail
 		MemoryStore memoryStore = new MemoryStore();
 
 		// create a lucenesail to wrap the memorystore
@@ -60,7 +63,6 @@ public class SolrSailExample {
 
 		// create a Repository to access the sails
 		SailRepository repository = new SailRepository(lucenesail);
-		repository.initialize();
 
 		try ( // add some test data, the FOAF ont
 				SailRepositoryConnection connection = repository.getConnection()) {

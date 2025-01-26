@@ -1,15 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.impl;
 
 import java.io.Serializable;
 import java.util.Collections;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 
 import org.eclipse.rdf4j.model.IRI;
@@ -25,13 +29,13 @@ public class SimpleDataset implements Dataset, Serializable {
 
 	private static final long serialVersionUID = 7841576172053060417L;
 
-	private Set<IRI> defaultRemoveGraphs = new LinkedHashSet<>();
+	private final Set<IRI> defaultRemoveGraphs = new LinkedHashSet<>();
 
 	private IRI defaultInsertGraph;
 
-	private Set<IRI> defaultGraphs = new LinkedHashSet<>();
+	private final Set<IRI> defaultGraphs = new LinkedHashSet<>();
 
-	private Set<IRI> namedGraphs = new LinkedHashSet<>();
+	private final Set<IRI> namedGraphs = new LinkedHashSet<>();
 
 	public SimpleDataset() {
 	}
@@ -51,7 +55,7 @@ public class SimpleDataset implements Dataset, Serializable {
 	/**
 	 * Removes a graph URI from the set of default remove graph URIs.
 	 *
-	 * @return <tt>true</tt> if the URI was removed from the set, <tt>false</tt> if the set did not contain the URI.
+	 * @return <var>true</var> if the URI was removed from the set, <var>false</var> if the set did not contain the URI.
 	 */
 	public boolean removeDefaultRemoveGraph(IRI graphURI) {
 		return defaultRemoveGraphs.remove(graphURI);
@@ -87,7 +91,7 @@ public class SimpleDataset implements Dataset, Serializable {
 	/**
 	 * Removes a graph URI from the set of default graph URIs.
 	 *
-	 * @return <tt>true</tt> if the URI was removed from the set, <tt>false</tt> if the set did not contain the URI.
+	 * @return <var>true</var> if the URI was removed from the set, <var>false</var> if the set did not contain the URI.
 	 */
 	public boolean removeDefaultGraph(IRI graphURI) {
 		return defaultGraphs.remove(graphURI);
@@ -111,7 +115,7 @@ public class SimpleDataset implements Dataset, Serializable {
 	/**
 	 * Removes a graph URI from the set of named graph URIs.
 	 *
-	 * @return <tt>true</tt> if the URI was removed from the set, <tt>false</tt> if the set did not contain the URI.
+	 * @return <var>true</var> if the URI was removed from the set, <var>false</var> if the set did not contain the URI.
 	 */
 	public boolean removeNamedGraph(IRI graphURI) {
 		return namedGraphs.remove(graphURI);
@@ -160,5 +164,24 @@ public class SimpleDataset implements Dataset, Serializable {
 		} else {
 			sb.append("<").append(uri).append(">\n");
 		}
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		SimpleDataset that = (SimpleDataset) o;
+		return defaultRemoveGraphs.equals(that.defaultRemoveGraphs)
+				&& Objects.equals(defaultInsertGraph, that.defaultInsertGraph)
+				&& defaultGraphs.equals(that.defaultGraphs) && namedGraphs.equals(that.namedGraphs);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(defaultRemoveGraphs, defaultInsertGraph, defaultGraphs, namedGraphs);
 	}
 }

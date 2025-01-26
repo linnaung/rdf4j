@@ -1,16 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2016 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.examples.model;
 
+import static org.eclipse.rdf4j.model.util.Values.bnode;
+
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.Model;
-import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.util.ModelBuilder;
 import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
@@ -19,21 +22,18 @@ import org.eclipse.rdf4j.rio.Rio;
 
 /**
  * RDF Tutorial example 07: Writing an RDF model in Turtle syntax
- *
+ * <p>
  * In this example, we show how you can use the Rio Parser/writer toolkit to write your model in Turtle syntax.
  *
  * @author Jeen Broekstra
- * @see
  */
 public class Example07WriteTurtle {
 
 	public static void main(String[] args) {
 
-		// To create a blank node for the address, we need a ValueFactory
-		ValueFactory vf = SimpleValueFactory.getInstance();
-		BNode address = vf.createBNode();
+		BNode address = bnode();
 
-		// Identically to example 03, we create a model with some data
+		// Identically to example 05, we create a model with some data
 		ModelBuilder builder = new ModelBuilder();
 		builder
 				.setNamespace("ex", "http://example.org/")

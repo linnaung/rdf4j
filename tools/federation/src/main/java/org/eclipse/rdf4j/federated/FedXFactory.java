@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated;
 
@@ -16,8 +19,11 @@ import org.eclipse.rdf4j.federated.endpoint.EndpointFactory;
 import org.eclipse.rdf4j.federated.endpoint.provider.NativeRepositoryInformation;
 import org.eclipse.rdf4j.federated.endpoint.provider.ResolvableRepositoryInformation;
 import org.eclipse.rdf4j.federated.endpoint.provider.SPARQLRepositoryInformation;
+import org.eclipse.rdf4j.federated.evaluation.FederationEvaluationStrategyFactory;
 import org.eclipse.rdf4j.federated.exception.FedXException;
 import org.eclipse.rdf4j.federated.repository.FedXRepository;
+import org.eclipse.rdf4j.federated.write.DefaultWriteStrategyFactory;
+import org.eclipse.rdf4j.federated.write.WriteStrategyFactory;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.repository.RepositoryResolver;
@@ -47,10 +53,9 @@ public class FedXFactory {
 	 *
 	 * @return the configured FedX federation {@link Sail} wrapped in a {@link FedXRepository}
 	 *
-	 * @throws Exception
 	 */
 	public static FedXRepository createSparqlFederation(
-			List<String> sparqlEndpoints) throws Exception {
+			List<String> sparqlEndpoints) {
 		return newFederation().withSparqlEndpoints(sparqlEndpoints).create();
 	}
 
@@ -62,10 +67,8 @@ public class FedXFactory {
 	 *
 	 * @return the configured FedX federation {@link Sail} wrapped in a {@link FedXRepository}
 	 *
-	 * @throws Exception
 	 */
-	public static FedXRepository createFederation(File dataConfig)
-			throws Exception {
+	public static FedXRepository createFederation(File dataConfig) {
 		return newFederation().withMembers(dataConfig).create();
 	}
 
@@ -78,7 +81,7 @@ public class FedXFactory {
 	 *
 	 * @return the configured FedX federation {@link Sail} wrapped in a {@link FedXRepository}
 	 *
-	 * @throws Exception
+	 * @throws FedXException
 	 */
 	public static FedXRepository createFederation(
 			List<Endpoint> endpoints) throws FedXException {
@@ -98,6 +101,8 @@ public class FedXFactory {
 
 	protected RepositoryResolver repositoryResolver;
 	protected FederatedServiceResolver federatedServiceResolver;
+	protected FederationEvaluationStrategyFactory strategyFactory;
+	protected WriteStrategyFactory writeStrategyFactory;
 	protected List<Endpoint> members = new ArrayList<>();
 	protected FedXConfig config = FedXConfig.DEFAULT_CONFIG;
 	protected File fedxBaseDir;
@@ -113,6 +118,23 @@ public class FedXFactory {
 
 	public FedXFactory withFederatedServiceResolver(FederatedServiceResolver federatedServiceResolver) {
 		this.federatedServiceResolver = federatedServiceResolver;
+		return this;
+	}
+
+	public FedXFactory withFederationEvaluationStrategyFactory(FederationEvaluationStrategyFactory strategyFactory) {
+		this.strategyFactory = strategyFactory;
+		return this;
+	}
+
+	/**
+	 * Specify the {@link WriteStrategyFactory} to be used. If not explicitly set, {@link DefaultWriteStrategyFactory}
+	 * is used.
+	 *
+	 * @param writeStrategyFactory the {@link WriteStrategyFactory} to be used.
+	 * @return this factory
+	 */
+	public FedXFactory withWriteStrategyFactory(WriteStrategyFactory writeStrategyFactory) {
+		this.writeStrategyFactory = writeStrategyFactory;
 		return this;
 	}
 
@@ -192,6 +214,12 @@ public class FedXFactory {
 		}
 
 		FedX federation = new FedX(members);
+		if (this.strategyFactory != null) {
+			federation.setFederationEvaluationStrategy(strategyFactory);
+		}
+		if (this.writeStrategyFactory != null) {
+			federation.setWriteStrategyFactory(writeStrategyFactory);
+		}
 		FedXRepository repo = new FedXRepository(federation, this.config);
 		if (this.repositoryResolver != null) {
 			repo.setRepositoryResolver(repositoryResolver);
@@ -202,6 +230,7 @@ public class FedXFactory {
 		if (this.fedxBaseDir != null) {
 			repo.setDataDir(fedxBaseDir);
 		}
+
 		return repo;
 	}
 }

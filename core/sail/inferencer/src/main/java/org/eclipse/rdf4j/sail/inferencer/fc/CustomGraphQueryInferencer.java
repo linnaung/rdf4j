@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.inferencer.fc;
 
@@ -40,7 +43,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * A forward-chaining inferencer that infers new statements using a SPARQL or SeRQL graph query.
+ * A forward-chaining inferencer that infers new statements using a SPARQL graph query.
  *
  * @author Dale Visser
  */
@@ -67,7 +70,7 @@ public class CustomGraphQueryInferencer extends NotifyingSailWrapper {
 	/**
 	 * Create a new custom inferencer.
 	 *
-	 * @param language    language that <tt>queryText</tt> and <tt>matcherText</tt> are expressed in
+	 * @param language    language that <var>queryText</var> and <var>matcherText</var> are expressed in
 	 * @param queryText   a query that returns an RDF graph of inferred statements to be added to the underlying Sail
 	 * @param matcherText a query that returns an RDF graph of existing inferred statements already added previously
 	 * @throws MalformedQueryException           if there is a problem parsing either of the given queries
@@ -84,7 +87,7 @@ public class CustomGraphQueryInferencer extends NotifyingSailWrapper {
 	 * Create a new custom inferencer.
 	 *
 	 * @param baseSail    an underlying Sail, such as another inferencer or a SailRepository
-	 * @param language    language that <tt>queryText</tt> and <tt>matcherText</tt> are expressed in
+	 * @param language    language that <var>queryText</var> and <var>matcherText</var> are expressed in
 	 * @param queryText   a query that returns an RDF graph of inferred statements to be added to the underlying Sail
 	 * @param matcherText a query that returns an RDF graph of existing inferred statements already added previously
 	 * @throws MalformedQueryException           if there is a problem parsing either of the given queries
@@ -100,7 +103,7 @@ public class CustomGraphQueryInferencer extends NotifyingSailWrapper {
 	/**
 	 * Called in order to set all the fields needed for the inferencer to function.
 	 *
-	 * @param language    language that <tt>queryText</tt> and <tt>matcherText</tt> are expressed in
+	 * @param language    language that <var>queryText</var> and <var>matcherText</var> are expressed in
 	 * @param queryText   a query that returns an RDF graph of inferred statements to be added to the underlying Sail
 	 * @param matcherText a query that returns an RDF graph of existing inferred statements already added previously
 	 * @throws MalformedQueryException if there is a problem parsing either of the given queries
@@ -146,8 +149,8 @@ public class CustomGraphQueryInferencer extends NotifyingSailWrapper {
 	}
 
 	@Override
-	public void initialize() throws SailException {
-		super.initialize();
+	public void init() throws SailException {
+		super.init();
 		try (InferencerConnection con = getConnection()) {
 			con.begin();
 			con.flushUpdates();
@@ -269,7 +272,7 @@ public class CustomGraphQueryInferencer extends NotifyingSailWrapper {
 
 		private void evaluateIntoStatements(ParsedGraphQuery query, Collection<Statement> statements)
 				throws SailException, RDFHandlerException, QueryEvaluationException {
-			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter = getWrappedConnection()
+			try (CloseableIteration<? extends BindingSet> bindingsIter = getWrappedConnection()
 					.evaluate(query.getTupleExpr(), null, EmptyBindingSet.getInstance(), true)) {
 				ValueFactory factory = getValueFactory();
 				while (bindingsIter.hasNext()) {

@@ -1,14 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.cache;
 
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import org.eclipse.rdf4j.federated.endpoint.Endpoint;
 import org.eclipse.rdf4j.federated.exception.FedXRuntimeException;
@@ -46,6 +50,14 @@ public class SourceSelectionMemoryCache implements SourceSelectionCache {
 		this.cache = CacheBuilder.from(CacheBuilderSpec.parse(cacheSpec)).build();
 	}
 
+	/**
+	 *
+	 * @param cacheSupplier provider for an instantiated Guava cache
+	 */
+	public SourceSelectionMemoryCache(Supplier<Cache<SubQuery, Entry>> cacheSupplier) {
+		this.cache = cacheSupplier.get();
+	}
+
 	@Override
 	public StatementSourceAssurance getAssurance(SubQuery subQuery, Endpoint endpoint) {
 
@@ -64,7 +76,7 @@ public class SourceSelectionMemoryCache implements SourceSelectionCache {
 		if (subQuery.object() != null) {
 			if (getAssurance(new SubQuery(subQuery.subject(), subQuery.predicate(), null, subQuery.contexts()),
 					endpoint)
-							.equals(StatementSourceAssurance.NONE)) {
+					.equals(StatementSourceAssurance.NONE)) {
 				return StatementSourceAssurance.NONE;
 			}
 		}
@@ -78,6 +90,11 @@ public class SourceSelectionMemoryCache implements SourceSelectionCache {
 
 		updateCacheEntry(subQuery, endpoint, hasStatements);
 		updateInferredInformation(subQuery, endpoint, hasStatements);
+	}
+
+	@Override
+	public void invalidate() {
+		cache.invalidateAll(); // invalidate the entire cache
 	}
 
 	private void updateCacheEntry(SubQuery subQuery, Endpoint endpoint, boolean hasStatements) {
@@ -119,10 +136,9 @@ public class SourceSelectionMemoryCache implements SourceSelectionCache {
 
 		/**
 		 * The {@link StatementSourceAssurance} for the given {@link Endpoint},
-		 * {@link StatementSourceAssurance#POSSIBLY_HAS_STATEMENTS if unknown.
+		 * {@link StatementSourceAssurance#POSSIBLY_HAS_STATEMENTS if unknown}.
 		 *
 		 * @param e
-		 * @return
 		 */
 		public StatementSourceAssurance getAssurance(Endpoint e) {
 			return endpointToInformation.getOrDefault(e.getId(), StatementSourceAssurance.POSSIBLY_HAS_STATEMENTS);

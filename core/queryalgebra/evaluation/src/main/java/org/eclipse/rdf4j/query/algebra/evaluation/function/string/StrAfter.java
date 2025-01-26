@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.string;
 
@@ -16,7 +19,7 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.FN;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
+import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
 
 /**
  * The SPARQL built-in {@link Function} STRAFTER, as defined in
@@ -44,7 +47,7 @@ public class StrAfter implements Function {
 			Literal leftLit = (Literal) leftArg;
 			Literal rightLit = (Literal) rightArg;
 
-			if (QueryEvaluationUtil.compatibleArguments(leftLit, rightLit)) {
+			if (QueryEvaluationUtility.compatibleArguments(leftLit, rightLit)) {
 				String lexicalValue = leftLit.getLabel();
 				String substring = rightLit.getLabel();
 
@@ -56,7 +59,7 @@ public class StrAfter implements Function {
 				String substringAfter = "";
 				if (index > -1) {
 					index += substring.length() - 1;
-					substringAfter = lexicalValue.substring(index + 1, lexicalValue.length());
+					substringAfter = lexicalValue.substring(index + 1);
 				} else {
 					// no match, return empty string with no language or datatype
 					leftLanguage = Optional.empty();

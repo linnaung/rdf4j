@@ -1,23 +1,24 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.config;
 
-import static org.eclipse.rdf4j.repository.config.RepositoryConfigSchema.NAMESPACE;
-import static org.eclipse.rdf4j.repository.config.RepositoryConfigSchema.REPOSITORY;
-import static org.eclipse.rdf4j.repository.config.RepositoryConfigSchema.REPOSITORYID;
-import static org.eclipse.rdf4j.repository.config.RepositoryConfigSchema.REPOSITORYIMPL;
+import static org.eclipse.rdf4j.model.util.Values.bnode;
+import static org.eclipse.rdf4j.model.util.Values.literal;
 
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.util.Configurations;
 import org.eclipse.rdf4j.model.util.ModelException;
 import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
@@ -116,8 +117,7 @@ public class RepositoryConfig {
 	 */
 	@Deprecated
 	public void export(Model model) {
-		ValueFactory vf = SimpleValueFactory.getInstance();
-		export(model, vf.createBNode());
+		export(model, bnode());
 	}
 
 	/**
@@ -128,32 +128,61 @@ public class RepositoryConfig {
 	 * @since 2.3
 	 */
 	public void export(Model model, Resource repositoryNode) {
-		ValueFactory vf = SimpleValueFactory.getInstance();
+		if (Configurations.useLegacyConfig()) {
+			exportLegacy(model, repositoryNode);
+			return;
+		}
+
 		model.setNamespace(RDFS.NS);
 		model.setNamespace(XSD.NS);
-		model.setNamespace("rep", NAMESPACE);
-		model.add(repositoryNode, RDF.TYPE, REPOSITORY);
+		model.setNamespace(CONFIG.NS);
+		model.add(repositoryNode, RDF.TYPE, CONFIG.Rep.Repository);
 
 		if (id != null) {
-			model.add(repositoryNode, REPOSITORYID, vf.createLiteral(id));
+			model.add(repositoryNode, CONFIG.Rep.id, literal(id));
+
 		}
 		if (title != null) {
-			model.add(repositoryNode, RDFS.LABEL, vf.createLiteral(title));
+			model.add(repositoryNode, RDFS.LABEL, literal(title));
 		}
 		if (implConfig != null) {
 			Resource implNode = implConfig.export(model);
-			model.add(repositoryNode, REPOSITORYIMPL, implNode);
+			model.add(repositoryNode, CONFIG.Rep.impl, implNode);
+
+		}
+	}
+
+	private void exportLegacy(Model model, Resource repositoryNode) {
+		model.setNamespace(RDFS.NS);
+		model.setNamespace(XSD.NS);
+		model.setNamespace("rep", RepositoryConfigSchema.NAMESPACE);
+		model.add(repositoryNode, RDF.TYPE, RepositoryConfigSchema.REPOSITORY);
+
+		if (id != null) {
+			model.add(repositoryNode, RepositoryConfigSchema.REPOSITORYID, literal(id));
+
+		}
+		if (title != null) {
+			model.add(repositoryNode, RDFS.LABEL, literal(title));
+		}
+		if (implConfig != null) {
+			Resource implNode = implConfig.export(model);
+			model.add(repositoryNode, RepositoryConfigSchema.REPOSITORYIMPL, implNode);
+
 		}
 	}
 
 	public void parse(Model model, Resource repositoryNode) throws RepositoryConfigException {
 		try {
-
-			Models.objectLiteral(model.getStatements(repositoryNode, REPOSITORYID, null))
+			Configurations
+					.getLiteralValue(model, repositoryNode, CONFIG.Rep.id, RepositoryConfigSchema.REPOSITORYID)
 					.ifPresent(lit -> setID(lit.getLabel()));
+
 			Models.objectLiteral(model.getStatements(repositoryNode, RDFS.LABEL, null))
 					.ifPresent(lit -> setTitle(lit.getLabel()));
-			Models.objectResource(model.getStatements(repositoryNode, REPOSITORYIMPL, null))
+
+			Configurations
+					.getResourceValue(model, repositoryNode, CONFIG.Rep.impl, RepositoryConfigSchema.REPOSITORYIMPL)
 					.ifPresent(res -> setRepositoryImplConfig(AbstractRepositoryImplConfig.create(model, res)));
 		} catch (ModelException e) {
 			throw new RepositoryConfigException(e.getMessage(), e);

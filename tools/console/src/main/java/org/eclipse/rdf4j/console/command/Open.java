@@ -1,13 +1,14 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
-
-import java.io.IOException;
 
 import org.eclipse.rdf4j.console.ConsoleIO;
 import org.eclipse.rdf4j.console.ConsoleState;
@@ -82,14 +83,10 @@ public class Open extends ConsoleCommand {
 				writeln("Opened repository '" + repoID + "'");
 			}
 		} catch (RepositoryLockedException e) {
-			try {
-				if (LockRemover.tryToRemoveLock(e, consoleIO)) {
-					openRepository(repoID);
-				} else {
-					writeError(OPEN_FAILURE, e);
-				}
-			} catch (IOException ioe) {
-				writeError("Unable to remove lock", ioe);
+			if (LockRemover.tryToRemoveLock(e, consoleIO)) {
+				openRepository(repoID);
+			} else {
+				writeError(OPEN_FAILURE, e);
 			}
 		} catch (RepositoryConfigException | RepositoryException e) {
 			writeError(OPEN_FAILURE, e);

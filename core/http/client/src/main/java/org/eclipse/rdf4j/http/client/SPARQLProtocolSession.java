@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.client;
 
@@ -14,6 +17,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.StringReader;
 import java.io.Writer;
+import java.lang.ref.WeakReference;
 import java.net.HttpURLConnection;
 import java.net.URISyntaxException;
 import java.nio.charset.Charset;
@@ -58,8 +62,8 @@ import org.apache.http.params.CoreConnectionPNames;
 import org.apache.http.params.HttpParams;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
-import org.eclipse.rdf4j.RDF4JConfigException;
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JConfigException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.io.ByteSink;
 import org.eclipse.rdf4j.common.io.CharSink;
 import org.eclipse.rdf4j.common.io.Sink;
@@ -183,6 +187,8 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 
 	private Map<String, String> additionalHttpHeaders = Collections.emptyMap();
 
+	private boolean passThroughEnabled = true;
+
 	public SPARQLProtocolSession(HttpClient client, ExecutorService executor) {
 		this.httpClient = client;
 		this.httpContext = new HttpClientContext();
@@ -242,7 +248,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	/**
 	 * Sets the preferred format for encoding tuple query results.
 	 *
-	 * @param format The preferred {@link TupleQueryResultFormat}, or <tt>null</tt> to indicate no specific format is
+	 * @param format The preferred {@link TupleQueryResultFormat}, or <var>null</var> to indicate no specific format is
 	 *               preferred.
 	 */
 	public void setPreferredTupleQueryResultFormat(TupleQueryResultFormat format) {
@@ -253,7 +259,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	 * Gets the preferred {@link TupleQueryResultFormat} for encoding tuple query results. The
 	 * {@link TupleQueryResultFormat#SPARQL SPARQL/XML} format is preferred by default.
 	 *
-	 * @return The preferred format, of <tt>null</tt> if no specific format is preferred.
+	 * @return The preferred format, of <var>null</var> if no specific format is preferred.
 	 */
 	public TupleQueryResultFormat getPreferredTupleQueryResultFormat() {
 		return preferredTQRFormat;
@@ -262,7 +268,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	/**
 	 * Sets the preferred format for encoding RDF documents.
 	 *
-	 * @param format The preferred {@link RDFFormat}, or <tt>null</tt> to indicate no specific format is preferred.
+	 * @param format The preferred {@link RDFFormat}, or <var>null</var> to indicate no specific format is preferred.
 	 */
 	public void setPreferredRDFFormat(RDFFormat format) {
 		preferredRDFFormat = format;
@@ -272,7 +278,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	 * Gets the preferred {@link RDFFormat} for encoding RDF documents. The {@link RDFFormat#TURTLE Turtle} format is
 	 * preferred by default.
 	 *
-	 * @return The preferred format, of <tt>null</tt> if no specific format is preferred.
+	 * @return The preferred format, of <var>null</var> if no specific format is preferred.
 	 */
 	public RDFFormat getPreferredRDFFormat() {
 		return preferredRDFFormat;
@@ -281,8 +287,8 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	/**
 	 * Sets the preferred format for encoding boolean query results.
 	 *
-	 * @param format The preferred {@link BooleanQueryResultFormat}, or <tt>null</tt> to indicate no specific format is
-	 *               preferred.
+	 * @param format The preferred {@link BooleanQueryResultFormat}, or <var>null</var> to indicate no specific format
+	 *               is preferred.
 	 */
 	public void setPreferredBooleanQueryResultFormat(BooleanQueryResultFormat format) {
 		preferredBQRFormat = format;
@@ -292,7 +298,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	 * Gets the preferred {@link BooleanQueryResultFormat} for encoding boolean query results. The
 	 * {@link BooleanQueryResultFormat#TEXT binary} format is preferred by default.
 	 *
-	 * @return The preferred format, of <tt>null</tt> if no specific format is preferred.
+	 * @return The preferred format, of <var>null</var> if no specific format is preferred.
 	 */
 	public BooleanQueryResultFormat getPreferredBooleanQueryResultFormat() {
 		return preferredBQRFormat;
@@ -348,17 +354,27 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	 * Query evaluation *
 	 *------------------*/
 
+	/**
+	 * @deprecated WeakReference<?> callerRef argument will be removed
+	 */
+	@Deprecated(since = "4.1.2")
 	public TupleQueryResult sendTupleQuery(QueryLanguage ql, String query, Dataset dataset, boolean includeInferred,
+			WeakReference<?> callerRef,
 			Binding... bindings) throws IOException, RepositoryException, MalformedQueryException,
 			UnauthorizedException, QueryInterruptedException {
-		return sendTupleQuery(ql, query, null, dataset, includeInferred, 0, bindings);
+		return sendTupleQuery(ql, query, null, dataset, includeInferred, 0, callerRef, bindings);
 	}
 
+	/**
+	 * @deprecated WeakReference<?> callerRef argument will be removed
+	 */
+	@Deprecated(since = "4.1.2")
 	public TupleQueryResult sendTupleQuery(QueryLanguage ql, String query, String baseURI, Dataset dataset,
-			boolean includeInferred, int maxQueryTime, Binding... bindings) throws IOException, RepositoryException,
+			boolean includeInferred, int maxQueryTime, WeakReference<?> callerRef, Binding... bindings)
+			throws IOException, RepositoryException,
 			MalformedQueryException, UnauthorizedException, QueryInterruptedException {
 		HttpUriRequest method = getQueryMethod(ql, query, baseURI, dataset, includeInferred, maxQueryTime, bindings);
-		return getBackgroundTupleQueryResult(method);
+		return getBackgroundTupleQueryResult(method, callerRef);
 	}
 
 	public void sendTupleQuery(QueryLanguage ql, String query, String baseURI, Dataset dataset, boolean includeInferred,
@@ -389,19 +405,29 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 		}
 	}
 
+	/**
+	 * @deprecated WeakReference<?> callerRef argument will be removed
+	 */
+	@Deprecated(since = "4.1.2")
 	public GraphQueryResult sendGraphQuery(QueryLanguage ql, String query, Dataset dataset, boolean includeInferred,
+			WeakReference<?> callerRef,
 			Binding... bindings) throws IOException, RepositoryException, MalformedQueryException,
 			UnauthorizedException, QueryInterruptedException {
-		return sendGraphQuery(ql, query, null, dataset, includeInferred, 0, bindings);
+		return sendGraphQuery(ql, query, null, dataset, includeInferred, 0, callerRef, bindings);
 	}
 
+	/**
+	 * @deprecated WeakReference<?> callerRef argument will be removed
+	 */
+	@Deprecated(since = "4.1.2")
 	public GraphQueryResult sendGraphQuery(QueryLanguage ql, String query, String baseURI, Dataset dataset,
-			boolean includeInferred, int maxQueryTime, Binding... bindings) throws IOException, RepositoryException,
+			boolean includeInferred, int maxQueryTime, WeakReference<?> callerRef, Binding... bindings)
+			throws IOException, RepositoryException,
 			MalformedQueryException, UnauthorizedException, QueryInterruptedException {
 		try {
 			HttpUriRequest method = getQueryMethod(ql, query, baseURI, dataset, includeInferred, maxQueryTime,
 					bindings);
-			return getRDFBackground(method, false);
+			return getRDFBackground(method, false, callerRef);
 		} catch (RDFHandlerException e) {
 			// Found a bug in TupleQueryResultBuilder?
 			throw new RepositoryException(e);
@@ -580,7 +606,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 		}
 
 		if (dataset != null) {
-			if (dataset.getDefaultRemoveGraphs().size() > 0) {
+			if (!dataset.getDefaultRemoveGraphs().isEmpty()) {
 				if (!(dataset.getDefaultRemoveGraphs().equals(dataset.getDefaultGraphs()))) {
 					logger.warn(
 							"ambiguous dataset spec for SPARQL endpoint: default graphs and default remove graphs both defined but not equal");
@@ -631,8 +657,11 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	/**
 	 * Parse the response in a background thread. HTTP connections are dealt with in the {@link BackgroundTupleResult}
 	 * or (in the error-case) in this method.
+	 *
+	 * @deprecated WeakReference<?> callerRef argument will be removed
 	 */
-	protected TupleQueryResult getBackgroundTupleQueryResult(HttpUriRequest method)
+	@Deprecated(since = "4.1.2")
+	protected TupleQueryResult getBackgroundTupleQueryResult(HttpUriRequest method, WeakReference<?> callerRef)
 			throws RepositoryException, QueryInterruptedException, MalformedQueryException, IOException {
 
 		boolean submitted = false;
@@ -643,7 +672,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 			throw new RepositoryException("No tuple query result parsers have been registered");
 		}
 
-		TupleQueryResult tRes = null;
+		TupleQueryResult tRes;
 		// send the tuple query
 		HttpResponse response = sendTupleQueryViaHttp(method, tqrFormats);
 		try {
@@ -654,7 +683,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 					.orElseThrow(() -> new RepositoryException(
 							"Server responded with an unsupported file format: " + mimeType));
 			TupleQueryResultParser parser = QueryResultIO.createTupleParser(format, getValueFactory());
-			tRes = background.parse(parser, response.getEntity().getContent());
+			tRes = background.parse(parser, response.getEntity().getContent(), callerRef);
 			submitted = true;
 			return tRes;
 		} finally {
@@ -761,8 +790,12 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	/**
 	 * Parse the response in a background thread. HTTP connections are dealt with in the {@link BackgroundGraphResult}
 	 * or (in the error-case) in this method.
+	 *
+	 * @deprecated WeakReference<?> callerRef argument will be removed
 	 */
-	protected GraphQueryResult getRDFBackground(HttpUriRequest method, boolean requireContext)
+	@Deprecated(since = "4.1.2")
+	protected GraphQueryResult getRDFBackground(HttpUriRequest method, boolean requireContext,
+			WeakReference<?> callerRef)
 			throws IOException, RDFHandlerException, RepositoryException, MalformedQueryException,
 			UnauthorizedException, QueryInterruptedException {
 
@@ -774,7 +807,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 			throw new RepositoryException("No tuple RDF parsers have been registered");
 		}
 
-		GraphQueryResult gRes = null;
+		GraphQueryResult gRes;
 		// send the tuple query
 		HttpResponse response = sendGraphQueryViaHttp(method, requireContext, rdfFormats);
 		try {
@@ -815,7 +848,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 			}
 
 			String baseURI = method.getURI().toASCIIString();
-			gRes = background.parse(parser, entity.getContent(), charset, baseURI);
+			gRes = background.parse(parser, entity.getContent(), charset, baseURI, callerRef);
 			submitted = true;
 			return gRes;
 		} finally {
@@ -870,7 +903,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 
 	/**
 	 * Pass through response content directly to the supplied sink if possible.
-	 * 
+	 *
 	 * @param response       the {@link HttpResponse} with the content.
 	 * @param responseFormat the format of the response.
 	 * @param sink           the {@link Sink} to pass the content through to.
@@ -879,6 +912,9 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	 */
 	private boolean passThrough(HttpResponse response, FileFormat responseFormat, Sink sink)
 			throws IOException {
+		if (!isPassThroughEnabled()) {
+			return false;
+		}
 		if (sink.acceptsFileFormat(responseFormat)) {
 			InputStream in = response.getEntity().getContent();
 			if (sink instanceof CharSink) {
@@ -1055,7 +1091,7 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 						throw new RepositoryException(new RemoteShaclValidationException(
 								new StringReader(errInfo.toString()), "", format));
 
-					} else if (errInfo.toString().length() > 0) {
+					} else if (!errInfo.toString().isEmpty()) {
 						throw new RepositoryException(errInfo.toString());
 					} else {
 						throw new RepositoryException(response.getStatusLine().getReasonPhrase());
@@ -1133,11 +1169,11 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 
 	/**
 	 * Gets the MIME type specified in the response headers of the supplied method, if any. For example, if the response
-	 * headers contain <tt>Content-Type: application/xml;charset=UTF-8</tt>, this method will return
-	 * <tt>application/xml</tt> as the MIME type.
+	 * headers contain <var>Content-Type: application/xml;charset=UTF-8</var>, this method will return
+	 * <var>application/xml</var> as the MIME type.
 	 *
 	 * @param method The method to get the reponse MIME type from.
-	 * @return The response MIME type, or <tt>null</tt> if not available.
+	 * @return The response MIME type, or <var>null</var> if not available.
 	 */
 	protected String getResponseMIMEType(HttpResponse method) throws IOException {
 		Header[] headers = method.getHeaders("Content-Type");
@@ -1159,9 +1195,9 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 
 	/**
 	 * Gets the character encoding specified in the HTTP headers of the supplied response, if any. For example, if the
-	 * response headers contain <tt>Content-Type: application/xml;charset=UTF-8</tt>, this method will return
+	 * response headers contain <var>Content-Type: application/xml;charset=UTF-8</var>, this method will return
 	 * {@link StandardCharsets#UTF_8 UTF-8} as the character encoding.
-	 * 
+	 *
 	 * @param response the response to get the character encoding from.
 	 * @return the response character encoding, {@link Optional#empty()} if it can not be determined.
 	 */
@@ -1243,5 +1279,25 @@ public class SPARQLProtocolSession implements HttpClientDependent, AutoCloseable
 	 */
 	protected HttpContext getHttpContext() {
 		return this.httpContext;
+	}
+
+	/**
+	 * Indicates if direct pass-through of the endpoint result to the supplied {@link Sink} is enabled.
+	 *
+	 * @return the passThroughEnabled setting.
+	 */
+	public boolean isPassThroughEnabled() {
+		return passThroughEnabled;
+	}
+
+	/**
+	 * Configure direct pass-through of the endpoint result to the supplied {@link Sink}.
+	 * <p>
+	 * If not explicitly configured, the setting defaults to {@code true}.
+	 *
+	 * @param passThroughEnabled the passThroughEnabled to set.
+	 */
+	public void setPassThroughEnabled(boolean passThroughEnabled) {
+		this.passThroughEnabled = passThroughEnabled;
 	}
 }

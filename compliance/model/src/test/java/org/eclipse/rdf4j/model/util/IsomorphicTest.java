@@ -1,15 +1,21 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.model.util;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.StringReader;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -18,8 +24,9 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.TreeModel;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
-import org.junit.BeforeClass;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 public class IsomorphicTest {
 
@@ -52,7 +59,7 @@ public class IsomorphicTest {
 	static private Model manyProperties_2;
 	static private Model manyProperties2_2;
 
-	@BeforeClass
+	@BeforeAll
 	public static void beforeClass() {
 		empty = getModel("empty.ttl");
 		blankNodes = getModel("blankNodes.ttl");
@@ -82,61 +89,56 @@ public class IsomorphicTest {
 		internallyIsomorphic_2 = getModel("internallyIsomorphic.ttl");
 		manyProperties_2 = getModel("manyProperties.ttl");
 		manyProperties2_2 = getModel("manyProperties2.ttl");
-
 	}
 
 	@Test
 	public void empty() {
-
 		isomorphic(empty, empty_2);
-
 	}
 
 	@Test
 	public void blankNodes() {
-
 		isomorphic(blankNodes, blankNodes_2);
-
 	}
 
 	@Test
 	public void shacl() {
-
 		isomorphic(shacl, shacl_2);
-
 	}
 
 	@Test
 	public void longChain() {
-
 		isomorphic(longChain, longChain_2);
-
 	}
 
 	@Test
 	public void sparqlTestCase() {
-
 		isomorphic(sparqlTestCase, sparqlTestCase_2);
+	}
 
+	@Test
+	public void testGH3671Case() {
+		// The test tends to succeed the first time around but then fails on a subsequent pass
+		for (int i = 0; i < 10; i++) {
+			// we need to re-parse the model in every parse for the failure to occur
+			Model m1 = getModel("GH-3671-case.ttl");
+			Model m2 = getModel("GH-3671-case.ttl");
+			isomorphic(m1, m2);
+		}
 	}
 
 	@Test
 	public void bsbm() {
-
 		isomorphic(bsbm, bsbm_2);
-
 	}
 
 	@Test
 	public void bsbmTree() {
-
 		isomorphic(bsbmTree, bsbmTree_2);
-
 	}
 
 	@Test
 	public void bsbmArrayList() {
-
 		boolean isomorphic = Models.isomorphic(bsbm_arraylist, bsbm_arraylist_2);
 		if (!isomorphic) {
 			throw new IllegalStateException("Not isomorphic");
@@ -146,57 +148,115 @@ public class IsomorphicTest {
 
 	@Test
 	public void spinFullForwardchained() {
-
 		isomorphic(spinFullForwardchained, spinFullForwardchained_2);
-
 	}
 
 	@Test
 	public void list() {
-
 		isomorphic(list, list_2);
-
 	}
 
 	@Test
 	public void internallyIsomorphic() {
-
 		isomorphic(internallyIsomorphic, internallyIsomorphic_2);
-
 	}
 
 	@Test
 	public void manyProperties() {
-
 		isomorphic(manyProperties, manyProperties_2);
-
 	}
 
 	@Test
 	public void manyProperties2() {
-
 		isomorphic(manyProperties2, manyProperties2_2);
-
 	}
 
 	@Test
 	public void emptyNotIsomorphic() {
-
 		notIsomorphic(empty, bsbm);
-
 	}
 
 	@Test
 	public void bsbmNotIsomorphic() {
-
 		notIsomorphic(bsbm, bsbmChanged);
+	}
 
+	@Test
+	public void testValidationReport() {
+		Model m1 = getModel("shaclValidationReport.ttl");
+		Model m2 = getModel("shaclValidationReport.ttl");
+
+		assertThat(Models.isomorphic(m1, m2));
+	}
+
+	@Test
+	@Timeout(2)
+	public void testValidationReport_LexicalOrdering() {
+		Model m1 = getModel("shaclValidationReport.ttl");
+		Model m2 = getModel("shaclValidationReport.ttl");
+
+		LexicalValueComparator lexicalValueComparator = new LexicalValueComparator();
+
+		m1 = m1.stream()
+				.sorted((a, b) -> lexicalValueComparator.compare(a.getObject(), b.getObject()))
+				.collect(ModelCollector.toModel());
+
+		assertThat(Models.isomorphic(m1, m2));
+	}
+
+	@Test
+	public void testValidationReport_Changed() {
+		Model m1 = getModel("shaclValidationReport.ttl");
+		Model m2 = getModel("shaclValidationReport-changed.ttl");
+
+		assertThat(Models.isomorphic(m1, m2)).isFalse();
+	}
+
+	@Test
+	public void testIsomorphicDatatype() throws Exception {
+		String d1 = "@prefix ex: <http://example.com/ns#> .\n"
+				+ "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n"
+				+ "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n"
+				+ "@prefix sh: <http://www.w3.org/ns/shacl#> .\n"
+				+ "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n"
+				+ "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+				+ "@prefix rsx: <http://rdf4j.org/shacl-extensions#> .\n"
+				+ "\n"
+				+ "ex:PersonShape sh:not [\n"
+				+ "      sh:not [\n"
+				+ "          sh:maxCount 3;\n"
+				+ "          sh:path ex:ssn\n"
+				+ "        ]\n"
+				+ "    ];\n"
+				+ "  sh:targetClass ex:Person .";
+
+		Model m1 = Rio.parse(new StringReader(d1), RDFFormat.TURTLE);
+
+		String d2 = "@prefix ex: <http://example.com/ns#> .\n"
+				+ "@prefix foaf: <http://xmlns.com/foaf/0.1/> .\n"
+				+ "@prefix xsd: <http://www.w3.org/2001/XMLSchema#> .\n"
+				+ "@prefix sh: <http://www.w3.org/ns/shacl#> .\n"
+				+ "@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .\n"
+				+ "@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .\n"
+				+ "@prefix rsx: <http://rdf4j.org/shacl-extensions#> .\n"
+				+ "\n"
+				+ "ex:PersonShape sh:not [\n"
+				+ "      sh:not [\n"
+				+ "          sh:maxCount \"3\"^^xsd:long;\n"
+				+ "          sh:path ex:ssn\n"
+				+ "        ]\n"
+				+ "    ];\n"
+				+ "  sh:targetClass ex:Person .";
+
+		Model m2 = Rio.parse(new StringReader(d2), RDFFormat.TURTLE);
+
+		assertThat(Models.isomorphic(m1, m2)).isFalse();
 	}
 
 	private static Model getModel(String name) {
 		try {
 			try (InputStream resourceAsStream = IsomorphicTest.class.getClassLoader()
-					.getResourceAsStream("benchmark/" + name)) {
+					.getResourceAsStream("benchmarkFiles/" + name)) {
 				return Rio.parse(resourceAsStream, "http://example.com/", RDFFormat.TURTLE);
 			}
 		} catch (IOException e) {
@@ -205,7 +265,6 @@ public class IsomorphicTest {
 	}
 
 	private boolean isomorphic(Model m1, Model m2) {
-
 		boolean isomorphic = Models.isomorphic(m1, m2);
 		if (!isomorphic) {
 			throw new IllegalStateException("Not isomorphic");

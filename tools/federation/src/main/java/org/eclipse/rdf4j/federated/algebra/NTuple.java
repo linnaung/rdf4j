@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.algebra;
 
@@ -11,11 +14,13 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
+import org.eclipse.rdf4j.common.order.AvailableStatementOrder;
 import org.eclipse.rdf4j.federated.structures.QueryInfo;
 import org.eclipse.rdf4j.query.algebra.AbstractQueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.algebra.Var;
 
 /**
  * Base class for any nary-tuple expression
@@ -96,7 +101,7 @@ public abstract class NTuple extends AbstractQueryModelNode implements TupleExpr
 			args.set(index, (TupleExpr) replacement);
 			replacement.setParentNode(this);
 		} else {
-			super.replaceChildNode(current, replacement);
+			throw new IllegalArgumentException("Node is not a child node: " + current);
 		}
 	}
 
@@ -109,4 +114,20 @@ public abstract class NTuple extends AbstractQueryModelNode implements TupleExpr
 	public QueryInfo getQueryInfo() {
 		return queryInfo;
 	}
+
+	@Override
+	public Set<Var> getSupportedOrders(AvailableStatementOrder tripleSource) {
+		throw new UnsupportedOperationException("Not implemented yet");
+	}
+
+	@Override
+	public void setOrder(Var var) {
+		throw new UnsupportedOperationException("Not implemented yet");
+	}
+
+	@Override
+	public Var getOrder() {
+		throw new UnsupportedOperationException("Not implemented yet");
+	}
+
 }

@@ -1,14 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.join;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.Phaser;
 import java.util.concurrent.TimeUnit;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
@@ -19,6 +23,7 @@ import org.eclipse.rdf4j.federated.algebra.FedXService;
 import org.eclipse.rdf4j.federated.algebra.StatementTupleExpr;
 import org.eclipse.rdf4j.federated.evaluation.FederationEvalStrategy;
 import org.eclipse.rdf4j.federated.evaluation.concurrent.ControlledWorkerScheduler;
+import org.eclipse.rdf4j.federated.evaluation.concurrent.ParallelExecutor;
 import org.eclipse.rdf4j.federated.evaluation.concurrent.ParallelTask;
 import org.eclipse.rdf4j.federated.structures.QueryInfo;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -29,7 +34,7 @@ import org.slf4j.LoggerFactory;
 
 /**
  * Execute the nested loop join in an asynchronous fashion, using grouped requests, i.e. group bindings into one SPARQL
- * request using the UNION operator.
+ * request using a VALUES clause.
  *
  * The number of concurrent threads is controlled by a {@link ControlledWorkerScheduler} which works according to the
  * FIFO principle and uses worker threads.
@@ -39,16 +44,27 @@ import org.slf4j.LoggerFactory;
  *
  * @author Andreas Schwarte
  *
+ * @deprecated replaced with {@link ControlledWorkerBindJoin}l
  */
+@Deprecated(forRemoval = true)
 public class ControlledWorkerBoundJoin extends ControlledWorkerJoin {
 
 	private static final Logger log = LoggerFactory.getLogger(ControlledWorkerBoundJoin.class);
 
+	/**
+	 * Whether to submit the first intermediate result immediately in a non-bound way
+	 */
+	private boolean submitFirstResultImmediately = false;
+
 	public ControlledWorkerBoundJoin(ControlledWorkerScheduler<BindingSet> scheduler, FederationEvalStrategy strategy,
-			CloseableIteration<BindingSet, QueryEvaluationException> leftIter,
+			CloseableIteration<BindingSet> leftIter,
 			TupleExpr rightArg, BindingSet bindings, QueryInfo queryInfo)
 			throws QueryEvaluationException {
 		super(scheduler, strategy, leftIter, rightArg, bindings, queryInfo);
+	}
+
+	protected void setSubmitFirstResultImmediately(boolean flag) {
+		this.submitFirstResultImmediately = flag;
 	}
 
 	@Override
@@ -66,62 +82,53 @@ public class ControlledWorkerBoundJoin extends ControlledWorkerJoin {
 		TupleExpr expr = rightArg;
 
 		TaskCreator taskCreator = null;
+		Phaser currentPhaser = phaser;
 
-		// first item is always sent in a non-bound way
-		if (!closed && leftIter.hasNext()) {
-			BindingSet b = leftIter.next();
-			totalBindings++;
-			if (expr instanceof StatementTupleExpr) {
-				StatementTupleExpr stmt = (StatementTupleExpr) expr;
-				if (stmt.hasFreeVarsFor(b)) {
-					taskCreator = new BoundJoinTaskCreator(this, strategy, stmt);
-				} else {
-					expr = new CheckStatementPattern(stmt, queryInfo);
-					taskCreator = new CheckJoinTaskCreator(this, strategy, (CheckStatementPattern) expr);
-				}
-			} else if (expr instanceof FedXService) {
-				taskCreator = new FedXServiceJoinTaskCreator(this, strategy, (FedXService) expr);
-			} else {
-				throw new RuntimeException("Expr is of unexpected type: " + expr.getClass().getCanonicalName()
-						+ ". Please report this problem.");
+		if (submitFirstResultImmediately) {
+			// first item is always sent in a non-bound way
+			if (!isClosed() && leftIter.hasNext()) {
+				BindingSet b = leftIter.next();
+				totalBindings++;
+				taskCreator = determineTaskCreator(expr, b);
+				currentPhaser.register();
+				scheduler.schedule(
+						new ParallelJoinTask(new PhaserHandlingParallelExecutor(this, currentPhaser), strategy, expr,
+								b));
 			}
-			phaser.register();
-			scheduler.schedule(new ParallelJoinTask(this, strategy, expr, b));
 		}
 
 		int nBindings;
-		List<BindingSet> bindings = null;
-		while (!closed && leftIter.hasNext()) {
+		List<BindingSet> bindings;
+		while (!isClosed() && leftIter.hasNext()) {
 
-			/*
-			 * XXX idea:
-			 *
-			 * make nBindings dependent on the number of intermediate results of the left argument.
-			 *
-			 * If many intermediate results, increase the number of bindings. This will result in less remote SPARQL
-			 * requests.
-			 *
-			 */
-
-			if (totalBindings > 10) {
-				nBindings = nBindingsCfg;
-			} else {
-				nBindings = 3;
+			// create a new phaser if there are more than 10000 parties
+			// note: a phaser supports only up to 65535 registered parties
+			if (currentPhaser.getRegisteredParties() >= 10000) {
+				currentPhaser = new Phaser(currentPhaser);
 			}
+
+			// determine the bind join block size
+			nBindings = getNextBindJoinSize(nBindingsCfg, totalBindings);
 
 			bindings = new ArrayList<>(nBindings);
 
 			int count = 0;
-			while (count < nBindings && leftIter.hasNext()) {
-				bindings.add(leftIter.next());
+			while (!isClosed() && count < nBindings && leftIter.hasNext()) {
+				var bs = leftIter.next();
+				if (taskCreator == null) {
+					taskCreator = determineTaskCreator(expr, bs);
+				}
+				bindings.add(bs);
 				count++;
 			}
 
 			totalBindings += count;
 
-			phaser.register();
-			scheduler.schedule(taskCreator.getTask(bindings));
+			currentPhaser.register();
+			scheduler.schedule(taskCreator.getTask(new PhaserHandlingParallelExecutor(this, currentPhaser), bindings));
 		}
+
+		leftIter.close();
 
 		scheduler.informFinish(this);
 
@@ -130,6 +137,57 @@ public class ControlledWorkerBoundJoin extends ControlledWorkerJoin {
 		}
 
 		phaser.awaitAdvanceInterruptibly(phaser.arrive(), queryInfo.getMaxRemainingTimeMS(), TimeUnit.MILLISECONDS);
+	}
+
+	@Override
+	public void handleClose() throws QueryEvaluationException {
+		try {
+			super.handleClose();
+		} finally {
+			// signal the phaser to close (if currently being blocked)
+			phaser.forceTermination();
+		}
+	}
+
+	protected TaskCreator determineTaskCreator(TupleExpr expr, BindingSet bs) {
+		final TaskCreator taskCreator;
+		if (expr instanceof StatementTupleExpr) {
+			StatementTupleExpr stmt = (StatementTupleExpr) expr;
+			if (stmt.hasFreeVarsFor(bs)) {
+				taskCreator = new BoundJoinTaskCreator(strategy, stmt);
+			} else {
+				expr = new CheckStatementPattern(stmt, queryInfo);
+				taskCreator = new CheckJoinTaskCreator(strategy, (CheckStatementPattern) expr);
+			}
+		} else if (expr instanceof FedXService) {
+			taskCreator = new FedXServiceJoinTaskCreator(strategy, (FedXService) expr);
+		} else {
+			throw new RuntimeException("Expr is of unexpected type: " + expr.getClass().getCanonicalName()
+					+ ". Please report this problem.");
+		}
+		return taskCreator;
+	}
+
+	/**
+	 * Return the size of the next bind join block.
+	 *
+	 * @param configuredBindJoinSize the configured bind join size
+	 * @param totalBindings          the current process bindings from the intermediate result set
+	 * @return
+	 */
+	protected int getNextBindJoinSize(int configuredBindJoinSize, int totalBindings) {
+
+		/*
+		 * XXX idea:
+		 *
+		 * make nBindings dependent on the number of intermediate results of the left argument.
+		 *
+		 * If many intermediate results, increase the number of bindings. This will result in less remote SPARQL
+		 * requests.
+		 *
+		 */
+
+		return configuredBindJoinSize;
 	}
 
 	/**
@@ -152,63 +210,57 @@ public class ControlledWorkerBoundJoin extends ControlledWorkerJoin {
 	}
 
 	protected interface TaskCreator {
-		public ParallelTask<BindingSet> getTask(List<BindingSet> bindings);
+		ParallelTask<BindingSet> getTask(ParallelExecutor<BindingSet> control, List<BindingSet> bindings);
 	}
 
 	protected class BoundJoinTaskCreator implements TaskCreator {
-		protected final ControlledWorkerBoundJoin _control;
 		protected final FederationEvalStrategy _strategy;
 		protected final StatementTupleExpr _expr;
 
-		public BoundJoinTaskCreator(ControlledWorkerBoundJoin control,
+		public BoundJoinTaskCreator(
 				FederationEvalStrategy strategy, StatementTupleExpr expr) {
 			super();
-			_control = control;
 			_strategy = strategy;
 			_expr = expr;
 		}
 
 		@Override
-		public ParallelTask<BindingSet> getTask(List<BindingSet> bindings) {
-			return new ParallelBoundJoinTask(_control, _strategy, _expr, bindings);
+		public ParallelTask<BindingSet> getTask(ParallelExecutor<BindingSet> control, List<BindingSet> bindings) {
+			return new ParallelBoundJoinTask(control, _strategy, _expr, bindings);
 		}
 	}
 
 	protected class CheckJoinTaskCreator implements TaskCreator {
-		protected final ControlledWorkerBoundJoin _control;
 		protected final FederationEvalStrategy _strategy;
 		protected final CheckStatementPattern _expr;
 
-		public CheckJoinTaskCreator(ControlledWorkerBoundJoin control,
+		public CheckJoinTaskCreator(
 				FederationEvalStrategy strategy, CheckStatementPattern expr) {
 			super();
-			_control = control;
 			_strategy = strategy;
 			_expr = expr;
 		}
 
 		@Override
-		public ParallelTask<BindingSet> getTask(List<BindingSet> bindings) {
-			return new ParallelCheckJoinTask(_control, _strategy, _expr, bindings);
+		public ParallelTask<BindingSet> getTask(ParallelExecutor<BindingSet> control, List<BindingSet> bindings) {
+			return new ParallelCheckJoinTask(control, _strategy, _expr, bindings);
 		}
 	}
 
 	protected class FedXServiceJoinTaskCreator implements TaskCreator {
-		protected final ControlledWorkerBoundJoin _control;
 		protected final FederationEvalStrategy _strategy;
 		protected final FedXService _expr;
 
-		public FedXServiceJoinTaskCreator(ControlledWorkerBoundJoin control,
+		public FedXServiceJoinTaskCreator(
 				FederationEvalStrategy strategy, FedXService expr) {
 			super();
-			_control = control;
 			_strategy = strategy;
 			_expr = expr;
 		}
 
 		@Override
-		public ParallelTask<BindingSet> getTask(List<BindingSet> bindings) {
-			return new ParallelServiceJoinTask(_control, _strategy, _expr, bindings);
+		public ParallelTask<BindingSet> getTask(ParallelExecutor<BindingSet> control, List<BindingSet> bindings) {
+			return new ParallelServiceJoinTask(control, _strategy, _expr, bindings);
 		}
 	}
 

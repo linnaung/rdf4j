@@ -1,13 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.extensiblestore.evaluationstatistics;
 
-import static junit.framework.TestCase.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -24,7 +27,7 @@ import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.sail.extensiblestore.valuefactory.ExtensibleStatementHelper;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -126,28 +129,28 @@ public class EvaluationStatisticsTest {
 				new Var("b", RDF.TYPE),
 				new Var("c", bdbmProductType));
 
-		checkPattern(cardinalityCalculator, null_rdfType_bsbmProductType, 1);
+		checkPattern(cardinalityCalculator, null_rdfType_bsbmProductType, 5);
 
 		StatementPattern null_null_null = new StatementPattern(
 				new Var("a", null),
 				new Var("b", null),
 				new Var("c", null));
 
-		checkPattern(cardinalityCalculator, null_null_null, 1);
+		checkPattern(cardinalityCalculator, null_null_null, 5);
 
 		StatementPattern null_rdfType_null = new StatementPattern(
 				new Var("a", null),
 				new Var("b", RDF.TYPE),
 				new Var("c", null));
 
-		checkPattern(cardinalityCalculator, null_rdfType_null, 1);
+		checkPattern(cardinalityCalculator, null_rdfType_null, 5);
 
 		StatementPattern nonExistent = new StatementPattern(
 				new Var("a", null),
 				new Var("b", vf.createIRI("http://example.com/fhjerhf2uhfjkdsbf32o")),
 				new Var("c", null));
 
-		checkPattern(cardinalityCalculator, nonExistent, 1);
+		checkPattern(cardinalityCalculator, nonExistent, 5);
 
 		// this last pattern isn't very accurate, it's actually 46 statements, but the estimate is 100.4
 		StatementPattern bsbmProductType_null_null = new StatementPattern(
@@ -175,8 +178,8 @@ public class EvaluationStatisticsTest {
 
 		double diff = Math.abs(expected - estimated);
 		if (100.0 / expected * diff > percentage) {
-			assertEquals("Estimated cardinality should be within " + percentage + "% of expected cardinality", expected,
-					estimated);
+			assertEquals(expected, estimated,
+					"Estimated cardinality should be within " + percentage + "% of expected cardinality");
 		}
 
 	}

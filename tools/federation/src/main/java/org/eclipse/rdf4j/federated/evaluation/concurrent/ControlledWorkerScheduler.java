@@ -1,26 +1,30 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.concurrent;
 
 import java.util.List;
+import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
+import org.eclipse.rdf4j.common.annotation.Experimental;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.federated.evaluation.join.ControlledWorkerBoundJoin;
+import org.eclipse.rdf4j.federated.evaluation.join.ControlledWorkerBindJoin;
 import org.eclipse.rdf4j.federated.evaluation.join.ControlledWorkerJoin;
 import org.eclipse.rdf4j.federated.evaluation.union.ControlledWorkerUnion;
 import org.eclipse.rdf4j.federated.exception.ExceptionUtil;
 import org.eclipse.rdf4j.federated.exception.FedXRuntimeException;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -29,12 +33,10 @@ import org.slf4j.LoggerFactory;
  * pool with a fixed number of worker threads. Once notified a worker picks the next task from the queue and executes
  * it. The results is then returned to the controlling instance retrieved from the task.
  *
- *
  * @author Andreas Schwarte
- *
  * @see ControlledWorkerUnion
  * @see ControlledWorkerJoin
- * @see ControlledWorkerBoundJoin
+ * @see ControlledWorkerBindJoin
  */
 public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAware {
 
@@ -42,21 +44,13 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 
 	private final ExecutorService executor;
 
-	private final LinkedBlockingQueue<Runnable> _taskQueue = new LinkedBlockingQueue<>();
+	// TODO: in the next major version of RDF4J this final field should be removed.
+	// Initialization of the executor service should managed the details
+	private final BlockingQueue<Runnable> _taskQueue;
 
 	private final int nWorkers;
 	private final String name;
 	private TaskWrapper taskWrapper;
-
-	/**
-	 * Construct a new instance with 20 workers.
-	 * 
-	 * @deprecated use {@link #ControlledWorkerScheduler(int, String)}. Scheduled to be removed in 4.0
-	 */
-	@Deprecated
-	public ControlledWorkerScheduler() {
-		this(20, "FedX Worker");
-	}
 
 	/**
 	 * Construct a new instance with the specified number of workers and the given name.
@@ -67,7 +61,8 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 	public ControlledWorkerScheduler(int nWorkers, String name) {
 		this.nWorkers = nWorkers;
 		this.name = name;
-		this.executor = createExecutorService();
+		this._taskQueue = createBlockingQueue();
+		this.executor = createExecutorService(nWorkers, name);
 	}
 
 	/**
@@ -77,7 +72,7 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 	 */
 	@Override
 	public void schedule(ParallelTask<T> task) {
-
+		assert !task.getControl().isFinished();
 		Runnable runnable = new WorkerRunnable(task);
 
 		// Note: for specific use-cases the runnable may be wrapped (e.g. to allow injection of thread-contexts). By
@@ -86,13 +81,19 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 			runnable = taskWrapper.wrap(runnable);
 		}
 
+		try {
+			task.getQueryInfo().registerScheduledTask(task);
+		} catch (Throwable e) {
+			task.cancel();
+			throw e;
+		}
+
 		Future<?> future = executor.submit(runnable);
 
 		// register the future to the task
 		if (task instanceof ParallelTaskBase<?>) {
 			((ParallelTaskBase<?>) task).setScheduledFuture(future);
 		}
-		task.getQueryInfo().registerScheduledTask(task);
 
 		// TODO rejected execution exception?
 
@@ -116,13 +117,36 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 		return nWorkers;
 	}
 
+	@Deprecated(forRemoval = true, since = "5.1") // currently unused and this class is internal
 	public int getNumberOfTasks() {
 		return _taskQueue.size();
 	}
 
-	private ExecutorService createExecutorService() {
+	/**
+	 * Create the {@link BlockingQueue} used for the thread pool. The default implementation creates a
+	 * {@link LinkedBlockingQueue}.
+	 *
+	 * @return
+	 */
+	@Experimental
+	protected BlockingQueue<Runnable> createBlockingQueue() {
+		return new LinkedBlockingQueue<>();
+	}
 
-		ThreadPoolExecutor executor = new ThreadPoolExecutor(nWorkers, nWorkers, 60L, TimeUnit.SECONDS, _taskQueue,
+	/**
+	 * Create the {@link ExecutorService} which is managing the individual {@link ParallelTask}s in a thread pool. The
+	 * default implementation creates a thread pool with a {@link LinkedBlockingQueue}.
+	 *
+	 * The thread pool should be configured to terminate idle threads after a period of time (default: 60s)
+	 *
+	 * @param nWorkers the number of workers in the thread pool
+	 * @param name     the base name for threads in the pool
+	 * @return
+	 */
+	@Experimental
+	protected ExecutorService createExecutorService(int nWorkers, String name) {
+
+		ThreadPoolExecutor executor = new ThreadPoolExecutor(nWorkers, nWorkers, 60L, TimeUnit.SECONDS, this._taskQueue,
 				new NamingThreadFactory(name));
 		executor.allowCoreThreadTimeOut(true);
 		return executor;
@@ -130,13 +154,16 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 
 	@Override
 	public void abort() {
-		log.info("Aborting workers of " + name + ".");
+		if (!executor.isTerminated()) {
+			log.info("Aborting workers of " + name + ".");
 
-		executor.shutdownNow();
-		try {
-			executor.awaitTermination(30, TimeUnit.SECONDS);
-		} catch (InterruptedException e) {
-			throw new FedXRuntimeException(e);
+			executor.shutdownNow();
+			try {
+				executor.awaitTermination(30, TimeUnit.SECONDS);
+			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
+				throw new FedXRuntimeException(e);
+			}
 		}
 	}
 
@@ -146,7 +173,7 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 	}
 
 	@Override
-	public void handleResult(CloseableIteration<T, QueryEvaluationException> res) {
+	public void handleResult(CloseableIteration<T> res) {
 		/* not needed here since the result is passed directly to the control instance */
 		throw new RuntimeException("Unsupported Operation for this scheduler.");
 	}
@@ -176,7 +203,6 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 	 * Determine if there are still task running or queued for the specified control.
 	 *
 	 * @param control
-	 *
 	 * @return true, if there are unfinished tasks, false otherwise
 	 */
 	public boolean isRunning(ParallelExecutor<T> control) {
@@ -192,37 +218,60 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 	class WorkerRunnable implements Runnable {
 
 		private final ParallelTask<T> task;
+		private final ParallelExecutor<T> taskControl;
 
-		private boolean aborted = false;
+		private volatile boolean aborted = false;
 
 		public WorkerRunnable(ParallelTask<T> task) {
 			super();
 			this.task = task;
+			this.taskControl = task.getControl();
+
 		}
 
 		@Override
 		public void run() {
-			if (aborted) {
-				return;
-			}
-
-			ParallelExecutor<T> taskControl = task.getControl();
+			CloseableIteration<T> res = null;
 
 			try {
-				if (log.isTraceEnabled()) {
-					log.trace("Performing task " + task.toString() + " in " + Thread.currentThread().getName());
-				}
-				CloseableIteration<T, QueryEvaluationException> res = task.performTask();
-				taskControl.addResult(res);
 
-				taskControl.done(); // in most cases this is a no-op
-			} catch (Throwable t) {
-				if (aborted) {
-					return;
+				if (aborted || Thread.currentThread().isInterrupted() || taskControl.isFinished()) {
+					throw new InterruptedException();
 				}
-				log.debug("Exception encountered while evaluating task (" + t.getClass().getSimpleName() + "): "
-						+ t.getMessage());
-				taskControl.toss(ExceptionUtil.toException(t));
+
+				if (log.isTraceEnabled()) {
+					log.trace("Performing task " + task + " in " + Thread.currentThread().getName());
+				}
+
+				res = task.performTask();
+				taskControl.addResult(res);
+				if (aborted) {
+					res.close();
+				}
+				taskControl.done();
+			} catch (Throwable t) {
+				try {
+					if (t instanceof InterruptedException) {
+						Thread.currentThread().interrupt();
+					}
+
+					log.debug("Exception encountered while evaluating task (" + t.getClass().getSimpleName() + "): "
+							+ t.getMessage());
+				} finally {
+					try {
+						taskControl.toss(ExceptionUtil.toException(t));
+					} finally {
+						try {
+							// e.g. interrupted
+							if (res != null) {
+								res.close();
+							}
+						} finally {
+							task.cancel();
+						}
+					}
+				}
+
 			}
 
 		}
@@ -253,6 +302,7 @@ public class ControlledWorkerScheduler<T> implements Scheduler<T>, TaskWrapperAw
 		try {
 			executor.awaitTermination(30, TimeUnit.SECONDS);
 		} catch (InterruptedException e) {
+			Thread.currentThread().interrupt();
 			throw new FedXRuntimeException(e);
 		}
 

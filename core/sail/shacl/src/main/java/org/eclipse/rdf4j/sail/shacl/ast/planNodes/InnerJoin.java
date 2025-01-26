@@ -1,19 +1,25 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.sail.SailException;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -31,18 +37,15 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 
 	private final PlanNode left;
 	private final PlanNode right;
-	private CloseableIteration<ValidationTuple, SailException> iterator;
-	private PushablePlanNode joined;
-	private PushablePlanNode discardedLeft;
-	private PushablePlanNode discardedRight;
-	private ValidationExecutionLogger validationExecutionLogger;
+	private CloseableIteration<ValidationTuple> iterator;
+	private NotifyingPushablePlanNode joined;
+	private NotifyingPushablePlanNode discardedLeft;
+	private NotifyingPushablePlanNode discardedRight;
 
-	public InnerJoin(PlanNode left, PlanNode right) {
-		left = PlanNodeHelper.handleSorting(this, left);
-		right = PlanNodeHelper.handleSorting(this, right);
+	public InnerJoin(PlanNode left, PlanNode right, ConnectionsGroup connectionsGroup) {
+		this.left = PlanNodeHelper.handleSorting(this, left, connectionsGroup);
+		this.right = PlanNodeHelper.handleSorting(this, right, connectionsGroup);
 
-		this.left = left;
-		this.right = right;
 		// this.stackTrace = Thread.currentThread().getStackTrace();
 	}
 
@@ -55,9 +58,9 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 			throw new IllegalStateException();
 		}
 		if (type == BufferedPlanNode.class) {
-			joined = new BufferedPlanNode<>(this, "Joined");
+			joined = new NotifyingPushablePlanNode(new BufferedPlanNode<>(this, "Joined"));
 		} else {
-			joined = new UnBufferedPlanNode<>(this, "Joined");
+			joined = new NotifyingPushablePlanNode(new UnBufferedPlanNode<>(this, "Joined"));
 
 		}
 
@@ -69,10 +72,9 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 			throw new IllegalStateException();
 		}
 		if (type == BufferedPlanNode.class) {
-			discardedLeft = new BufferedPlanNode<>(this, "DiscardedLeft");
+			discardedLeft = new NotifyingPushablePlanNode(new BufferedPlanNode<>(this, "DiscardedLeft"));
 		} else {
-			discardedLeft = new UnBufferedPlanNode<>(this, "DiscaredLeft");
-
+			throw new UnsupportedOperationException("All discarded nodes need to use buffered nodes");
 		}
 		return discardedLeft;
 	}
@@ -82,25 +84,24 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 			throw new IllegalStateException();
 		}
 		if (type == BufferedPlanNode.class) {
-			discardedRight = new BufferedPlanNode<>(this, "DiscardedRight");
+			discardedRight = new NotifyingPushablePlanNode(new BufferedPlanNode<>(this, "DiscardedRight"));
 		} else {
-			discardedRight = new UnBufferedPlanNode<>(this, "DiscardedRight");
-
+			throw new UnsupportedOperationException("All discarded nodes need to use buffered nodes");
 		}
 		return discardedRight;
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 		throw new IllegalStateException();
 	}
 
-	public CloseableIteration<ValidationTuple, SailException> internalIterator() {
+	public CloseableIteration<ValidationTuple> internalIterator() {
 
-		return new CloseableIteration<ValidationTuple, SailException>() {
+		return new CloseableIteration<ValidationTuple>() {
 
-			final CloseableIteration<? extends ValidationTuple, SailException> leftIterator = left.iterator();
-			final CloseableIteration<? extends ValidationTuple, SailException> rightIterator = right.iterator();
+			final CloseableIteration<? extends ValidationTuple> leftIterator = left.iterator();
+			final CloseableIteration<? extends ValidationTuple> rightIterator = right.iterator();
 
 			ValidationTuple next;
 			ValidationTuple nextLeft;
@@ -124,22 +125,27 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 				if (nextRight == null && prevLeft == null && nextLeft != null) {
 					if (discardedLeft != null) {
 						discardedLeft.push(nextLeft);
+						while (leftIterator.hasNext()) {
+							discardedLeft.push(leftIterator.next());
+						}
+						assert !leftIterator.hasNext() : leftIterator.toString();
 					}
+					nextLeft = null;
 
 					return;
 				}
 
-				if (nextLeft == null) {
+				if (nextLeft == null && nextRight != null) {
 					if (discardedRight != null) {
-						while (nextRight != null) {
-							discardedRight.push(nextRight);
-							if (rightIterator.hasNext()) {
-								nextRight = rightIterator.next();
-							} else {
-								nextRight = null;
-							}
+						discardedRight.push(nextRight);
+						while (rightIterator.hasNext()) {
+							discardedRight.push(rightIterator.next());
 						}
+						assert !rightIterator.hasNext() : rightIterator.toString();
+
 					}
+					nextRight = null;
+
 					return;
 				}
 
@@ -152,7 +158,7 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 							nextRight = null;
 						} else {
 
-							int compareTo = nextLeft.compareTarget(nextRight);
+							int compareTo = nextLeft.compareActiveTarget(nextRight);
 
 							if (compareTo < 0) {
 								if (joinedLeft != nextLeft && discardedLeft != null) {
@@ -182,18 +188,53 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 							while (leftIterator.hasNext()) {
 								discardedLeft.push(leftIterator.next());
 							}
+
+							assert nextLeft == null;
 						}
+
+						assert !rightIterator.hasNext() : rightIterator.toString();
 
 						return;
 					}
+				}
+
+				if (next == null) {
+					if (nextLeft != null && discardedLeft != null) {
+						discardedLeft.push(nextLeft);
+						nextLeft = null;
+					}
+					if (nextRight != null && discardedRight != null) {
+						discardedRight.push(nextRight);
+						nextRight = null;
+					}
+
+					if (discardedLeft != null) {
+
+						while (leftIterator.hasNext()) {
+							discardedLeft.push(leftIterator.next());
+						}
+						assert !leftIterator.hasNext() : leftIterator.toString();
+					}
+
+					if (discardedRight != null) {
+
+						while (rightIterator.hasNext()) {
+							discardedRight.push(rightIterator.next());
+						}
+						assert !rightIterator.hasNext() : rightIterator.toString();
+					}
+
 				}
 
 			}
 
 			@Override
 			public void close() throws SailException {
-				leftIterator.close();
-				rightIterator.close();
+				try {
+					leftIterator.close();
+				} finally {
+					rightIterator.close();
+				}
 			}
 
 			@Override
@@ -212,8 +253,9 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 
 			@Override
 			public void remove() throws SailException {
-
+				throw new UnsupportedOperationException();
 			}
+
 		};
 	}
 
@@ -286,29 +328,45 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 	@Override
 	public boolean incrementIterator() {
 
-		if (iterator.hasNext()) {
-			ValidationTuple next = iterator.next();
-			if (joined != null) {
-				joined.push(next);
-			}
-			return true;
+		if (discardedLeft != null) {
+			discardedLeft.resetNotification();
+		}
+		if (discardedRight != null) {
+			discardedRight.resetNotification();
 		}
 
-		return false;
+		while (true) {
+			if (iterator.hasNext()) {
+				ValidationTuple next = iterator.next();
+				if (joined != null) {
+					joined.push(next);
+				}
+
+				if (discardedRight != null) {
+					if (!discardedRight.wasRecentlyPushed()) {
+						continue;
+					}
+				}
+
+				if (discardedLeft != null) {
+					if (!discardedLeft.wasRecentlyPushed()) {
+						continue;
+					}
+				}
+
+				return true;
+			} else {
+				return false;
+			}
+		}
+
 	}
 
 	@Override
 	public void receiveLogger(ValidationExecutionLogger validationExecutionLogger) {
-		this.validationExecutionLogger = validationExecutionLogger;
-
-		PlanNode[] planNodes = { joined, discardedLeft, discardedRight, left, right };
-
-		for (PlanNode planNode : planNodes) {
-			if (planNode != null) {
-				planNode.receiveLogger(validationExecutionLogger);
-			}
-		}
-
+		Stream.of(joined, discardedLeft, discardedRight, left, right)
+				.filter(Objects::nonNull)
+				.forEach(p -> p.receiveLogger(validationExecutionLogger));
 	}
 
 	@Override
@@ -320,4 +378,86 @@ public class InnerJoin implements MultiStreamPlanNode, PlanNode {
 	public boolean requiresSorted() {
 		return true;
 	}
+
+	class NotifyingPushablePlanNode implements PushablePlanNode {
+		PushablePlanNode delegate;
+
+		boolean recentlyPushed = false;
+
+		public NotifyingPushablePlanNode(PushablePlanNode delegate) {
+			this.delegate = delegate;
+		}
+
+		@Override
+		public CloseableIteration<? extends ValidationTuple> iterator() {
+			return delegate.iterator();
+		}
+
+		@Override
+		public int depth() {
+			return delegate.depth();
+		}
+
+		@Override
+		public void getPlanAsGraphvizDot(StringBuilder stringBuilder) {
+			delegate.getPlanAsGraphvizDot(stringBuilder);
+		}
+
+		@Override
+		public String getId() {
+			return delegate.getId();
+		}
+
+		@Override
+		public void receiveLogger(ValidationExecutionLogger validationExecutionLogger) {
+			delegate.receiveLogger(validationExecutionLogger);
+		}
+
+		@Override
+		public boolean producesSorted() {
+			return delegate.producesSorted();
+		}
+
+		@Override
+		public boolean requiresSorted() {
+			return delegate.requiresSorted();
+		}
+
+		@Override
+		public void push(ValidationTuple tuple) {
+			recentlyPushed = true;
+			delegate.push(tuple);
+		}
+
+		@Override
+		public boolean isClosed() {
+			return delegate.isClosed();
+		}
+
+		public void resetNotification() {
+			this.recentlyPushed = false;
+		}
+
+		public boolean wasRecentlyPushed() {
+			return recentlyPushed;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			if (this == o) {
+				return true;
+			}
+			if (o == null || getClass() != o.getClass()) {
+				return false;
+			}
+			NotifyingPushablePlanNode that = (NotifyingPushablePlanNode) o;
+			return delegate.equals(that.delegate);
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(delegate);
+		}
+	}
+
 }

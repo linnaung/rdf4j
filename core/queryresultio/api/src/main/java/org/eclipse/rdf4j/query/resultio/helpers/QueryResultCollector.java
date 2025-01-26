@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio.helpers;
 
@@ -26,7 +29,7 @@ import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
  *
  * @author Peter Ansell
  */
-public class QueryResultCollector implements QueryResultHandler, TupleQueryResultHandler, BooleanQueryResultHandler {
+public class QueryResultCollector implements TupleQueryResultHandler, BooleanQueryResultHandler {
 
 	private boolean hasBooleanSet = false;
 
@@ -38,7 +41,7 @@ public class QueryResultCollector implements QueryResultHandler, TupleQueryResul
 
 	private List<BindingSet> bindingSets = Collections.emptyList();
 
-	private List<String> links = new ArrayList<>();
+	private final List<String> links = new ArrayList<>();
 
 	public QueryResultCollector() {
 	}

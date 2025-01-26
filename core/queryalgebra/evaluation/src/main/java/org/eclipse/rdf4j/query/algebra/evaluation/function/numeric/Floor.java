@@ -1,20 +1,22 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.numeric;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 
-import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.FN;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
@@ -41,16 +43,16 @@ public class Floor implements Function {
 		if (args[0] instanceof Literal) {
 			Literal literal = (Literal) args[0];
 
-			IRI datatype = literal.getDatatype();
+			CoreDatatype.XSD datatype = literal.getCoreDatatype().asXSDDatatypeOrNull();
 
 			// function accepts only numeric literals
-			if (datatype != null && XMLDatatypeUtil.isNumericDatatype(datatype)) {
-				if (XMLDatatypeUtil.isIntegerDatatype(datatype)) {
+			if (datatype != null && datatype.isNumericDatatype()) {
+				if (datatype.isIntegerDatatype()) {
 					return literal;
-				} else if (XMLDatatypeUtil.isDecimalDatatype(datatype)) {
+				} else if (datatype.isDecimalDatatype()) {
 					BigDecimal floor = literal.decimalValue().setScale(0, RoundingMode.FLOOR);
 					return valueFactory.createLiteral(floor.toPlainString(), datatype);
-				} else if (XMLDatatypeUtil.isFloatingPointDatatype(datatype)) {
+				} else if (datatype.isFloatingPointDatatype()) {
 					double floor = Math.floor(literal.doubleValue());
 					return valueFactory.createLiteral(Double.toString(floor), datatype);
 				} else {

@@ -1,17 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl;
 
-import static junit.framework.TestCase.assertEquals;
-import static junit.framework.TestCase.assertTrue;
-
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -25,7 +24,10 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.junit.Test;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.RdfsSubClassOfReasoner;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.VerySimpleRdfsBackwardsChainingConnection;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 public class RdfsShaclConnectionTest {
 
@@ -41,20 +43,20 @@ public class RdfsShaclConnectionTest {
 	public void testHasStatement() {
 
 		ShaclSail shaclSail = new ShaclSail(new MemoryStore());
-		shaclSail.setIgnoreNoShapesLoadedException(true);
 		shaclSail.init();
 
 		fill(shaclSail);
 
 		try (NotifyingSailConnection connection = shaclSail.getConnection()) {
 			((ShaclSailConnection) connection).rdfsSubClassOfReasoner = RdfsSubClassOfReasoner
-					.createReasoner((ShaclSailConnection) connection);
+					.createReasoner((ShaclSailConnection) connection, new ValidationSettings());
 			VerySimpleRdfsBackwardsChainingConnection connection2 = new VerySimpleRdfsBackwardsChainingConnection(
 					connection,
 					((ShaclSailConnection) connection).getRdfsSubClassOfReasoner());
 
-			assertTrue(connection2.hasStatement(aSubSub, RDF.TYPE, sup, true));
+			Assertions.assertTrue(connection2.hasStatement(aSubSub, RDF.TYPE, sup, true));
 		}
+		shaclSail.shutDown();
 
 	}
 
@@ -62,14 +64,13 @@ public class RdfsShaclConnectionTest {
 	public void testGetStatement() {
 
 		ShaclSail shaclSail = new ShaclSail(new MemoryStore());
-		shaclSail.setIgnoreNoShapesLoadedException(true);
 		shaclSail.init();
 
 		fill(shaclSail);
 
 		try (NotifyingSailConnection connection = shaclSail.getConnection()) {
 			((ShaclSailConnection) connection).rdfsSubClassOfReasoner = RdfsSubClassOfReasoner
-					.createReasoner((ShaclSailConnection) connection);
+					.createReasoner((ShaclSailConnection) connection, new ValidationSettings());
 
 			VerySimpleRdfsBackwardsChainingConnection connection2 = new VerySimpleRdfsBackwardsChainingConnection(
 					connection,
@@ -78,27 +79,26 @@ public class RdfsShaclConnectionTest {
 			try (Stream<? extends Statement> stream = connection2.getStatements(aSubSub, RDF.TYPE, sup, true)
 					.stream()) {
 				Set<? extends Statement> collect = stream.collect(Collectors.toSet());
-				HashSet<Statement> expected = new HashSet<>(
-						Collections.singletonList(vf.createStatement(aSubSub, RDF.TYPE, sup)));
-				assertEquals(expected, collect);
+				Set<Statement> expected = Set.of(vf.createStatement(aSubSub, RDF.TYPE, sup));
+				Assertions.assertEquals(expected, collect);
 			}
 
 			try (Stream<? extends Statement> stream = connection2.getStatements(aSubSub, RDF.TYPE, sub, true)
 					.stream()) {
 				Set<? extends Statement> collect = stream.collect(Collectors.toSet());
-				HashSet<Statement> expected = new HashSet<>(
-						Collections.singletonList(vf.createStatement(aSubSub, RDF.TYPE, sub)));
-				assertEquals(expected, collect);
+				Set<Statement> expected = Set.of(vf.createStatement(aSubSub, RDF.TYPE, sub));
+				Assertions.assertEquals(expected, collect);
 			}
 
 			try (Stream<? extends Statement> stream = connection2.getStatements(aSubSub, RDF.TYPE, subSub, true)
 					.stream()) {
 				Set<? extends Statement> collect = stream.collect(Collectors.toSet());
-				HashSet<Statement> expected = new HashSet<>(
-						Collections.singletonList(vf.createStatement(aSubSub, RDF.TYPE, subSub)));
-				assertEquals(expected, collect);
+				Set<Statement> expected = Set.of(vf.createStatement(aSubSub, RDF.TYPE, subSub));
+				Assertions.assertEquals(expected, collect);
 			}
 		}
+
+		shaclSail.shutDown();
 
 	}
 
@@ -106,7 +106,6 @@ public class RdfsShaclConnectionTest {
 	public void testGetStatementNoDuplicates() {
 
 		ShaclSail shaclSail = new ShaclSail(new MemoryStore());
-		shaclSail.setIgnoreNoShapesLoadedException(true);
 		shaclSail.init();
 
 		fill(shaclSail);
@@ -118,7 +117,7 @@ public class RdfsShaclConnectionTest {
 			connection.commit();
 
 			((ShaclSailConnection) connection).rdfsSubClassOfReasoner = RdfsSubClassOfReasoner
-					.createReasoner((ShaclSailConnection) connection);
+					.createReasoner((ShaclSailConnection) connection, new ValidationSettings());
 
 			VerySimpleRdfsBackwardsChainingConnection connection2 = new VerySimpleRdfsBackwardsChainingConnection(
 					connection,
@@ -126,11 +125,13 @@ public class RdfsShaclConnectionTest {
 
 			try (Stream<? extends Statement> stream = connection2.getStatements(aSubSub, RDF.TYPE, sup, true)
 					.stream()) {
-				List<Statement> collect = stream.peek(System.out::println).collect(Collectors.toList());
-				assertEquals(new HashSet<>(collect).size(), collect.size());
+				List<Statement> collect = stream.collect(Collectors.toList());
+				Assertions.assertEquals(new HashSet<>(collect).size(), collect.size());
 
 			}
 		}
+		shaclSail.shutDown();
+
 	}
 
 	private void fill(ShaclSail shaclSail) {

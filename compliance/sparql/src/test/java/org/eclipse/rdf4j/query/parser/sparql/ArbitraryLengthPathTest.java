@@ -1,11 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.parser.sparql;
+
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
@@ -16,73 +21,68 @@ import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
-
-import junit.framework.TestCase;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author james
  */
-public class ArbitraryLengthPathTest extends TestCase {
+public class ArbitraryLengthPathTest {
 
 	private Repository repo;
 
 	private RepositoryConnection con;
 
-	@Before
-	@Override
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		repo = new SailRepository(new MemoryStore());
-		repo.initialize();
 		con = repo.getConnection();
 	}
 
-	@After
-	@Override
-	public void tearDown() throws Exception {
+	@AfterEach
+	public void tearDown() {
 		con.close();
 		repo.shutDown();
 	}
 
 	@Test
-	public void test10() throws Exception {
+	public void test10() {
 		populate(10);
 		String sparql = "ASK { <urn:test:root> <urn:test:hasChild>* <urn:test:node-end> }";
 		assertTrue(con.prepareBooleanQuery(QueryLanguage.SPARQL, sparql).evaluate());
 	}
 
 	@Test
-	public void test100() throws Exception {
+	public void test100() {
 		populate(100);
 		String sparql = "ASK { <urn:test:root> <urn:test:hasChild>* <urn:test:node-end> }";
 		assertTrue(con.prepareBooleanQuery(QueryLanguage.SPARQL, sparql).evaluate());
 	}
 
 	@Test
-	public void test1000() throws Exception {
+	public void test1000() {
 		populate(1000);
 		String sparql = "ASK { <urn:test:root> <urn:test:hasChild>* <urn:test:node-end> }";
 		assertTrue(con.prepareBooleanQuery(QueryLanguage.SPARQL, sparql).evaluate());
 	}
 
 	@Test
-	public void test10000() throws Exception {
+	public void test10000() {
 		populate(10000);
 		String sparql = "ASK { <urn:test:root> <urn:test:hasChild>* <urn:test:node-end> }";
 		assertTrue(con.prepareBooleanQuery(QueryLanguage.SPARQL, sparql).evaluate());
 	}
 
 	@Test
-	public void test100000() throws Exception {
+	public void test100000() {
 		populate(100000);
 		String sparql = "ASK { <urn:test:root> <urn:test:hasChild>* <urn:test:node-end> }";
 		assertTrue(con.prepareBooleanQuery(QueryLanguage.SPARQL, sparql).evaluate());
 	}
 
 	@Test
-	public void testDirection() throws Exception {
+	public void testDirection() {
 		ValueFactory vf = con.getValueFactory();
 		con.add(vf.createIRI("urn:test:a"), vf.createIRI("urn:test:rel"), vf.createIRI("urn:test:b"));
 		con.add(vf.createIRI("urn:test:b"), vf.createIRI("urn:test:rel"), vf.createIRI("urn:test:a"));
@@ -91,7 +91,7 @@ public class ArbitraryLengthPathTest extends TestCase {
 	}
 
 	@Test
-	public void testSimilarPatterns() throws Exception {
+	public void testSimilarPatterns() {
 		ValueFactory vf = con.getValueFactory();
 		con.add(vf.createIRI("urn:test:a"), RDF.TYPE, vf.createIRI("urn:test:c"));
 		con.add(vf.createIRI("urn:test:b"), RDF.TYPE, vf.createIRI("urn:test:d"));

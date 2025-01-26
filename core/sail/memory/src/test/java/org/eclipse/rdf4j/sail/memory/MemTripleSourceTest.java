@@ -1,22 +1,23 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.memory;
-
-import static org.junit.Assert.assertEquals;
 
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.List;
 
-import org.eclipse.rdf4j.IsolationLevel;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.ExceptionConvertingIteration;
 import org.eclipse.rdf4j.common.iteration.Iterations;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -34,9 +35,10 @@ import org.eclipse.rdf4j.sail.SailConnection;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.base.SailDataset;
 import org.eclipse.rdf4j.sail.base.SailSource;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -66,12 +68,11 @@ public class MemTripleSourceTest {
 	private SailSource source;
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		store = new MemoryStore();
-		store.initialize();
+		store.init();
 		f = store.getValueFactory();
 
 		bob = f.createIRI(EX_NS, "bob");
@@ -80,10 +81,9 @@ public class MemTripleSourceTest {
 	}
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@After
-	public void tearDown() throws Exception {
+	@AfterEach
+	public void tearDown() {
 		if (snapshot != null) {
 			snapshot.close();
 		}
@@ -103,11 +103,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				null, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(8, list.size());
+			Assertions.assertEquals(8, list.size());
 		}
 	}
 
@@ -121,11 +121,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				null, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(8, list.size());
+			Assertions.assertEquals(8, list.size());
 		}
 	}
 
@@ -139,11 +139,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				null, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(16, list.size());
+			Assertions.assertEquals(16, list.size());
 		}
 	}
 
@@ -157,11 +157,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(4, list.size());
+			Assertions.assertEquals(4, list.size());
 		}
 	}
 
@@ -175,11 +175,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(4, list.size());
+			Assertions.assertEquals(4, list.size());
 		}
 	}
 
@@ -193,11 +193,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(8, list.size());
+			Assertions.assertEquals(8, list.size());
 		}
 	}
 
@@ -211,11 +211,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null, this.alice)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(0, list.size());
+			Assertions.assertEquals(0, list.size());
 		}
 	}
 
@@ -229,11 +229,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null, this.alice)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(4, list.size());
+			Assertions.assertEquals(4, list.size());
 		}
 	}
 
@@ -247,11 +247,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null, this.alice)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(4, list.size());
+			Assertions.assertEquals(4, list.size());
 		}
 	}
 
@@ -265,11 +265,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(0, list.size());
+			Assertions.assertEquals(0, list.size());
 		}
 	}
 
@@ -283,11 +283,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(4, list.size());
+			Assertions.assertEquals(4, list.size());
 		}
 	}
 
@@ -301,11 +301,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, null, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(8, list.size());
+			Assertions.assertEquals(8, list.size());
 		}
 	}
 
@@ -319,11 +319,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, OWL.THING, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(0, list.size());
+			Assertions.assertEquals(0, list.size());
 		}
 	}
 
@@ -337,11 +337,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, OWL.THING, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(1, list.size());
+			Assertions.assertEquals(1, list.size());
 		}
 	}
 
@@ -355,11 +355,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, OWL.THING, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(2, list.size());
+			Assertions.assertEquals(2, list.size());
 		}
 	}
 
@@ -373,11 +373,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDF.TYPE, OWL.CLASS, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(0, list.size());
+			Assertions.assertEquals(0, list.size());
 		}
 	}
 
@@ -391,11 +391,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDF.TYPE, OWL.CLASS, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(4, list.size());
+			Assertions.assertEquals(4, list.size());
 		}
 	}
 
@@ -409,11 +409,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDF.TYPE, OWL.CLASS, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(8, list.size());
+			Assertions.assertEquals(8, list.size());
 		}
 	}
 
@@ -427,11 +427,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDF.TYPE, OWL.CLASS)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(4, list.size());
+			Assertions.assertEquals(4, list.size());
 		}
 	}
 
@@ -445,11 +445,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDF.TYPE, OWL.CLASS)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(4, list.size());
+			Assertions.assertEquals(4, list.size());
 		}
 	}
 
@@ -463,11 +463,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDF.TYPE, OWL.CLASS)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(8, list.size());
+			Assertions.assertEquals(8, list.size());
 		}
 	}
 
@@ -481,11 +481,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"))) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(3, list.size());
+			Assertions.assertEquals(3, list.size());
 		}
 	}
 
@@ -499,11 +499,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"))) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(3, list.size());
+			Assertions.assertEquals(3, list.size());
 		}
 	}
 
@@ -517,11 +517,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"))) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(6, list.size());
+			Assertions.assertEquals(6, list.size());
 		}
 	}
 
@@ -535,11 +535,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"), this.alice)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(0, list.size());
+			Assertions.assertEquals(0, list.size());
 		}
 	}
 
@@ -553,11 +553,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"), this.alice)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(3, list.size());
+			Assertions.assertEquals(3, list.size());
 		}
 	}
 
@@ -571,11 +571,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"), this.alice)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(3, list.size());
+			Assertions.assertEquals(3, list.size());
 		}
 	}
 
@@ -589,11 +589,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"), this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(0, list.size());
+			Assertions.assertEquals(0, list.size());
 		}
 	}
 
@@ -607,11 +607,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"), this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(3, list.size());
+			Assertions.assertEquals(3, list.size());
 		}
 	}
 
@@ -625,11 +625,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				RDFS.SUBCLASSOF, f.createIRI(EX_NS, "A"), this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(6, list.size());
+			Assertions.assertEquals(6, list.size());
 		}
 	}
 
@@ -643,11 +643,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source
+		try (CloseableIteration<? extends Statement> statements = source
 				.getStatements(f.createIRI(EX_NS, "C"), RDFS.SUBCLASSOF, null, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(0, list.size());
+			Assertions.assertEquals(0, list.size());
 		}
 	}
 
@@ -661,11 +661,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source
+		try (CloseableIteration<? extends Statement> statements = source
 				.getStatements(f.createIRI(EX_NS, "C"), RDFS.SUBCLASSOF, null, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(1, list.size());
+			Assertions.assertEquals(1, list.size());
 		}
 	}
 
@@ -679,11 +679,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source
+		try (CloseableIteration<? extends Statement> statements = source
 				.getStatements(f.createIRI(EX_NS, "C"), RDFS.SUBCLASSOF, null, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(2, list.size());
+			Assertions.assertEquals(2, list.size());
 		}
 	}
 
@@ -697,11 +697,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl");
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source
+		try (CloseableIteration<? extends Statement> statements = source
 				.getStatements(f.createIRI(EX_NS, "C"), RDFS.SUBCLASSOF, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(1, list.size());
+			Assertions.assertEquals(1, list.size());
 		}
 	}
 
@@ -715,11 +715,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source
+		try (CloseableIteration<? extends Statement> statements = source
 				.getStatements(f.createIRI(EX_NS, "C"), RDFS.SUBCLASSOF, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(1, list.size());
+			Assertions.assertEquals(1, list.size());
 		}
 	}
 
@@ -733,11 +733,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source
+		try (CloseableIteration<? extends Statement> statements = source
 				.getStatements(f.createIRI(EX_NS, "C"), RDFS.SUBCLASSOF, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(2, list.size());
+			Assertions.assertEquals(2, list.size());
 		}
 	}
 
@@ -751,11 +751,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob, this.mary);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				null, null)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(24, list.size());
+			Assertions.assertEquals(24, list.size());
 		}
 	}
 
@@ -769,11 +769,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob, this.mary);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				null, null, this.alice)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(8, list.size());
+			Assertions.assertEquals(8, list.size());
 		}
 	}
 
@@ -787,11 +787,11 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob, this.mary);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				null, null, this.alice, this.bob)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(16, list.size());
+			Assertions.assertEquals(16, list.size());
 		}
 	}
 
@@ -805,29 +805,27 @@ public class MemTripleSourceTest {
 		loadTestData("/alp-testdata.ttl", this.alice, this.bob, this.mary);
 		TripleSource source = getTripleSourceCommitted();
 
-		try (CloseableIteration<? extends Statement, QueryEvaluationException> statements = source.getStatements(null,
+		try (CloseableIteration<? extends Statement> statements = source.getStatements(((Resource) null),
 				null, null, this.alice, this.bob, this.mary)) {
 			List<Statement> list = Iterations.asList(statements);
 
-			assertEquals(24, list.size());
+			Assertions.assertEquals(24, list.size());
 		}
 	}
 
 	protected void loadTestData(String dataFile, Resource... contexts)
 			throws RDFParseException, IOException, SailException {
 		logger.debug("loading dataset {}", dataFile);
-		InputStream dataset = this.getClass().getResourceAsStream(dataFile);
-		SailConnection con = store.getConnection();
-		try {
-			con.begin();
-			for (Statement nextStatement : Rio.parse(dataset, "", RDFFormat.TURTLE, contexts)) {
-				con.addStatement(nextStatement.getSubject(), nextStatement.getPredicate(), nextStatement.getObject(),
-						nextStatement.getContext());
+		try (InputStream dataset = this.getClass().getResourceAsStream(dataFile)) {
+			try (SailConnection con = store.getConnection()) {
+				con.begin();
+				for (Statement nextStatement : Rio.parse(dataset, "", RDFFormat.TURTLE, contexts)) {
+					con.addStatement(nextStatement.getSubject(), nextStatement.getPredicate(),
+							nextStatement.getObject(),
+							nextStatement.getContext());
+				}
+				con.commit();
 			}
-		} finally {
-			con.commit();
-			con.close();
-			dataset.close();
 		}
 		logger.debug("dataset loaded.");
 	}
@@ -847,14 +845,14 @@ public class MemTripleSourceTest {
 		return new TripleSource() {
 
 			@Override
-			public CloseableIteration<? extends Statement, QueryEvaluationException> getStatements(Resource subj,
+			public CloseableIteration<? extends Statement> getStatements(Resource subj,
 					IRI pred, Value obj, Resource... contexts) throws QueryEvaluationException {
 				try {
 					return new ExceptionConvertingIteration<Statement, QueryEvaluationException>(
 							snapshot.getStatements(subj, pred, obj, contexts)) {
 
 						@Override
-						protected QueryEvaluationException convert(Exception e) {
+						protected QueryEvaluationException convert(RuntimeException e) {
 							return new QueryEvaluationException(e);
 						}
 					};

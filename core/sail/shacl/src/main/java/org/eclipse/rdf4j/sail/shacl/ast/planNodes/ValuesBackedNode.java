@@ -1,22 +1,26 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
-import java.util.ArrayDeque;
-import java.util.Deque;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
 import java.util.SortedSet;
+import java.util.stream.Collectors;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.ConstraintComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,42 +31,46 @@ import org.slf4j.LoggerFactory;
 public class ValuesBackedNode implements PlanNode {
 
 	private static final Logger logger = LoggerFactory.getLogger(ValuesBackedNode.class);
-	private final SortedSet<Value> collection;
+	private final SortedSet<Value> values;
+	private final List<ValidationTuple> tuples;
+
 	private final ConstraintComponent.Scope scope;
 	boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
-	public ValuesBackedNode(SortedSet<Value> collection, ConstraintComponent.Scope scope) {
-		this.collection = collection;
+	public ValuesBackedNode(SortedSet<Value> values, ConstraintComponent.Scope scope, Resource[] dataGraph) {
+		this.tuples = values.stream()
+				.map(c -> new ValidationTuple(c, scope, false, dataGraph))
+				.collect(Collectors.toList());
+		this.values = values;
 		this.scope = scope;
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final Iterator<Value> iterator = collection.iterator();
+			final Iterator<ValidationTuple> iterator = tuples.iterator();
 
 			@Override
-			public void close() throws SailException {
+			protected void init() {
+				// no-op
 			}
 
 			@Override
-			public boolean localHasNext() throws SailException {
+			public void localClose() {
+			}
+
+			@Override
+			public boolean localHasNext() {
 				return iterator.hasNext();
 			}
 
 			@Override
-			public ValidationTuple loggingNext() throws SailException {
-				Deque<Value> targets = new ArrayDeque<>();
-				targets.addLast(iterator.next());
-				return new ValidationTuple(targets, scope, false);
+			public ValidationTuple loggingNext() {
+				return iterator.next();
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -89,8 +97,7 @@ public class ValuesBackedNode implements PlanNode {
 
 	@Override
 	public String toString() {
-		return "ValuesBackedNode{" +
-				"collection=" + collection + '}';
+		return "ValuesBackedNode{" + "values=" + Formatter.prefix(values) + '}';
 	}
 
 	@Override
@@ -102,14 +109,12 @@ public class ValuesBackedNode implements PlanNode {
 			return false;
 		}
 		ValuesBackedNode that = (ValuesBackedNode) o;
-		return collection.equals(that.collection);
+		return values.equals(that.values) && scope == that.scope;
 	}
 
 	@Override
 	public int hashCode() {
-
-		return collection.hashCode();
-
+		return Objects.hash(values, scope);
 	}
 
 	@Override

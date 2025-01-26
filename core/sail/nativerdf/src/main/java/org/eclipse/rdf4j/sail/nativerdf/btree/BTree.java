@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.btree;
 
@@ -22,11 +25,12 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import org.eclipse.rdf4j.common.io.ByteArrayUtil;
 import org.eclipse.rdf4j.common.io.NioFile;
 import org.eclipse.rdf4j.sail.SailException;
+import org.eclipse.rdf4j.sail.nativerdf.NativeStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Implementation of an on-disk B-Tree using the <tt>java.nio</tt> classes that are available in JDK 1.4 and newer.
+ * Implementation of an on-disk B-Tree using the <var>java.nio</var> classes that are available in JDK 1.4 and newer.
  * Documentation about B-Trees can be found on-line at the following URLs:
  * <ul>
  * <li>http://cis.stvincent.edu/swd/btree/btree.html</li>,
@@ -151,7 +155,7 @@ public class BTree implements Closeable {
 	 *-----------*/
 
 	/**
-	 * The ID of the root node, <tt>0</tt> to indicate that there is no root node (i.e. the BTree is empty).
+	 * The ID of the root node, <var>0</var> to indicate that there is no root node (i.e. the BTree is empty).
 	 */
 	private volatile int rootNodeID;
 
@@ -171,7 +175,7 @@ public class BTree implements Closeable {
 	 *--------------*/
 
 	/**
-	 * Creates a new BTree that uses an instance of <tt>DefaultRecordComparator</tt> to compare values.
+	 * Creates a new BTree that uses an instance of <var>DefaultRecordComparator</var> to compare values.
 	 *
 	 * @param dataDir        The directory for the BTree data.
 	 * @param filenamePrefix The prefix for all files used by this BTree.
@@ -186,7 +190,7 @@ public class BTree implements Closeable {
 	}
 
 	/**
-	 * Creates a new BTree that uses an instance of <tt>DefaultRecordComparator</tt> to compare values.
+	 * Creates a new BTree that uses an instance of <var>DefaultRecordComparator</var> to compare values.
 	 *
 	 * @param dataDir        The directory for the BTree data.
 	 * @param filenamePrefix The prefix for all files used by this BTree.
@@ -204,7 +208,7 @@ public class BTree implements Closeable {
 	}
 
 	/**
-	 * Creates a new BTree that uses the supplied <tt>RecordComparator</tt> to compare the values that are or will be
+	 * Creates a new BTree that uses the supplied <var>RecordComparator</var> to compare the values that are or will be
 	 * stored in the B-Tree.
 	 *
 	 * @param dataDir        The directory for the BTree data.
@@ -212,7 +216,7 @@ public class BTree implements Closeable {
 	 * @param blockSize      The size (in bytes) of a file block for a single node. Ideally, the size specified is the
 	 *                       size of a block in the used file system.
 	 * @param valueSize      The size (in bytes) of the fixed-length values that are or will be stored in the B-Tree.
-	 * @param comparator     The <tt>RecordComparator</tt> to use for determining whether one value is smaller, larger
+	 * @param comparator     The <var>RecordComparator</var> to use for determining whether one value is smaller, larger
 	 *                       or equal to another.
 	 * @throws IOException In case the initialization of the B-Tree file failed.
 	 */
@@ -222,7 +226,7 @@ public class BTree implements Closeable {
 	}
 
 	/**
-	 * Creates a new BTree that uses the supplied <tt>RecordComparator</tt> to compare the values that are or will be
+	 * Creates a new BTree that uses the supplied <var>RecordComparator</var> to compare the values that are or will be
 	 * stored in the B-Tree.
 	 *
 	 * @param dataDir        The directory for the BTree data.
@@ -230,7 +234,7 @@ public class BTree implements Closeable {
 	 * @param blockSize      The size (in bytes) of a file block for a single node. Ideally, the size specified is the
 	 *                       size of a block in the used file system.
 	 * @param valueSize      The size (in bytes) of the fixed-length values that are or will be stored in the B-Tree.
-	 * @param comparator     The <tt>RecordComparator</tt> to use for determining whether one value is smaller, larger
+	 * @param comparator     The <var>RecordComparator</var> to use for determining whether one value is smaller, larger
 	 *                       or equal to another.
 	 * @param forceSync      Flag indicating whether updates should be synced to disk forcefully by calling
 	 *                       {@link FileChannel#force(boolean)}. This may have a severe impact on write performance.
@@ -289,6 +293,13 @@ public class BTree implements Closeable {
 			this.valueSize = buf.getInt();
 			this.rootNodeID = buf.getInt();
 
+			if (rootNodeID == 0 && NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+				if (nioFile.size() > blockSize) {
+					throw new SailException("Root node ID is 0 but file is not empty. Btree may be corrupt. File: "
+							+ file.getAbsolutePath());
+				}
+			}
+
 			if (Arrays.equals(MAGIC_NUMBER, magicNumber)) {
 				if (version > FILE_FORMAT_VERSION) {
 					throw new IOException("Unable to read BTree file " + file + "; it uses a newer file format");
@@ -344,7 +355,7 @@ public class BTree implements Closeable {
 	/**
 	 * Closes the BTree and then deletes its data files.
 	 *
-	 * @return <tt>true</tt> if the operation was successful.
+	 * @return <var>true</var> if the operation was successful.
 	 */
 	public boolean delete() throws IOException {
 		if (closed.compareAndSet(false, true)) {
@@ -423,7 +434,7 @@ public class BTree implements Closeable {
 	 *
 	 * @param key A value that is equal to the value that should be retrieved, at least as far as the RecordComparator
 	 *            of this BTree is concerned.
-	 * @return The value matching the key, or <tt>null</tt> if no such value could be found.
+	 * @return The value matching the key, or <var>null</var> if no such value could be found.
 	 */
 	public byte[] get(byte[] key) throws IOException {
 		btreeLock.readLock().lock();
@@ -501,7 +512,7 @@ public class BTree implements Closeable {
 	}
 
 	/**
-	 * Gives an estimate of the number of values between <tt>minValue</tt> and <tt>maxValue</tt>.
+	 * Gives an estimate of the number of values between <var>minValue</var> and <var>maxValue</var>.
 	 *
 	 * @param minValue the lower bound of the range.
 	 * @param maxValue the upper bound of the range,
@@ -641,8 +652,8 @@ public class BTree implements Closeable {
 	}
 
 	/**
-	 * Estimates the number of values contained by a averagely filled node node at the specified <tt>nodeDepth</tt> (the
-	 * root is at depth 1).
+	 * Estimates the number of values contained by a averagely filled node node at the specified <var>nodeDepth</var>
+	 * (the root is at depth 1).
 	 */
 	private long getTreeSizeEstimate(int nodeDepth) throws IOException {
 		// Assume fill factor of 50%
@@ -739,7 +750,7 @@ public class BTree implements Closeable {
 	}
 
 	private InsertResult insertInTree(byte[] value, int nodeID, Node node) throws IOException {
-		InsertResult insertResult = null;
+		InsertResult insertResult;
 
 		// Search value in node
 		int valueIdx = node.search(value);
@@ -823,7 +834,7 @@ public class BTree implements Closeable {
 	 * Removes the value that matches the specified key from the B-Tree.
 	 *
 	 * @param key A key that matches the value that should be removed from the B-Tree.
-	 * @return The value that was removed from the B-Tree, or <tt>null</tt> if no matching value was found.
+	 * @return The value that was removed from the B-Tree, or <var>null</var> if no matching value was found.
 	 * @throws IOException If an I/O error occurred.
 	 */
 	public byte[] remove(byte[] key) throws IOException {
@@ -870,7 +881,7 @@ public class BTree implements Closeable {
 	 *
 	 * @param key  A key that matches the value that should be removed from the B-Tree.
 	 * @param node The root of the (sub) tree.
-	 * @return The value that was removed from the B-Tree, or <tt>null</tt> if no matching value was found.
+	 * @return The value that was removed from the B-Tree, or <var>null</var> if no matching value was found.
 	 * @throws IOException If an I/O error occurred.
 	 */
 	private byte[] removeFromTree(byte[] key, Node node) throws IOException {
@@ -1008,14 +1019,14 @@ public class BTree implements Closeable {
 		return node;
 	}
 
-	Node readRootNode() throws IOException {
+	Node readRootNode() {
 		if (rootNodeID > 0) {
 			return readNode(rootNodeID);
 		}
 		return null;
 	}
 
-	Node readNode(int id) throws IOException {
+	Node readNode(int id) {
 		if (id <= 0) {
 			throw new IllegalArgumentException("id must be larger than 0, is: " + id + " in " + getFile());
 		}
@@ -1113,5 +1124,12 @@ public class BTree implements Closeable {
 		out.println("#nodes          = " + nodeCount);
 		out.println("#values         = " + valueCount);
 		out.println("---end of BTree file---");
+	}
+
+	@Override
+	public String toString() {
+		return "BTree{" +
+				"file=" + getFile() +
+				'}';
 	}
 }

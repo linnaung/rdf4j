@@ -1,12 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.endpoint.provider;
 
+import org.apache.http.client.config.CookieSpecs;
+import org.apache.http.client.config.RequestConfig;
 import org.apache.http.impl.client.HttpClientBuilder;
 import org.apache.http.impl.client.HttpClients;
 import org.eclipse.rdf4j.federated.endpoint.Endpoint;
@@ -37,13 +42,19 @@ public class RemoteRepositoryProvider implements EndpointProvider<RemoteReposito
 		}
 
 		try {
+
 			HTTPRepository repo = new HTTPRepository(repositoryServer, repositoryName);
+			SharedHttpClientSessionManager httpClientSessionManager = (SharedHttpClientSessionManager) repo
+					.getHttpClientSessionManager();
+
 			HttpClientBuilder httpClientBuilder = HttpClients.custom()
 					.useSystemProperties()
+					.setDefaultRequestConfig(httpClientSessionManager.getDefaultRequestConfig())
 					.setMaxConnTotal(20)
 					.setMaxConnPerRoute(20);
-			((SharedHttpClientSessionManager) repo.getHttpClientSessionManager())
-					.setHttpClientBuilder(httpClientBuilder);
+
+			httpClientSessionManager.setHttpClientBuilder(httpClientBuilder);
+
 			try {
 				repo.init();
 			} finally {

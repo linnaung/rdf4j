@@ -1,17 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.trig;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.StringReader;
 import java.util.concurrent.TimeUnit;
@@ -30,21 +33,17 @@ import org.eclipse.rdf4j.rio.Rio;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
 import org.eclipse.rdf4j.rio.helpers.ParseErrorCollector;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 
 /**
  * Custom (non-manifest) tests for TriG parser.
  *
  * @author Peter Ansell
  */
+@Timeout(value = 10, unit = TimeUnit.MINUTES)
 public class TriGParserCustomTest {
-
-	@Rule
-	public Timeout timeout = new Timeout(10, TimeUnit.MINUTES);
-
 	private ValueFactory vf;
 
 	private ParserConfig settingsNoVerifyLangTag;
@@ -56,10 +55,9 @@ public class TriGParserCustomTest {
 	private StatementCollector statementCollector;
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		vf = SimpleValueFactory.getInstance();
 		settingsNoVerifyLangTag = new ParserConfig();
 		settingsNoVerifyLangTag.set(BasicParserSettings.VERIFY_LANGUAGE_TAGS, false);
@@ -194,7 +192,7 @@ public class TriGParserCustomTest {
 	}
 
 	@Test
-	public void testSupportedSettings() throws Exception {
+	public void testSupportedSettings() {
 		assertThat(Rio.createParser(RDFFormat.TRIG).getSupportedSettings()).hasSize(15);
 	}
 

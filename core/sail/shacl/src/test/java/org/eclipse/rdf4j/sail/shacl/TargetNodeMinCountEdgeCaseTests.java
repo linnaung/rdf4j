@@ -1,11 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl;
+
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 import java.io.StringReader;
 
@@ -14,11 +19,12 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
+import org.eclipse.rdf4j.repository.RepositoryException;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Some shapes may cause a validation error even if the targets don't exist. These tests check some of those scenarios.
@@ -51,22 +57,28 @@ public class TargetNodeMinCountEdgeCaseTests {
 	Value value1 = vf.createLiteral(1);
 	Value value2 = vf.createLiteral(2);
 
-	@Test(expected = ShaclSailValidationException.class)
+	@Test
 	public void testMinCountWithEmptyState() throws Throwable {
 
 		SailRepository sailRepository = new SailRepository(new ShaclSail(new MemoryStore()));
 
 		try (SailRepositoryConnection connection = sailRepository.getConnection()) {
 			connection.begin();
-			connection.add(new StringReader(shaclShapes), "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
-			connection.commit();
-		} catch (Exception e) {
-			throw e.getCause();
+			connection.add(new StringReader(shaclShapes), "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
+			assertThrows(ShaclSailValidationException.class, () -> {
+				try {
+					connection.commit();
+				} catch (RepositoryException e) {
+					throw e.getCause();
+				}
+			});
+		} finally {
+			sailRepository.shutDown();
 		}
 
 	}
 
-	@Test(expected = ShaclSailValidationException.class)
+	@Test
 	public void testMinCountWithInvalidInitialDataset() throws Throwable {
 
 		SailRepository sailRepository = new SailRepository(new ShaclSail(new MemoryStore()));
@@ -78,15 +90,21 @@ public class TargetNodeMinCountEdgeCaseTests {
 			connection.commit();
 
 			connection.begin();
-			connection.add(new StringReader(shaclShapes), "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
-			connection.commit();
-		} catch (Exception e) {
-			throw e.getCause();
+			connection.add(new StringReader(shaclShapes), "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
+			assertThrows(ShaclSailValidationException.class, () -> {
+				try {
+					connection.commit();
+				} catch (RepositoryException e) {
+					throw e.getCause();
+				}
+			});
+		} finally {
+			sailRepository.shutDown();
 		}
 
 	}
 
-	@Test(expected = ShaclSailValidationException.class)
+	@Test
 	public void testMinCountWithInvalidInitialDataset2() throws Throwable {
 
 		SailRepository sailRepository = new SailRepository(new ShaclSail(new MemoryStore()));
@@ -98,15 +116,21 @@ public class TargetNodeMinCountEdgeCaseTests {
 			connection.commit();
 
 			connection.begin();
-			connection.add(new StringReader(shaclShapes), "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
-			connection.commit();
-		} catch (Exception e) {
-			throw e.getCause();
+			connection.add(new StringReader(shaclShapes), "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
+			assertThrows(ShaclSailValidationException.class, () -> {
+				try {
+					connection.commit();
+				} catch (RepositoryException e) {
+					throw e.getCause();
+				}
+			});
+		} finally {
+			sailRepository.shutDown();
 		}
 
 	}
 
-	@Test(expected = ShaclSailValidationException.class)
+	@Test
 	public void testMinCountWithInvalidInitialDataset3() throws Throwable {
 
 		SailRepository sailRepository = new SailRepository(new ShaclSail(new MemoryStore()));
@@ -115,10 +139,16 @@ public class TargetNodeMinCountEdgeCaseTests {
 			connection.begin();
 			connection.add(validPerson1, ssn, value1);
 			connection.add(validPerson1, ssn, value2);
-			connection.add(new StringReader(shaclShapes), "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
-			connection.commit();
-		} catch (Exception e) {
-			throw e.getCause();
+			connection.add(new StringReader(shaclShapes), "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
+			assertThrows(ShaclSailValidationException.class, () -> {
+				try {
+					connection.commit();
+				} catch (RepositoryException e) {
+					throw e.getCause();
+				}
+			});
+		} finally {
+			sailRepository.shutDown();
 		}
 
 	}
@@ -137,10 +167,12 @@ public class TargetNodeMinCountEdgeCaseTests {
 			connection.commit();
 
 			connection.begin();
-			connection.add(new StringReader(shaclShapes), "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.add(new StringReader(shaclShapes), "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.commit();
 		} catch (Exception e) {
 			throw e.getCause();
+		} finally {
+			sailRepository.shutDown();
 		}
 
 	}
@@ -158,12 +190,14 @@ public class TargetNodeMinCountEdgeCaseTests {
 			connection.commit();
 
 			connection.begin();
-			connection.add(new StringReader(shaclShapes), "", RDFFormat.TURTLE, RDF4J.SHACL_SHAPE_GRAPH);
+			connection.add(new StringReader(shaclShapes), "", RDFFormat.TRIG, RDF4J.SHACL_SHAPE_GRAPH);
 			connection.add(validPerson2, ssn, value1);
 			connection.add(validPerson2, ssn, value2);
 			connection.commit();
 		} catch (Exception e) {
 			throw e.getCause();
+		} finally {
+			sailRepository.shutDown();
 		}
 
 	}

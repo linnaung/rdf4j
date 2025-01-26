@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.optimizer;
 
@@ -24,7 +27,7 @@ import org.eclipse.rdf4j.federated.structures.QueryInfo;
 import org.eclipse.rdf4j.query.algebra.Service;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
-import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
+import org.eclipse.rdf4j.query.algebra.helpers.AbstractSimpleQueryModelVisitor;
 
 /**
  * Optimizer for SERVICE nodes.
@@ -32,7 +35,7 @@ import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
  * @author Andreas Schwarte
  *
  */
-public class ServiceOptimizer extends AbstractQueryModelVisitor<OptimizationException> implements FedXOptimizer {
+public class ServiceOptimizer extends AbstractSimpleQueryModelVisitor<OptimizationException> implements FedXOptimizer {
 
 	protected final QueryInfo queryInfo;
 
@@ -40,7 +43,7 @@ public class ServiceOptimizer extends AbstractQueryModelVisitor<OptimizationExce
 	 * @param queryInfo
 	 */
 	public ServiceOptimizer(QueryInfo queryInfo) {
-		super();
+		super(true);
 		this.queryInfo = queryInfo;
 	}
 
@@ -51,6 +54,9 @@ public class ServiceOptimizer extends AbstractQueryModelVisitor<OptimizationExce
 		} catch (RuntimeException e) {
 			throw e;
 		} catch (Exception e) {
+			if (e instanceof InterruptedException) {
+				Thread.currentThread().interrupt();
+			}
 			throw new FedXRuntimeException(e);
 		}
 
@@ -78,7 +84,7 @@ public class ServiceOptimizer extends AbstractQueryModelVisitor<OptimizationExce
 
 			// endpoint is not in federation
 			if (e == null) {
-				// leave service as is, evaluate with Sesame code
+				// leave service as is, evaluate with RDF4J code
 				return new FedXService(service, queryInfo);
 			}
 

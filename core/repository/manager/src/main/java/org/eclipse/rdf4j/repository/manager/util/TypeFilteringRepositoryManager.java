@@ -1,13 +1,15 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.manager.util;
 
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -23,7 +25,6 @@ import org.eclipse.rdf4j.repository.config.RepositoryConfig;
 import org.eclipse.rdf4j.repository.config.RepositoryConfigException;
 import org.eclipse.rdf4j.repository.manager.RepositoryInfo;
 import org.eclipse.rdf4j.repository.manager.RepositoryManager;
-import org.eclipse.rdf4j.repository.manager.SystemRepository;
 
 /**
  * @author Herko ter Horst
@@ -61,24 +62,13 @@ public class TypeFilteringRepositoryManager extends RepositoryManager {
 	}
 
 	@Override
-	public void initialize() throws RepositoryException {
-		delegate.initialize();
+	public void init() throws RepositoryException {
+		delegate.init();
 	}
 
 	@Override
 	public URL getLocation() throws MalformedURLException {
 		return delegate.getLocation();
-	}
-
-	@Override
-	protected Repository createSystemRepository() throws RepositoryException {
-		throw new UnsupportedOperationException(
-				"The system repository cannot be created through this wrapper. This method should not have been called, the delegate should take care of it.");
-	}
-
-	@Override
-	public Repository getSystemRepository() {
-		return delegate.getSystemRepository();
 	}
 
 	@Override
@@ -123,7 +113,7 @@ public class TypeFilteringRepositoryManager extends RepositoryManager {
 			if (!isCorrectType(result)) {
 				logger.debug(
 						"Surpressing retrieval of repository {}: repository type {} did not match expected type {}",
-						new Object[] { result.getID(), result.getRepositoryImplConfig().getType(), type });
+						result.getID(), result.getRepositoryImplConfig().getType(), type);
 
 				result = null;
 			}
@@ -140,18 +130,6 @@ public class TypeFilteringRepositoryManager extends RepositoryManager {
 			throw new UnsupportedOperationException(
 					"Only repositories of type " + type + " can be added to this manager.");
 		}
-	}
-
-	@Override
-	@Deprecated
-	public boolean removeRepositoryConfig(String repositoryID) throws RepositoryException, RepositoryConfigException {
-		boolean result = false;
-
-		if (isCorrectType(repositoryID)) {
-			result = delegate.removeRepositoryConfig(repositoryID);
-		}
-
-		return result;
 	}
 
 	@Override
@@ -208,10 +186,10 @@ public class TypeFilteringRepositoryManager extends RepositoryManager {
 	}
 
 	@Override
-	public Collection<RepositoryInfo> getAllRepositoryInfos(boolean skipSystemRepo) throws RepositoryException {
+	public Collection<RepositoryInfo> getAllRepositoryInfos() throws RepositoryException {
 		List<RepositoryInfo> result = new ArrayList<>();
 
-		for (RepositoryInfo repInfo : delegate.getAllRepositoryInfos(skipSystemRepo)) {
+		for (RepositoryInfo repInfo : delegate.getAllRepositoryInfos()) {
 			try {
 				if (isCorrectType(repInfo.getId())) {
 					result.add(repInfo);
@@ -247,20 +225,8 @@ public class TypeFilteringRepositoryManager extends RepositoryManager {
 		delegate.shutDown();
 	}
 
-	@Override
-	protected void cleanUpRepository(String repositoryID) throws IOException {
-		throw new UnsupportedOperationException(
-				"Repositories cannot be removed through this wrapper. This method should not have been called, the delegate should take care of it.");
-	}
-
 	protected boolean isCorrectType(String repositoryID) throws RepositoryConfigException, RepositoryException {
-		// first, check for SystemRepository, because we can't get a repository
-		// config object for it
-		boolean result = !SystemRepository.ID.equals(repositoryID);
-		if (result) {
-			result = isCorrectType(delegate.getRepositoryConfig(repositoryID));
-		}
-		return result;
+		return isCorrectType(delegate.getRepositoryConfig(repositoryID));
 	}
 
 	protected boolean isCorrectType(RepositoryConfig repositoryConfig) {

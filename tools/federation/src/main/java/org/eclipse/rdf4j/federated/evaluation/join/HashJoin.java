@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.join;
 
@@ -23,6 +26,7 @@ import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 import org.eclipse.rdf4j.query.impl.MapBindingSet;
 import org.eclipse.rdf4j.repository.sparql.federation.CollectionIteration;
 
@@ -34,12 +38,16 @@ import org.eclipse.rdf4j.repository.sparql.federation.CollectionIteration;
  */
 public class HashJoin extends JoinExecutorBase<BindingSet> {
 
+	private final QueryEvaluationStep rightPrepared;
+
 	public HashJoin(FederationEvalStrategy strategy,
-			CloseableIteration<BindingSet, QueryEvaluationException> leftIter,
-			TupleExpr rightArg, Set<String> joinVars, BindingSet bindings, QueryInfo queryInfo)
+			CloseableIteration<BindingSet> leftIter,
+			TupleExpr rightArg, QueryEvaluationStep rightPrepared, Set<String> joinVars, BindingSet bindings,
+			QueryInfo queryInfo)
 			throws QueryEvaluationException {
 		super(strategy, leftIter, rightArg, bindings, queryInfo);
 		setJoinVars(joinVars);
+		this.rightPrepared = rightPrepared;
 	}
 
 	@Override
@@ -54,9 +62,9 @@ public class HashJoin extends JoinExecutorBase<BindingSet> {
 		// evaluate the right join argument
 		// Note: wrapped in lazy mutable iteration for repetitive reading
 		try (LazyMutableClosableIteration rightArgIter = new LazyMutableClosableIteration(
-				strategy.evaluate(rightArg, bindings))) {
+				rightPrepared.evaluate(bindings))) {
 
-			while (!closed && leftIter.hasNext()) {
+			while (!isClosed() && leftIter.hasNext()) {
 
 				int blockSizeL = 10;
 				if (totalBindingsLeft > 20) {
@@ -69,7 +77,7 @@ public class HashJoin extends JoinExecutorBase<BindingSet> {
 				}
 
 				int blockSizeR = 10;
-				while (!closed && rightArgIter.hasNext()) {
+				while (!isClosed() && rightArgIter.hasNext()) {
 					if (totalBindingsRight > 20) {
 						blockSizeR = 100;
 					}
@@ -120,7 +128,7 @@ public class HashJoin extends JoinExecutorBase<BindingSet> {
 	 * @param freeVariablesRight
 	 * @return the merged binding result
 	 */
-	static CloseableIteration<BindingSet, QueryEvaluationException> join(Collection<BindingSet> leftBlock,
+	static CloseableIteration<BindingSet> join(Collection<BindingSet> leftBlock,
 			Collection<BindingSet> rightBlock, Set<String> joinVariables, Collection<String> freeVariablesRight) {
 		List<BindingSet> res = new LinkedList<>();
 
@@ -158,10 +166,10 @@ public class HashJoin extends JoinExecutorBase<BindingSet> {
 					// emit a merged binding set
 					MapBindingSet mergedBindings = new MapBindingSet();
 					for (Binding b : left) {
-						mergedBindings.addBinding(b);
+						mergedBindings.setBinding(b);
 					}
 					for (Binding b : right) {
-						mergedBindings.addBinding(b);
+						mergedBindings.setBinding(b);
 					}
 					res.add(mergedBindings);
 				}

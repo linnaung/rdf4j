@@ -1,33 +1,29 @@
 /*******************************************************************************
  * Copyright (c) 2016, 2017 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.examples.model;
 
 import java.io.IOException;
-import java.io.InputStream;
-import java.net.URL;
-import java.util.Optional;
 
 import org.eclipse.rdf4j.examples.model.vocabulary.EX;
-import org.eclipse.rdf4j.model.*;
-import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.Model;
+import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.util.ModelBuilder;
-import org.eclipse.rdf4j.model.util.Models;
 import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
-import org.eclipse.rdf4j.rio.helpers.ContextStatementCollector;
-import org.eclipse.rdf4j.rio.helpers.StatementCollector;
 
 /**
  * RDF Tutorial example 12: Building a Model with named graphs
- *
+ * <p>
  * In this example, we show how you can use the context mechanism to add statements separate named graphs within the
  * same Model.
  *
@@ -61,7 +57,7 @@ public class Example12BuildModelWithNamedGraphs {
 		for (Resource context : model.contexts()) {
 			System.out.println("Named graph " + context + " contains: ");
 
-			// write _only_ the statemements in the current named graph to the console, in N-Triples format
+			// write _only_ the statements in the current named graph to the console, in N-Triples format
 			Rio.write(model.filter(null, null, null, context), System.out, RDFFormat.NTRIPLES);
 			System.out.println();
 		}

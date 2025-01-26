@@ -1,17 +1,24 @@
 /*******************************************************************************
  * Copyright (c) ${year} Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.constraint;
 
-import static org.junit.Assert.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import org.eclipse.rdf4j.model.vocabulary.RDF;
+import org.eclipse.rdf4j.model.vocabulary.RDFS;
+import org.eclipse.rdf4j.sparqlbuilder.core.SparqlBuilder;
+import org.eclipse.rdf4j.sparqlbuilder.core.Variable;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class ExpressionsTest {
 
@@ -56,4 +63,27 @@ public class ExpressionsTest {
 		assertEquals(expression.getQueryString(), "( 30 < ( 20 + ( 10 / 5 ) ) || 30 < 50 )");
 	}
 
+	@Test
+	public void test_BIND_fromOtherVariable() {
+		Variable from = SparqlBuilder.var("from");
+		Variable to = SparqlBuilder.var("to");
+		assertEquals(
+				"BIND( ?from AS ?to )", Expressions.bind(from, to).getQueryString());
+	}
+
+	@Test
+	public void test_NOT_IN_twoIris() {
+		Variable test = SparqlBuilder.var("test");
+		assertEquals(
+				"?test NOT IN ( <http://www.w3.org/1999/02/22-rdf-syntax-ns#type>, <http://www.w3.org/2000/01/rdf-schema#subClassOf> )",
+				Expressions.notIn(test, Rdf.iri(RDF.TYPE), Rdf.iri(RDFS.SUBCLASSOF))
+						.getQueryString());
+	}
+
+	@Test
+	public void test_IS_BLANK() {
+		Variable test = SparqlBuilder.var("test");
+		assertEquals(
+				"isBLANK( ?test )", Expressions.isBlank(test).getQueryString());
+	}
 }

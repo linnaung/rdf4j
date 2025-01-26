@@ -1,30 +1,29 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.benchmark;
 
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
-import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.eclipse.rdf4j.sail.shacl.GlobalValidationExecutionLogging;
+import org.eclipse.rdf4j.sail.shacl.ShaclSail;
 import org.eclipse.rdf4j.sail.shacl.ShaclSailConnection;
 import org.eclipse.rdf4j.sail.shacl.Utils;
-import org.eclipse.rdf4j.sail.shacl.testimp.TestNotifyingSail;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -44,15 +43,12 @@ import ch.qos.logback.classic.Logger;
  * @author Håvard Ottestad
  */
 @State(Scope.Benchmark)
-@Warmup(iterations = 20)
+@Warmup(iterations = 5)
 @BenchmarkMode({ Mode.AverageTime })
-@Fork(value = 1, jvmArgs = { "-Xmx64M", "-XX:+UseSerialGC" })
-@Measurement(iterations = 10)
+@Fork(value = 1, jvmArgs = { "-Xmx64M" })
+@Measurement(iterations = 5)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class ClassBenchmarkEmpty {
-	{
-		GlobalValidationExecutionLogging.loggingEnabled = false;
-	}
 
 	private List<List<Statement>> allStatements;
 
@@ -76,18 +72,23 @@ public class ClassBenchmarkEmpty {
 		Thread.sleep(100);
 	}
 
+	public static void main(String[] args) throws Exception {
+		ClassBenchmarkEmpty classBenchmarkEmpty = new ClassBenchmarkEmpty();
+		classBenchmarkEmpty.setUp();
+		classBenchmarkEmpty.shacl();
+
+	}
+
 	@Benchmark
 	public void shacl() throws Exception {
 
-		SailRepository repository = new SailRepository(Utils.getInitializedShaclSail("shaclClassBenchmark.ttl"));
+		SailRepository repository = new SailRepository(Utils.getInitializedShaclSail("shaclClassBenchmark.trig"));
 
-		try (SailRepositoryConnection connection = repository.getConnection()) {
-			connection.begin();
-			connection.commit();
-		}
+//		((ShaclSail) repository.getSail()).setLogValidationPlans(true);
 
 		try (SailRepositoryConnection connection = repository.getConnection()) {
 			for (List<Statement> statements : allStatements) {
+//				System.out.println(".");
 				connection.begin();
 				connection.add(statements);
 				connection.commit();
@@ -98,51 +99,16 @@ public class ClassBenchmarkEmpty {
 	}
 
 	@Benchmark
-	public void noShacl() {
+	public void shaclBulk() throws Exception {
 
-		SailRepository repository = new SailRepository(new TestNotifyingSail(new MemoryStore()));
-
-		repository.init();
+		SailRepository repository = new SailRepository(Utils.getInitializedShaclSail("shaclClassBenchmark.trig"));
 
 		try (SailRepositoryConnection connection = repository.getConnection()) {
-			connection.begin();
-			connection.commit();
-		}
-		try (SailRepositoryConnection connection = repository.getConnection()) {
+			connection.begin(ShaclSail.TransactionSettings.ValidationApproach.Bulk);
 			for (List<Statement> statements : allStatements) {
-				connection.begin();
 				connection.add(statements);
-				connection.commit();
 			}
-		}
-		repository.shutDown();
-
-	}
-
-	@Benchmark
-	public void sparqlInsteadOfShacl() {
-
-		SailRepository repository = new SailRepository(new MemoryStore());
-
-		repository.init();
-
-		try (SailRepositoryConnection connection = repository.getConnection()) {
-			connection.begin();
 			connection.commit();
-		}
-		try (SailRepositoryConnection connection = repository.getConnection()) {
-			for (List<Statement> statements : allStatements) {
-				connection.begin();
-				connection.add(statements);
-				try (Stream<BindingSet> stream = connection
-						.prepareTupleQuery("select * where {?a a <" + FOAF.PERSON + ">. ?a <"
-								+ FOAF.KNOWS + "> ?c. FILTER(NOT EXISTS{?c a <" + FOAF.PERSON + ">})}")
-						.evaluate()
-						.stream()) {
-					stream.forEach(System.out::println);
-				}
-				connection.commit();
-			}
 		}
 		repository.shutDown();
 

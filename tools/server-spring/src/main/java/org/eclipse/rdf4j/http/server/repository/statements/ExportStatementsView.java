@@ -1,14 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.server.repository.statements;
 
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 
+import java.io.ByteArrayOutputStream;
 import java.io.OutputStream;
 import java.nio.charset.Charset;
 import java.util.Map;
@@ -84,10 +88,18 @@ public class ExportStatementsView implements View {
 
 		RDFFormat rdfFormat = rdfWriterFactory.getRDFFormat();
 
-		try {
+		try (ByteArrayOutputStream baos = new ByteArrayOutputStream()) {
+			RDFWriter rdfWriter = rdfWriterFactory.getWriter(baos);
+			if (!headersOnly) {
+				try (RepositoryConnection conn = RepositoryInterceptor.getRepositoryConnection(request)) {
+					conn.exportStatements(subj, pred, obj, useInferencing, rdfWriter, contexts);
+				} catch (RDFHandlerException e) {
+					throw new ServerHTTPException("Serialization error: " + e.getMessage(), e);
+				} catch (RepositoryException e) {
+					throw new ServerHTTPException("Repository error: " + e.getMessage(), e);
+				}
+			}
 			try (OutputStream out = response.getOutputStream()) {
-				RDFWriter rdfWriter = rdfWriterFactory.getWriter(out);
-
 				response.setStatus(SC_OK);
 
 				String mimeType = rdfFormat.getDefaultMIMEType();
@@ -102,17 +114,8 @@ public class ExportStatementsView implements View {
 					filename += "." + rdfFormat.getDefaultFileExtension();
 				}
 				response.setHeader("Content-Disposition", "attachment; filename=" + filename);
-
-				if (!headersOnly) {
-					try (RepositoryConnection conn = RepositoryInterceptor.getRepositoryConnection(request)) {
-						conn.exportStatements(subj, pred, obj, useInferencing, rdfWriter, contexts);
-					}
-				}
+				out.write(baos.toByteArray());
 			}
-		} catch (RDFHandlerException e) {
-			throw new ServerHTTPException("Serialization error: " + e.getMessage(), e);
-		} catch (RepositoryException e) {
-			throw new ServerHTTPException("Repository error: " + e.getMessage(), e);
 		}
 	}
 

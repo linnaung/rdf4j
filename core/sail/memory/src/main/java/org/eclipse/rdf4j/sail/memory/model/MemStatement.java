@@ -1,19 +1,29 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.memory.model;
 
-import org.eclipse.rdf4j.model.impl.ContextStatement;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+
+import org.eclipse.rdf4j.model.impl.GenericStatement;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * A MemStatement is a Statement which contains context information and a flag indicating whether the statement is
  * explicit or inferred.
  */
-public class MemStatement extends ContextStatement {
+public class MemStatement extends GenericStatement<MemResource, MemIRI, MemValue> {
+
+	private static final Logger logger = LoggerFactory.getLogger(MemStatement.class);
 
 	/*-----------*
 	 * Constants *
@@ -28,18 +38,29 @@ public class MemStatement extends ContextStatement {
 	/**
 	 * Flag indicating whether or not this statement has been added explicitly or that it has been inferred.
 	 */
-	private volatile boolean explicit;
+	private final boolean explicit;
 
 	/**
 	 * Identifies the snapshot in which this statement was introduced.
 	 */
-	private volatile int sinceSnapshot;
+	private final int sinceSnapshot;
 
 	/**
 	 * Identifies the snapshot in which this statement was revoked, defaults to {@link Integer#MAX_VALUE}.
 	 */
+	@SuppressWarnings("FieldMayBeFinal")
 	private volatile int tillSnapshot = Integer.MAX_VALUE;
+	private static final VarHandle TILL_SNAPSHOT;
 
+	static {
+		try {
+			TILL_SNAPSHOT = MethodHandles.lookup()
+					.in(MemStatement.class)
+					.findVarHandle(MemStatement.class, "tillSnapshot", int.class);
+		} catch (ReflectiveOperationException e) {
+			throw new Error(e);
+		}
+	}
 	/*--------------*
 	 * Constructors *
 	 *--------------*/
@@ -54,41 +75,13 @@ public class MemStatement extends ContextStatement {
 
 	/**
 	 * Creates a new MemStatement with the supplied subject, predicate, object and context. The value of the
-	 * <tt>explicit</tt> parameter determines if this statement is marked as 'explicit' or not.
+	 * <var>explicit</var> parameter determines if this statement is marked as 'explicit' or not.
 	 */
 	public MemStatement(MemResource subject, MemIRI predicate, MemValue object, MemResource context, boolean explicit,
 			int sinceSnapshot) {
 		super(subject, predicate, object, context);
-		setExplicit(explicit);
-		setSinceSnapshot(sinceSnapshot);
-	}
-
-	/*---------*
-	 * Methods *
-	 *---------*/
-
-	@Override
-	public MemResource getSubject() {
-		return (MemResource) super.getSubject();
-	}
-
-	@Override
-	public MemIRI getPredicate() {
-		return (MemIRI) super.getPredicate();
-	}
-
-	@Override
-	public MemValue getObject() {
-		return (MemValue) super.getObject();
-	}
-
-	@Override
-	public MemResource getContext() {
-		return (MemResource) super.getContext();
-	}
-
-	public void setSinceSnapshot(int snapshot) {
-		sinceSnapshot = snapshot;
+		this.explicit = explicit;
+		this.sinceSnapshot = sinceSnapshot;
 	}
 
 	public int getSinceSnapshot() {
@@ -96,19 +89,15 @@ public class MemStatement extends ContextStatement {
 	}
 
 	public void setTillSnapshot(int snapshot) {
-		tillSnapshot = snapshot;
+		TILL_SNAPSHOT.setRelease(this, snapshot);
 	}
 
 	public int getTillSnapshot() {
-		return tillSnapshot;
+		return (int) TILL_SNAPSHOT.getAcquire(this);
 	}
 
 	public boolean isInSnapshot(int snapshot) {
-		return snapshot >= sinceSnapshot && snapshot < tillSnapshot;
-	}
-
-	public void setExplicit(boolean explicit) {
-		this.explicit = explicit;
+		return snapshot >= sinceSnapshot && snapshot < ((int) TILL_SNAPSHOT.getAcquire(this));
 	}
 
 	public boolean isExplicit() {
@@ -119,7 +108,7 @@ public class MemStatement extends ContextStatement {
 	 * Lets this statement add itself to the appropriate statement lists of its subject, predicate, object and context.
 	 * The transaction status will be set to new.
 	 */
-	public void addToComponentLists() {
+	public void addToComponentLists() throws InterruptedException {
 		getSubject().addSubjectStatement(this);
 		getPredicate().addPredicateStatement(this);
 		getObject().addObjectStatement(this);
@@ -129,17 +118,23 @@ public class MemStatement extends ContextStatement {
 		}
 	}
 
-	/**
-	 * Lets this statement remove itself from the appropriate statement lists of its subject, predicate, object and
-	 * context. The transaction status will be set to <tt>null</tt>.
-	 */
-	public void removeFromComponentLists() {
-		getSubject().removeSubjectStatement(this);
-		getPredicate().removePredicateStatement(this);
-		getObject().removeObjectStatement(this);
-		MemResource context = getContext();
-		if (context != null) {
-			context.removeContextStatement(this);
-		}
+	public boolean matchesSPO(MemResource subject, MemIRI predicate, MemValue object) {
+		return (object == null || object == this.object) && (subject == null || subject == this.subject) &&
+				(predicate == null || predicate == this.predicate);
 	}
+
+	public boolean matchesContext(MemResource[] memContexts) {
+		for (MemResource context : memContexts) {
+			if (context == this.context) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	public boolean exactMatch(MemResource subject, MemIRI predicate, MemValue object, MemResource context) {
+		return this.subject == subject && this.predicate == predicate && this.object == object
+				&& this.context == context;
+	}
+
 }

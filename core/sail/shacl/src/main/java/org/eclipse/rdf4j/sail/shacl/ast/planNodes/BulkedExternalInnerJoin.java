@@ -1,24 +1,35 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.ArrayDeque;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Objects;
 import java.util.function.Function;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.BindingSet;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
-import org.eclipse.rdf4j.query.parser.ParsedQuery;
+import org.eclipse.rdf4j.query.Dataset;
+import org.eclipse.rdf4j.query.algebra.TupleExpr;
+import org.eclipse.rdf4j.query.algebra.evaluation.iterator.PeekMarkIterator;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
-import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
+import org.eclipse.rdf4j.sail.shacl.ast.SparqlFragment;
+import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
+import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.ConstraintComponent;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
 
 /**
  * @author Håvard Ottestad
@@ -31,42 +42,71 @@ import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
  */
 public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 
-	private static final ValueComparator VALUE_COMPARATOR = new ValueComparator();
+	private final static Resource[] allContext = {};
+	private static final Function<BindingSet, ValidationTuple> propertyShapeScopeAllContextMapper = b -> new ValidationTuple(
+			b.getValue("a"), b.getValue("c"), ConstraintComponent.Scope.propertyShape, true, allContext);
+	private static final Function<BindingSet, ValidationTuple> nodeShapeScopeAllContextMapper = b -> new ValidationTuple(
+			b.getValue("a"), b.getValue("c"), ConstraintComponent.Scope.nodeShape, true, allContext);
+
 	private final SailConnection connection;
 	private final PlanNode leftNode;
-	private ParsedQuery parsedQuery = null;
+	private final Dataset dataset;
+	private final Resource[] dataGraph;
+	private TupleExpr parsedQuery = null;
 	private final boolean skipBasedOnPreviousConnection;
 	private final SailConnection previousStateConnection;
 	private final String query;
 	private boolean printed = false;
 
-	public BulkedExternalInnerJoin(PlanNode leftNode, SailConnection connection, String query,
+	public BulkedExternalInnerJoin(PlanNode leftNode, SailConnection connection, Resource[] dataGraph,
+			SparqlFragment query,
 			boolean skipBasedOnPreviousConnection, SailConnection previousStateConnection,
-			Function<BindingSet, ValidationTuple> mapper) {
+			Function<BindingSet, ValidationTuple> mapper, ConnectionsGroup connectionsGroup,
+			List<StatementMatcher.Variable> vars) {
+		super(vars);
+		assert !skipBasedOnPreviousConnection || previousStateConnection != null;
 
-		leftNode = PlanNodeHelper.handleSorting(this, leftNode);
-		this.leftNode = leftNode;
-
-		this.query = query;
-
+		this.leftNode = PlanNodeHelper.handleSorting(this, leftNode, connectionsGroup);
+		this.query = query.getNamespacesForSparql() + StatementMatcher.StableRandomVariableProvider
+				.normalize(query.getFragment(), List.of(), List.of());
 		this.connection = connection;
+		assert this.connection != null;
 		this.skipBasedOnPreviousConnection = skipBasedOnPreviousConnection;
 		this.mapper = mapper;
 		this.previousStateConnection = previousStateConnection;
+		this.dataset = PlanNodeHelper.asDefaultGraphDataset(dataGraph);
+		this.dataGraph = dataGraph;
+	}
 
+	public static Function<BindingSet, ValidationTuple> getMapper(String a, String c, ConstraintComponent.Scope scope,
+			Resource[] dataGraph) {
+		assert a.equals("a");
+		assert c.equals("c");
+		if (scope == ConstraintComponent.Scope.nodeShape && dataGraph.length == 0) {
+			return nodeShapeScopeAllContextMapper;
+		}
+		if (scope == ConstraintComponent.Scope.propertyShape && dataGraph.length == 0) {
+			return propertyShapeScopeAllContextMapper;
+		}
+		return (b) -> new ValidationTuple(b.getValue(a), b.getValue(c), scope, true, dataGraph);
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final ArrayDeque<ValidationTuple> left = new ArrayDeque<>();
+			LinkedHashMap<Value, ValidationTuple> left;
+			ArrayDeque<ValidationTuple> right;
+			ArrayDeque<ValidationTuple> joined;
+			private PeekMarkIterator<? extends ValidationTuple> leftNodeIterator;
 
-			final ArrayDeque<ValidationTuple> right = new ArrayDeque<>();
-
-			final ArrayDeque<ValidationTuple> joined = new ArrayDeque<>();
-
-			final CloseableIteration<? extends ValidationTuple, SailException> leftNodeIterator = leftNode.iterator();
+			@Override
+			protected void init() {
+				left = new LinkedHashMap<>(BULK_SIZE * 3);
+				right = new ArrayDeque<>(BULK_SIZE);
+				joined = new ArrayDeque<>(BULK_SIZE);
+				leftNodeIterator = new PeekMarkIterator<>(leftNode.iterator());
+			}
 
 			private void calculateNext() {
 
@@ -76,58 +116,31 @@ public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 
 				while (joined.isEmpty() && leftNodeIterator.hasNext()) {
 
-					while (left.size() < 200 && leftNodeIterator.hasNext()) {
-						left.addFirst(leftNodeIterator.next());
+					while (left.size() < BULK_SIZE && leftNodeIterator.hasNext()) {
+						ValidationTuple next = leftNodeIterator.next();
+						ValidationTuple previousValue = left.put(next.getActiveTarget(), next);
+						assert previousValue == null : "We dont support duplicates on the left side of the join";
 					}
 
 					if (parsedQuery == null) {
 						parsedQuery = parseQuery(query);
 					}
 
-					runQuery(left, right, connection, parsedQuery, skipBasedOnPreviousConnection,
-							previousStateConnection, mapper);
+					runQuery(left.values(), right, connection, parsedQuery, dataset, dataGraph,
+							skipBasedOnPreviousConnection,
+							previousStateConnection);
 
 					while (!right.isEmpty()) {
 
-						ValidationTuple leftPeek = left.peekLast();
+						ValidationTuple rightPeek = right.getLast();
+						ValidationTuple leftPeek = left.get(rightPeek.getActiveTarget());
 
-						ValidationTuple rightPeek = right.peekLast();
-
-						assert leftPeek != null;
-						assert rightPeek != null;
-
-						assert leftPeek.getActiveTarget() != null;
-						assert rightPeek.getActiveTarget() != null;
-
-						if (rightPeek.sameTargetAs(leftPeek)) {
+						if (leftPeek != null) {
 							// we have a join !
 							joined.addLast(ValidationTupleHelper.join(leftPeek, rightPeek));
 							right.removeLast();
-
-							ValidationTuple rightPeek2 = right.peekLast();
-
-							if (rightPeek2 == null || !rightPeek2.sameTargetAs(leftPeek)) {
-								// no more to join from right, pop left so we don't print it again.
-
-								left.removeLast();
-							}
 						} else {
-							int compare = rightPeek.compareTarget(leftPeek);
-
-							if (compare < 0) {
-								if (right.isEmpty()) {
-									throw new IllegalStateException();
-								}
-
-								right.removeLast();
-
-							} else {
-								if (left.isEmpty()) {
-									throw new IllegalStateException();
-								}
-								left.removeLast();
-
-							}
+							right.removeLast();
 						}
 
 					}
@@ -138,27 +151,25 @@ public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 			}
 
 			@Override
-			public void close() throws SailException {
-				leftNodeIterator.close();
+			public void localClose() {
+				if (leftNodeIterator != null) {
+					leftNodeIterator.close();
+				}
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() {
 				calculateNext();
 				return !joined.isEmpty();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() {
 				calculateNext();
 				return joined.removeFirst();
 
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -177,13 +188,15 @@ public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 				.append("\n");
 		stringBuilder.append(leftNode.getId() + " -> " + getId() + " [label=\"left\"]").append("\n");
 
-		if (connection instanceof MemoryStoreConnection) {
-			stringBuilder.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> "
-					+ getId() + " [label=\"right\"]").append("\n");
-		} else {
-			stringBuilder.append(System.identityHashCode(connection) + " -> " + getId() + " [label=\"right\"]")
-					.append("\n");
-		}
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
+//		if (connection instanceof MemoryStoreConnection) {
+//			stringBuilder.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> "
+//					+ getId() + " [label=\"right\"]").append("\n");
+//		} else {
+		stringBuilder.append(System.identityHashCode(connection) + " -> " + getId() + " [label=\"right\"]")
+				.append("\n");
+//		}
 
 		if (skipBasedOnPreviousConnection) {
 
@@ -211,5 +224,40 @@ public class BulkedExternalInnerJoin extends AbstractBulkJoinPlanNode {
 	public void receiveLogger(ValidationExecutionLogger validationExecutionLogger) {
 		this.validationExecutionLogger = validationExecutionLogger;
 		leftNode.receiveLogger(validationExecutionLogger);
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		if (!super.equals(o)) {
+			return false;
+		}
+		BulkedExternalInnerJoin that = (BulkedExternalInnerJoin) o;
+		return skipBasedOnPreviousConnection == that.skipBasedOnPreviousConnection
+				&& Objects.equals(connection, that.connection)
+				&& leftNode.equals(that.leftNode)
+				&& Objects.equals(dataset, that.dataset)
+				&& Objects.equals(previousStateConnection, that.previousStateConnection) && query.equals(that.query);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(super.hashCode(), connection, dataset, leftNode, skipBasedOnPreviousConnection,
+				previousStateConnection, query);
+	}
+
+	@Override
+	public boolean producesSorted() {
+		return leftNode.producesSorted();
+	}
+
+	@Override
+	public boolean requiresSorted() {
+		return false;
 	}
 }

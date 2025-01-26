@@ -1,25 +1,30 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 package org.eclipse.rdf4j.sail.shacl.ast;
 
-import java.io.StringWriter;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
-import java.util.UUID;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
-import org.eclipse.rdf4j.model.impl.DynamicModel;
-import org.eclipse.rdf4j.model.impl.LinkedHashModelFactory;
+import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
-import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.rio.RDFFormat;
-import org.eclipse.rdf4j.rio.Rio;
-import org.eclipse.rdf4j.sail.shacl.ConnectionsGroup;
-import org.eclipse.rdf4j.sail.shacl.RdfsSubClassOfReasoner;
-import org.eclipse.rdf4j.sail.shacl.ShaclSail;
+import org.eclipse.rdf4j.sail.shacl.SourceConstraintComponent;
+import org.eclipse.rdf4j.sail.shacl.ValidationSettings;
+import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher.Variable;
 import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.ConstraintComponent;
 import org.eclipse.rdf4j.sail.shacl.ast.paths.Path;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.EmptyNode;
@@ -32,16 +37,20 @@ import org.eclipse.rdf4j.sail.shacl.ast.planNodes.Unique;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.ValidationReportNode;
 import org.eclipse.rdf4j.sail.shacl.ast.targets.TargetChain;
 import org.eclipse.rdf4j.sail.shacl.results.ValidationResult;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.RdfsSubClassOfReasoner;
+import org.eclipse.rdf4j.sail.shacl.wrapper.shape.ShapeSource;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class PropertyShape extends Shape implements ConstraintComponent, Identifiable {
+public class PropertyShape extends Shape {
 	private static final Logger logger = LoggerFactory.getLogger(PropertyShape.class);
 
-	List<String> name;
-	List<String> description;
-	Object defaultValue;
-	Object group;
+	List<Literal> name;
+	List<Literal> description;
+	Value defaultValue;
+	Value group;
+	Value order;
 
 	Path path;
 
@@ -55,15 +64,18 @@ public class PropertyShape extends Shape implements ConstraintComponent, Identif
 		this.defaultValue = propertyShape.defaultValue;
 		this.group = propertyShape.group;
 		this.path = propertyShape.path;
+		this.order = propertyShape.order;
 	}
 
-	public static PropertyShape getInstance(ShaclProperties properties, RepositoryConnection connection, Cache cache,
-			ShaclSail shaclSail) {
+	public static PropertyShape getInstance(ShaclProperties properties, ShapeSource shapeSource,
+			ParseSettings parseSettings, Cache cache) {
+
 		Shape shape = cache.get(properties.getId());
+
 		if (shape == null) {
 			shape = new PropertyShape();
 			cache.put(properties.getId(), shape);
-			shape.populate(properties, connection, cache, shaclSail);
+			shape.populate(properties, shapeSource, parseSettings, cache);
 		}
 
 		if (shape.constraintComponents.isEmpty()) {
@@ -74,9 +86,9 @@ public class PropertyShape extends Shape implements ConstraintComponent, Identif
 	}
 
 	@Override
-	public void populate(ShaclProperties properties, RepositoryConnection connection,
-			Cache cache, ShaclSail shaclSail) {
-		super.populate(properties, connection, cache, shaclSail);
+	public void populate(ShaclProperties properties, ShapeSource connection, ParseSettings parseSettings, Cache cache) {
+
+		super.populate(properties, connection, parseSettings, cache);
 
 		this.path = Path.buildPath(connection, properties.getPath());
 
@@ -84,7 +96,13 @@ public class PropertyShape extends Shape implements ConstraintComponent, Identif
 			throw new IllegalStateException(properties.getId() + " is a sh:PropertyShape without a sh:path!");
 		}
 
-		constraintComponents = getConstraintComponents(properties, connection, cache, shaclSail);
+		this.name = properties.getName();
+		this.description = properties.getDescription();
+		this.defaultValue = properties.getDefaultValue();
+		this.order = properties.getOrder();
+		this.group = properties.getGroup();
+
+		constraintComponents = getConstraintComponents(properties, connection, parseSettings, cache);
 	}
 
 	@Override
@@ -93,10 +111,30 @@ public class PropertyShape extends Shape implements ConstraintComponent, Identif
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 
-		super.toModel(subject, predicate, model, exported);
+		super.toModel(subject, predicate, model, cycleDetection);
 		model.add(getId(), RDF.TYPE, SHACL.PROPERTY_SHAPE);
+
+		for (Literal literal : name) {
+			model.add(getId(), SHACL.NAME, literal);
+		}
+
+		for (Literal literal : description) {
+			model.add(getId(), SHACL.DESCRIPTION, literal);
+		}
+
+		if (defaultValue != null) {
+			model.add(getId(), SHACL.DEFAULT_VALUE, defaultValue);
+		}
+
+		if (order != null) {
+			model.add(getId(), SHACL.ORDER, order);
+		}
+
+		if (group != null) {
+			model.add(getId(), SHACL.GROUP, group);
+		}
 
 		if (subject != null) {
 			if (predicate == null) {
@@ -106,15 +144,18 @@ public class PropertyShape extends Shape implements ConstraintComponent, Identif
 			}
 		}
 
-		model.add(getId(), SHACL.PATH, path.getId());
-		path.toModel(path.getId(), null, model, exported);
+//		if (cycleDetection.contains(getId())) {
+//			return;
+//		}
+//		cycleDetection.add(getId());
 
-		if (exported.contains(getId())) {
-			return;
+		if (!cycleDetection.contains(getId())) {
+			model.add(getId(), SHACL.PATH, path.getId());
+			path.toModel(path.getId(), null, model, cycleDetection);
 		}
-		exported.add(getId());
+		cycleDetection.add(getId());
 
-		constraintComponents.forEach(c -> c.toModel(getId(), null, model, exported));
+		constraintComponents.forEach(c -> c.toModel(getId(), null, model, cycleDetection));
 
 	}
 
@@ -124,132 +165,131 @@ public class PropertyShape extends Shape implements ConstraintComponent, Identif
 	}
 
 	@Override
-	public PlanNode generateSparqlValidationPlan(ConnectionsGroup connectionsGroup,
-			boolean logValidationPlans, boolean negatePlan, boolean negateChildren, Scope scope) {
-		if (isDeactivated()) {
-			return new EmptyNode();
+	public ValidationQuery generateSparqlValidationQuery(ConnectionsGroup connectionsGroup,
+			ValidationSettings validationSettings, boolean negatePlan, boolean negateChildren, Scope scope) {
+
+		if (deactivated) {
+			return ValidationQuery.Deactivated.getInstance();
 		}
 
-		PlanNode union = new EmptyNode();
-
-		for (ConstraintComponent constraintComponent : constraintComponents) {
-			PlanNode validationPlanNode = constraintComponent
-					.generateSparqlValidationPlan(connectionsGroup, logValidationPlans, negatePlan, false,
-							Scope.propertyShape);
-
-			if (!(constraintComponent instanceof PropertyShape)) {
-				validationPlanNode = new ValidationReportNode(validationPlanNode, t -> {
-					return new ValidationResult(t.getActiveTarget(), t.getValue(), this,
-							constraintComponent.getConstraintComponent(), getSeverity(), t.getScope());
-				});
-			}
-
-			validationPlanNode = new TargetChainPopper(validationPlanNode);
-
-			union = new UnionNode(union, validationPlanNode);
+		if (!getPath().isSupported()) {
+			logger.error("Unsupported SHACL feature detected: {}. Shape ignored!\n{}", path, this);
+			return ValidationQuery.Deactivated.getInstance();
 		}
 
-		return union;
+		ValidationQuery validationQuery = constraintComponents.stream()
+				.map(c -> {
+					ValidationQuery validationQuery1 = c.generateSparqlValidationQuery(connectionsGroup,
+							validationSettings, negatePlan,
+							negateChildren, Scope.propertyShape);
+					if (!(c instanceof PropertyShape)) {
+						return validationQuery1.withConstraintComponent(c);
+					}
+					return validationQuery1;
+				})
+				.reduce((a, b) -> ValidationQuery.union(a, b, !produceValidationReports))
+				.orElseThrow(IllegalStateException::new);
+
+		if (produceValidationReports) {
+			assert constraintComponents.size() == 1;
+			assert !(constraintComponents.get(0) instanceof PropertyShape);
+
+			validationQuery.withShape(this);
+			validationQuery.withSeverity(getSeverity());
+			validationQuery.makeCurrentStateValidationReport();
+		}
+
+		if (scope == Scope.propertyShape) {
+			validationQuery.popTargetChain();
+		} else {
+			validationQuery.shiftToNodeShape();
+		}
+
+		return validationQuery;
+
 	}
 
 	@Override
 	public PlanNode generateTransactionalValidationPlan(ConnectionsGroup connectionsGroup,
-			boolean logValidationPlans, PlanNodeProvider overrideTargetNode,
+			ValidationSettings validationSettings, PlanNodeProvider overrideTargetNode,
 			Scope scope) {
 
 		if (isDeactivated()) {
-			return new EmptyNode();
+			return EmptyNode.getInstance();
 		}
 
-		PlanNode union = new EmptyNode();
+		if (!getPath().isSupported()) {
+			logger.error("Unsupported SHACL feature detected: {}. Shape ignored!\n{}", path, this);
+			return EmptyNode.getInstance();
+		}
 
-//		if (negatePlan) {
-//			assert overrideTargetNode == null : "Negated property shape with override target is not supported at the moment!";
-//
-//			PlanNode ret = new EmptyNode();
-//
-//			for (ConstraintComponent constraintComponent : constraintComponents) {
-//				PlanNode planNode = constraintComponent.generateTransactionalValidationPlan(connectionsGroup,
-//						logValidationPlans, () -> getAllLocalTargetsPlan(connectionsGroup, negatePlan), negateChildren,
-//						false, Scope.propertyShape);
-//
-//				PlanNode allTargetsPlan = getAllLocalTargetsPlan(connectionsGroup, negatePlan);
-//
-//				Unique invalid = new Unique(planNode);
-//
-//				PlanNode discardedLeft = new InnerJoin(allTargetsPlan, invalid)
-//						.getDiscardedLeft(BufferedPlanNode.class);
-//
-//				ret = new UnionNode(ret, discardedLeft);
-//
-//			}
-//
-//			return ret;
-//
-//		}
+		PlanNode union = EmptyNode.getInstance();
 
 		for (ConstraintComponent constraintComponent : constraintComponents) {
+
 			PlanNode validationPlanNode = constraintComponent
-					.generateTransactionalValidationPlan(connectionsGroup, logValidationPlans, overrideTargetNode,
+					.generateTransactionalValidationPlan(connectionsGroup, validationSettings, overrideTargetNode,
 							Scope.propertyShape);
 
-			if (!(constraintComponent instanceof PropertyShape)) {
+			if (produceValidationReports) {
 				validationPlanNode = new ValidationReportNode(validationPlanNode, t -> {
 					return new ValidationResult(t.getActiveTarget(), t.getValue(), this,
-							constraintComponent.getConstraintComponent(), getSeverity(), t.getScope());
-				});
+							constraintComponent, getSeverity(), t.getScope(), t.getContexts(),
+							getContexts());
+				}, connectionsGroup);
 			}
 
 			if (scope == Scope.propertyShape) {
-				validationPlanNode = new TargetChainPopper(validationPlanNode);
+				validationPlanNode = Unique.getInstance(new TargetChainPopper(validationPlanNode, connectionsGroup),
+						true, connectionsGroup);
 			} else {
-				validationPlanNode = new ShiftToNodeShape(validationPlanNode);
+				validationPlanNode = Unique.getInstance(new ShiftToNodeShape(validationPlanNode, connectionsGroup),
+						true, connectionsGroup);
 			}
 
-			union = new UnionNode(union, validationPlanNode);
+			union = UnionNode.getInstance(connectionsGroup, union, validationPlanNode);
 		}
 
 		return union;
 	}
 
 	@Override
-	public PlanNode getAllTargetsPlan(ConnectionsGroup connectionsGroup, Scope scope) {
+	public PlanNode getAllTargetsPlan(ConnectionsGroup connectionsGroup, Resource[] dataGraph, Scope scope,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider,
+			ValidationSettings validationSettings) {
 		PlanNode planNode = constraintComponents.stream()
-				.map(c -> c.getAllTargetsPlan(connectionsGroup, Scope.propertyShape))
-				.reduce(UnionNode::new)
-				.orElse(new EmptyNode());
+				.map(c -> c.getAllTargetsPlan(connectionsGroup, dataGraph, Scope.propertyShape,
+						new StatementMatcher.StableRandomVariableProvider(), validationSettings))
+				.distinct()
+				.reduce((nodes, nodes2) -> UnionNode.getInstanceDedupe(connectionsGroup, nodes, nodes2))
+				.orElse(EmptyNode.getInstance());
 
-		planNode = new UnionNode(planNode,
-				getTargetChain()
-						.getEffectiveTarget("_target", Scope.propertyShape,
-								connectionsGroup.getRdfsSubClassOfReasoner())
-						.getPlanNode(connectionsGroup, Scope.propertyShape, true));
+		if (connectionsGroup.getStats().hasRemoved()) {
+			PlanNode planNodeEffectiveTarget = getTargetChain()
+					.getEffectiveTarget(Scope.propertyShape, connectionsGroup.getRdfsSubClassOfReasoner(),
+							stableRandomVariableProvider)
+					.getPlanNode(connectionsGroup, dataGraph, Scope.propertyShape, true, null);
 
-		if (scope == Scope.propertyShape) {
-			planNode = new TargetChainPopper(planNode);
-		} else {
-			planNode = new ShiftToNodeShape(planNode);
+			planNode = UnionNode.getInstanceDedupe(connectionsGroup, planNode, planNodeEffectiveTarget);
 		}
 
-		planNode = new Unique(planNode);
+		if (scope == Scope.propertyShape) {
+			planNode = Unique.getInstance(new TargetChainPopper(planNode, connectionsGroup), true, connectionsGroup);
+		} else {
+			planNode = new ShiftToNodeShape(planNode, connectionsGroup);
+		}
+
+		planNode = Unique.getInstance(planNode, false, connectionsGroup);
 
 		return planNode;
 	}
 
 	@Override
-	public ValidationApproach getPreferedValidationApproach() {
+	public ValidationApproach getPreferredValidationApproach(ConnectionsGroup connectionsGroup) {
 		return constraintComponents.stream()
-				.map(ConstraintComponent::getPreferedValidationApproach)
-				.reduce(ValidationApproach::reduce)
-				.orElse(ValidationApproach.Transactional);
-	}
-
-	@Override
-	public Set<ValidationApproach> getSupportedValidationApproaches() {
-		return constraintComponents.stream()
-				.map(ConstraintComponent::getSupportedValidationApproaches)
-				.flatMap(Set::stream)
-				.collect(Collectors.toSet());
+				.map(constraintComponent -> constraintComponent.getPreferredValidationApproach(connectionsGroup))
+				.reduce(ValidationApproach::reducePreferred)
+				.orElse(ValidationApproach.MOST_COMPATIBLE);
 	}
 
 	public Path getPath() {
@@ -257,11 +297,14 @@ public class PropertyShape extends Shape implements ConstraintComponent, Identif
 	}
 
 	@Override
-	public String toString() {
-		Model statements = toModel(new DynamicModel(new LinkedHashModelFactory()));
-		StringWriter stringWriter = new StringWriter();
-		Rio.write(statements, stringWriter, RDFFormat.TURTLE);
-		return stringWriter.toString();
+	public boolean requiresEvaluation(ConnectionsGroup connectionsGroup, Scope scope, Resource[] dataGraph,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
+		if (!getPath().isSupported()) {
+			logger.error("Unsupported SHACL feature detected: {}. Shape ignored!\n{}", path, this);
+			return false;
+		}
+
+		return super.requiresEvaluation(connectionsGroup, scope, dataGraph, stableRandomVariableProvider);
 	}
 
 	@Override
@@ -276,51 +319,67 @@ public class PropertyShape extends Shape implements ConstraintComponent, Identif
 	}
 
 	@Override
-	public SparqlFragment buildSparqlValidNodes_rsx_targetShape(StatementMatcher.Variable subject,
-			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
+	public SparqlFragment buildSparqlValidNodes_rsx_targetShape(Variable<Value> subject,
+			Variable<Value> object,
+			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
 
-		StatementMatcher.Variable someObject = new StatementMatcher.Variable(
-				UUID.randomUUID().toString().replace("-", ""));
+		List<SparqlFragment> sparqlFragments = constraintComponents.stream()
+				.map(shape -> shape.buildSparqlValidNodes_rsx_targetShape(object,
+						stableRandomVariableProvider.next(), rdfsSubClassOfReasoner, Scope.propertyShape,
+						stableRandomVariableProvider))
+				.collect(Collectors.toList());
 
-		boolean isFilterCondition = constraintComponents.stream()
-				.map(o -> o.buildSparqlValidNodes_rsx_targetShape(object, someObject, rdfsSubClassOfReasoner,
-						Scope.propertyShape))
-				.map(SparqlFragment::isFilterCondition)
-				.findFirst()
-				.orElse(false);
-
-		if (isFilterCondition) {
-			String sparql = constraintComponents.stream()
-					.map(c -> c.buildSparqlValidNodes_rsx_targetShape(object, someObject, rdfsSubClassOfReasoner,
-							Scope.propertyShape))
-					.map(SparqlFragment::getFragment)
-					.collect(Collectors.joining(" ) && ( ", "( ", " )"));
-
-			return SparqlFragment.filterCondition(sparql);
-
+		if (SparqlFragment.isFilterCondition(sparqlFragments)) {
+			return SparqlFragment.and(sparqlFragments);
 		} else {
-			String sparql = constraintComponents.stream()
-					.map(c -> c.buildSparqlValidNodes_rsx_targetShape(object, someObject, rdfsSubClassOfReasoner,
-							Scope.propertyShape))
-					.map(SparqlFragment::getFragment)
-					.reduce((a, b) -> a + "\n" + b)
-					.orElse("");
-			return SparqlFragment.bgp(sparql);
+			return SparqlFragment.join(sparqlFragments);
 		}
 
 	}
 
 	@Override
-	public Stream<StatementMatcher> getStatementMatchers_rsx_targetShape(StatementMatcher.Variable subject,
-			StatementMatcher.Variable object,
-			RdfsSubClassOfReasoner rdfsSubClassOfReasoner, Scope scope) {
-		StatementMatcher.Variable someObject = new StatementMatcher.Variable(
-				UUID.randomUUID().toString().replace("-", ""));
-
-		return constraintComponents.stream()
-				.flatMap(c -> c.getStatementMatchers_rsx_targetShape(object, someObject, rdfsSubClassOfReasoner,
-						Scope.propertyShape));
+	public SourceConstraintComponent getConstraintComponent() {
+		return SourceConstraintComponent.PropertyConstraintComponent;
 	}
 
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		if (!super.equals(o)) {
+			return false;
+		}
+
+		PropertyShape that = (PropertyShape) o;
+
+		if (!Objects.equals(name, that.name)) {
+			return false;
+		}
+		if (!Objects.equals(description, that.description)) {
+			return false;
+		}
+		if (!Objects.equals(defaultValue, that.defaultValue)) {
+			return false;
+		}
+		if (!Objects.equals(group, that.group)) {
+			return false;
+		}
+		return Objects.equals(path, that.path);
+	}
+
+	@Override
+	public int hashCode() {
+		int result = super.hashCode();
+		result = 31 * result + (name != null ? name.hashCode() : 0);
+		result = 31 * result + (description != null ? description.hashCode() : 0);
+		result = 31 * result + (defaultValue != null ? defaultValue.hashCode() : 0);
+		result = 31 * result + (group != null ? group.hashCode() : 0);
+		result = 31 * result + (path != null ? path.hashCode() : 0);
+		return result;
+	}
 }

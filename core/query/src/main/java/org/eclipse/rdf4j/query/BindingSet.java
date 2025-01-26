@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query;
 
@@ -38,7 +41,7 @@ public interface BindingSet extends Iterable<Binding>, Serializable {
 	 * Gets the binding with the specified name from this BindingSet.
 	 *
 	 * @param bindingName The name of the binding.
-	 * @return The binding with the specified name, or <tt>null</tt> if there is no such binding in this BindingSet.
+	 * @return The binding with the specified name, or <var>null</var> if there is no such binding in this BindingSet.
 	 */
 	Binding getBinding(String bindingName);
 
@@ -46,7 +49,7 @@ public interface BindingSet extends Iterable<Binding>, Serializable {
 	 * Checks whether this BindingSet has a binding with the specified name.
 	 *
 	 * @param bindingName The name of the binding.
-	 * @return <tt>true</tt> if this BindingSet has a binding with the specified name, <tt>false</tt> otherwise.
+	 * @return <var>true</var> if this BindingSet has a binding with the specified name, <var>false</var> otherwise.
 	 */
 	boolean hasBinding(String bindingName);
 
@@ -54,7 +57,7 @@ public interface BindingSet extends Iterable<Binding>, Serializable {
 	 * Gets the value of the binding with the specified name from this BindingSet.
 	 *
 	 * @param bindingName The name of the binding.
-	 * @return The value of the binding with the specified name, or <tt>null</tt> if there is no such binding in this
+	 * @return The value of the binding with the specified name, or <var>null</var> if there is no such binding in this
 	 *         BindingSet.
 	 */
 	Value getValue(String bindingName);
@@ -70,8 +73,8 @@ public interface BindingSet extends Iterable<Binding>, Serializable {
 	 * Compares a BindingSet object to another object.
 	 *
 	 * @param o The object to compare this binding to.
-	 * @return <tt>true</tt> if the other object is an instance of {@link BindingSet} and it contains the same set of
-	 *         bindings (disregarding order), <tt>false</tt> otherwise.
+	 * @return <var>true</var> if the other object is an instance of {@link BindingSet} and it contains the same set of
+	 *         bindings (disregarding order), <var>false</var> otherwise.
 	 */
 	@Override
 	boolean equals(Object o);
@@ -86,7 +89,7 @@ public interface BindingSet extends Iterable<Binding>, Serializable {
 	 * 	hashCode &circ;= binding.getName().hashCode() &circ; binding.getValue().hashCode();
 	 * }
 	 * </pre>
-	 *
+	 * <p>
 	 * Note: the calculated hash code intentionally does not depend on the order in which the bindings are iterated
 	 * over.
 	 *
@@ -94,4 +97,8 @@ public interface BindingSet extends Iterable<Binding>, Serializable {
 	 */
 	@Override
 	int hashCode();
+
+	default boolean isEmpty() {
+		return size() == 0;
+	}
 }

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.memory.benchmark;
@@ -19,12 +22,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.apache.commons.io.IOUtils;
-import org.eclipse.rdf4j.IsolationLevels;
-import org.eclipse.rdf4j.common.iteration.Iterations;
-import org.eclipse.rdf4j.model.Resource;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
@@ -54,21 +54,21 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @State(Scope.Benchmark)
 @Warmup(iterations = 5)
 @BenchmarkMode({ Mode.AverageTime })
-// use G1GC because the workload is multi-threaded
-@Fork(value = 1, jvmArgs = { "-Xms400M", "-Xmx400M", "-XX:+UseG1GC" })
-//@Fork(value = 1, jvmArgs = {"-Xms8G", "-Xmx8G", "-Xmn4G", "-XX:+UseSerialGC", "-XX:+UnlockCommercialFeatures", "-XX:StartFlightRecording=delay=60s,duration=120s,filename=recording.jfr,settings=profile", "-XX:FlightRecorderOptions=samplethreads=true,stackdepth=1024", "-XX:+UnlockDiagnosticVMOptions", "-XX:+DebugNonSafepoints"})
+// use UseSerialGC to make GC more evident
+@Fork(value = 1, jvmArgs = { "-Xms400M", "-Xmx400M", "-XX:+UseSerialGC" })
+//@Fork(value = 1, jvmArgs = {"-Xms400M", "-Xmx400M", "-XX:+UseSerialGC",  "-XX:StartFlightRecording=delay=60s,duration=240s,filename=recording.jfr,settings=profile", "-XX:FlightRecorderOptions=samplethreads=true,stackdepth=1024", "-XX:+UnlockDiagnosticVMOptions", "-XX:+DebugNonSafepoints"})
 @Measurement(iterations = 5)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class SortBenchmark {
 
 	private SailRepository repository;
 
-	private static final String query4;
+	private static final String query9;
 
 	static {
 		try {
 
-			query4 = IOUtils.toString(getResourceAsStream("benchmarkFiles/query4.qr"), StandardCharsets.UTF_8);
+			query9 = IOUtils.toString(getResourceAsStream("benchmarkFiles/query9.qr"), StandardCharsets.UTF_8);
 		} catch (IOException e) {
 			throw new RuntimeException(e);
 		}
@@ -79,7 +79,6 @@ public class SortBenchmark {
 	public static void main(String[] args) throws RunnerException {
 		Options opt = new OptionsBuilder()
 				.include("SortBenchmark.*") // adapt to run other benchmark tests
-				// .addProfiler("stack", "lines=20;period=1;top=20")
 				.forks(1)
 				.build();
 
@@ -87,7 +86,7 @@ public class SortBenchmark {
 	}
 
 	@Setup(Level.Trial)
-	public void beforeClass() throws IOException, InterruptedException {
+	public void setup() throws IOException {
 
 		repository = new SailRepository(new MemoryStore());
 
@@ -112,7 +111,7 @@ public class SortBenchmark {
 	}
 
 	@TearDown(Level.Trial)
-	public void afterClass() {
+	public void tearDown() {
 
 		repository.shutDown();
 
@@ -123,7 +122,7 @@ public class SortBenchmark {
 
 		try (SailRepositoryConnection connection = repository.getConnection()) {
 			try (Stream<BindingSet> stream = connection
-					.prepareTupleQuery(query4)
+					.prepareTupleQuery(query9)
 					.evaluate()
 					.stream()) {
 				return stream.limit(1).collect(Collectors.toList());

@@ -4,21 +4,20 @@
 	<parent>
 		<groupId>org.eclipse.rdf4j</groupId>
 		<artifactId>rdf4j-compliance</artifactId>
-		<version>3.6.0-SNAPSHOT</version>
+		<version>5.1.1-SNAPSHOT</version>
 	</parent>
 	<artifactId>rdf4j-solr-compliance</artifactId>
-	<name>RDF4J Solr Sail Tests</name>
+	<name>RDF4J: Solr Sail Tests</name>
 	<description>Tests for Solr Sail.</description>
+	<properties>
+		<!-- used to set up embedded solr server in integration tests -->
+		<test.solr.home>${project.basedir}/solr</test.solr.home>
+	</properties>
 	<dependencies>
 		<dependency>
 			<groupId>${project.groupId}</groupId>
 			<artifactId>rdf4j-sail-solr</artifactId>
 			<version>${project.version}</version>
-			<scope>test</scope>
-		</dependency>
-		<dependency>
-			<groupId>junit</groupId>
-			<artifactId>junit</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<dependency>
@@ -44,14 +43,16 @@
 			<artifactId>jcl-over-slf4j</artifactId>
 			<scope>test</scope>
 		</dependency>
-		<dependency>
-			<groupId>ch.qos.logback</groupId>
-			<artifactId>logback-classic</artifactId>
-			<scope>test</scope>
-		</dependency>
+		<!-- solr-core pulls in log4j -->
 		<dependency>
 			<groupId>org.slf4j</groupId>
 			<artifactId>log4j-over-slf4j</artifactId>
+			<scope>test</scope>
+		</dependency>
+		<!-- solr-core pulls in log4j2 -->
+		<dependency>
+			<groupId>org.apache.logging.log4j</groupId>
+			<artifactId>log4j-to-slf4j</artifactId>
 			<scope>test</scope>
 		</dependency>
 		<!-- needed for embedded solr server -->
@@ -62,46 +63,31 @@
 			<scope>test</scope>
 			<exclusions>
 				<exclusion>
-					<groupId>log4j</groupId>
-					<artifactId>log4j</artifactId>
+					<groupId>org.apache.logging.log4j</groupId>
+					<artifactId>*</artifactId>
+				</exclusion>
+				<exclusion>
+					<groupId>jdk.tools</groupId>
+					<artifactId>jdk.tools</artifactId>
 				</exclusion>
 			</exclusions>
 		</dependency>
-		<dependency>
-			<groupId>com.google.guava</groupId>
-			<artifactId>guava</artifactId>
-			<!-- override managed dependency for backward compatibility with solr test rig -->
-			<version>18.0</version>
-			<!--$NO-MVN-MAN-VER$-->
-			<scope>test</scope>
-		</dependency>
 	</dependencies>
-	<profiles>
-		<profile>
-			<id>jdk9</id>
-			<activation>
-				<jdk>[1.9,9,10)</jdk>
-			</activation>
-			<dependencies>
-				<dependency>
-					<groupId>org.apache.solr</groupId>
-					<artifactId>solr-core</artifactId>
-					<version>${solr.version}</version>
-					<optional>true</optional>
-					<exclusions>
-						<exclusion>
-							<groupId>log4j</groupId>
-							<artifactId>log4j</artifactId>
-						</exclusion>
-						<exclusion>
-							<groupId>jdk.tools</groupId>
-							<artifactId>jdk.tools</artifactId>
-						</exclusion>
-					</exclusions>
-				</dependency>
-			</dependencies>
-		</profile>
-	</profiles>
+	<build>
+		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-failsafe-plugin</artifactId>
+				<configuration>
+					<forkCount>0</forkCount>
+				</configuration>
+			</plugin>
+			<plugin>
+				<groupId>org.codehaus.mojo</groupId>
+				<artifactId>properties-maven-plugin</artifactId>
+			</plugin>
+		</plugins>
+	</build>
 	<repositories>
 		<repository>
 			<!-- contains a solr-core transitive dependency -->

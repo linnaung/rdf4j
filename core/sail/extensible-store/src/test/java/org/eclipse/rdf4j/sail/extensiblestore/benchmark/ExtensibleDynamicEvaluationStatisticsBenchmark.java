@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.extensiblestore.benchmark;
@@ -50,8 +53,7 @@ public class ExtensibleDynamicEvaluationStatisticsBenchmark {
 	public static void main(String[] args) throws RunnerException {
 		Options opt = new OptionsBuilder()
 				.include("ExtensibleDynamicEvaluationStatisticsBenchmark") // adapt to control which benchmark tests to
-																			// run
-				// .addProfiler("stack", "lines=20;period=1;top=20")
+				// run
 				.forks(1)
 				.build();
 
@@ -59,7 +61,7 @@ public class ExtensibleDynamicEvaluationStatisticsBenchmark {
 	}
 
 	@Setup(Level.Iteration)
-	public void beforeClassIteration() throws IOException, InterruptedException {
+	public void beforeClassIteration() throws InterruptedException {
 
 		System.gc();
 		Thread.sleep(100);
@@ -69,7 +71,7 @@ public class ExtensibleDynamicEvaluationStatisticsBenchmark {
 	}
 
 	@Setup(Level.Trial)
-	public void beforeClass() throws IOException, InterruptedException {
+	public void beforeClass() throws IOException {
 
 		parse = Rio.parse(getResourceAsStream("bsbm-100.ttl"), "", RDFFormat.TURTLE);
 		System.gc();
@@ -81,7 +83,7 @@ public class ExtensibleDynamicEvaluationStatisticsBenchmark {
 	}
 
 	@Benchmark
-	public ExtensibleDynamicEvaluationStatistics addStatements() throws IOException, InterruptedException {
+	public ExtensibleDynamicEvaluationStatistics addStatements() throws InterruptedException {
 		ExtensibleDynamicEvaluationStatistics extensibleDynamicEvaluationStatistics = new ExtensibleDynamicEvaluationStatistics(
 				null);
 
@@ -94,7 +96,7 @@ public class ExtensibleDynamicEvaluationStatisticsBenchmark {
 	}
 
 	@Benchmark
-	public ExtensibleDynamicEvaluationStatistics instantiate() throws IOException {
+	public ExtensibleDynamicEvaluationStatistics instantiate() {
 		ExtensibleDynamicEvaluationStatistics extensibleDynamicEvaluationStatistics = new ExtensibleDynamicEvaluationStatistics(
 				null);
 

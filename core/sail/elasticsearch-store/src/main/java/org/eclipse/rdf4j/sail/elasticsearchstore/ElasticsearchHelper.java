@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearchstore;
 
@@ -14,7 +17,6 @@ import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.elasticsearch.action.search.ClearScrollRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.client.Client;
-import org.elasticsearch.common.unit.TimeValue;
 import org.elasticsearch.index.query.QueryBuilder;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.sort.FieldSortBuilder;
@@ -22,21 +24,21 @@ import org.elasticsearch.search.sort.SortOrder;
 
 class ElasticsearchHelper {
 
-	static CloseableIteration<SearchHit, RuntimeException> getScrollingIterator(QueryBuilder queryBuilder,
+	static CloseableIteration<SearchHit> getScrollingIterator(QueryBuilder queryBuilder,
 			Client client, String index, int scrollTimeout) {
 
-		return new CloseableIteration<SearchHit, RuntimeException>() {
+		return new CloseableIteration<>() {
 
 			Iterator<SearchHit> items;
 			String scrollId;
 			long itemsRetrieved = 0;
-			int size = 1000;
+			final int size = 1000;
 
 			{
 
 				SearchResponse scrollResp = client.prepareSearch(index)
 						.addSort(FieldSortBuilder.DOC_FIELD_NAME, SortOrder.ASC)
-						.setScroll(new TimeValue(scrollTimeout))
+						.setScroll(scrollTimeout + "ms")
 						.setQuery(queryBuilder)
 						.setSize(size)
 						.get();
@@ -66,7 +68,7 @@ class ElasticsearchHelper {
 						scrollIsEmpty();
 					} else {
 						SearchResponse scrollResp = client.prepareSearchScroll(scrollId)
-								.setScroll(new TimeValue(scrollTimeout))
+								.setScroll(scrollTimeout + "ms")
 								.execute()
 								.actionGet();
 
@@ -89,7 +91,7 @@ class ElasticsearchHelper {
 			private void scrollIsEmpty() {
 				ClearScrollRequest clearScrollRequest = new ClearScrollRequest();
 				clearScrollRequest.addScrollId(scrollId);
-				client.clearScroll(clearScrollRequest).actionGet();
+				client.clearScroll(clearScrollRequest);
 				scrollId = null;
 				empty = true;
 			}

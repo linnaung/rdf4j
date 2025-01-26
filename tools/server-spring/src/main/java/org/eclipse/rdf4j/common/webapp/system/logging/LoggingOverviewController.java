@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.common.webapp.system.logging;
 
@@ -41,9 +44,9 @@ public class LoggingOverviewController implements Controller {
 		Map<String, Object> model = new HashMap<>();
 		LogReader logReader = getLogReader(offset, count, request);
 		model.put("logreader", logReader);
-		model.put("offset", new Integer(offset));
-		model.put("count", new Integer(count));
-		model.put("countsAvailable", Arrays.asList(new Integer[] { 50, 100, 200, 500 }));
+		model.put("offset", offset);
+		model.put("count", count);
+		model.put("countsAvailable", Arrays.asList(50, 100, 200, 500));
 		if (logReader.supportsLevelFilter()) {
 			LogLevel level = logReader.getLevel();
 			model.put("level", (level == null) ? "ALL" : level.toString());

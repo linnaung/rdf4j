@@ -1,3 +1,14 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
+
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.ArrayList;
@@ -15,28 +26,17 @@ public class ValidationExecutionLogger {
 
 	private final static Logger logger = LoggerFactory.getLogger(ValidationExecutionLogger.class);
 
-	private List<LogStatement> list = null;
+	private final List<LogStatement> list = new ArrayList<>();
 
-	private static final boolean groupedLogging = true;
+	ValidationExecutionLogger() {
+	}
 
-	void log(int depth, String name, ValidationTuple tuple, PlanNode planNode, String id) {
-		LogStatement logStatement = new LogStatement(depth, name, tuple, planNode, id);
-		if (groupedLogging) {
-			if (list == null) {
-				list = new ArrayList<>();
-			}
-			list.add(logStatement);
-		} else {
-			logger.info(logStatement.toString());
-		}
+	void log(int depth, String name, ValidationTuple tuple, PlanNode planNode, String id, String message) {
+		LogStatement logStatement = new LogStatement(depth, name, tuple, planNode, id, message);
+		list.add(logStatement);
 	}
 
 	public void flush() {
-
-		if (list == null || list.isEmpty()) {
-			return;
-		}
-
 		Map<String, List<LogStatement>> map = new HashMap<>();
 
 		list.forEach(s -> {
@@ -54,6 +54,46 @@ public class ValidationExecutionLogger {
 		}
 	}
 
+	public boolean isEnabled() {
+		return true;
+	}
+
+	public static ValidationExecutionLogger getInstance(boolean enabled) {
+		if (enabled) {
+			return new ValidationExecutionLogger();
+		} else {
+			return DeactivatedValidationLogger.getInstance();
+		}
+	}
+
+}
+
+class DeactivatedValidationLogger extends ValidationExecutionLogger {
+
+	private static final DeactivatedValidationLogger instance = new DeactivatedValidationLogger();
+
+	private DeactivatedValidationLogger() {
+		super();
+	}
+
+	static ValidationExecutionLogger getInstance() {
+		return instance;
+	}
+
+	@Override
+	void log(int depth, String name, ValidationTuple tuple, PlanNode planNode, String id, String message) {
+		// no-op
+	}
+
+	@Override
+	public void flush() {
+		// no-op
+	}
+
+	@Override
+	public boolean isEnabled() {
+		return false;
+	}
 }
 
 class LogStatement {
@@ -63,14 +103,16 @@ class LogStatement {
 	private final ValidationTuple tuple;
 	private final PlanNode planNode;
 	private final String id;
+	private final String message;
 
-	LogStatement(int depth, String name, ValidationTuple tuple, PlanNode planNode, String id) {
+	LogStatement(int depth, String name, ValidationTuple tuple, PlanNode planNode, String id, String message) {
 		this.depth = depth;
 		this.name = name;
 		this.tuple = tuple;
 		assert tuple != null;
 		this.planNode = planNode;
 		this.id = id;
+		this.message = message;
 	}
 
 	public int getDepth() {
@@ -98,8 +140,9 @@ class LogStatement {
 
 		return StringUtils.leftPad(id, 14) + "\t"
 				+ leadingSpace(depth) + name
-				+ ":  " + tuple.toString()
-				+ " :  " + planNode.toString();
+				+ ":  " + tuple
+				+ " :  " + planNode.toString()
+				+ (message != null ? " :  " + message : "");
 
 	}
 

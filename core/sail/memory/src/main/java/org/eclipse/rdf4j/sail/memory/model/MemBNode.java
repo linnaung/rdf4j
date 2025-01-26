@@ -1,18 +1,21 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.memory.model;
 
-import org.eclipse.rdf4j.model.impl.SimpleBNode;
+import org.eclipse.rdf4j.model.BNode;
 
 /**
  * A MemoryStore-specific extension of BNodeImpl giving it node properties.
  */
-public class MemBNode extends SimpleBNode implements MemResource {
+public class MemBNode extends MemResource implements BNode {
 
 	private static final long serialVersionUID = -887382892580321647L;
 
@@ -26,19 +29,13 @@ public class MemBNode extends SimpleBNode implements MemResource {
 	transient final private Object creator;
 
 	/**
-	 * The list of statements for which this MemBNode is the subject.
-	 */
-	transient private volatile MemStatementList subjectStatements;
-
-	/**
 	 * The list of statements for which this MemBNode is the object.
 	 */
-	transient private volatile MemStatementList objectStatements;
-
+	transient private final MemStatementList objectStatements = new MemStatementList();
 	/**
-	 * The list of statements for which this MemBNode represents the context.
+	 * The blank node's identifier.
 	 */
-	transient private volatile MemStatementList contextStatements;
+	private final String id;
 
 	/*--------------*
 	 * Constructors *
@@ -51,7 +48,7 @@ public class MemBNode extends SimpleBNode implements MemResource {
 	 * @param id      bnode ID.
 	 */
 	public MemBNode(Object creator, String id) {
-		super(id);
+		this.id = id;
 		this.creator = creator;
 	}
 
@@ -66,147 +63,68 @@ public class MemBNode extends SimpleBNode implements MemResource {
 
 	@Override
 	public boolean hasStatements() {
-		return subjectStatements != null || objectStatements != null || contextStatements != null;
-	}
-
-	@Override
-	public MemStatementList getSubjectStatementList() {
-		if (subjectStatements == null) {
-			return EMPTY_LIST;
-		} else {
-			return subjectStatements;
-		}
-	}
-
-	@Override
-	public int getSubjectStatementCount() {
-		if (subjectStatements == null) {
-			return 0;
-		} else {
-			return subjectStatements.size();
-		}
-	}
-
-	@Override
-	public void addSubjectStatement(MemStatement st) {
-		if (subjectStatements == null) {
-			subjectStatements = new MemStatementList(4);
-		}
-
-		subjectStatements.add(st);
-	}
-
-	@Override
-	public void removeSubjectStatement(MemStatement st) {
-		subjectStatements.remove(st);
-
-		if (subjectStatements.isEmpty()) {
-			subjectStatements = null;
-		}
-	}
-
-	@Override
-	public void cleanSnapshotsFromSubjectStatements(int currentSnapshot) {
-		if (subjectStatements != null) {
-			subjectStatements.cleanSnapshots(currentSnapshot);
-
-			if (subjectStatements.isEmpty()) {
-				subjectStatements = null;
-			}
-		}
+		return !subjectStatements.isEmpty() || !objectStatements.isEmpty() || !contextStatements.isEmpty();
 	}
 
 	@Override
 	public MemStatementList getObjectStatementList() {
-		if (objectStatements == null) {
-			return EMPTY_LIST;
-		} else {
-			return objectStatements;
-		}
+
+		return objectStatements;
+
 	}
 
 	@Override
 	public int getObjectStatementCount() {
-		if (objectStatements == null) {
-			return 0;
-		} else {
-			return objectStatements.size();
-		}
+
+		return objectStatements.size();
+
 	}
 
 	@Override
-	public void addObjectStatement(MemStatement st) {
-		if (objectStatements == null) {
-			objectStatements = new MemStatementList(4);
-		}
+	public void addObjectStatement(MemStatement st) throws InterruptedException {
 
 		objectStatements.add(st);
 	}
 
 	@Override
-	public void removeObjectStatement(MemStatement st) {
-		objectStatements.remove(st);
+	public void cleanSnapshotsFromObjectStatements(int currentSnapshot) throws InterruptedException {
+		objectStatements.cleanSnapshots(currentSnapshot);
 
-		if (objectStatements.isEmpty()) {
-			objectStatements = null;
-		}
 	}
 
 	@Override
-	public void cleanSnapshotsFromObjectStatements(int currentSnapshot) {
-		if (objectStatements != null) {
-			objectStatements.cleanSnapshots(currentSnapshot);
-
-			if (objectStatements.isEmpty()) {
-				objectStatements = null;
-			}
-		}
+	public boolean hasPredicateStatements() {
+		return false;
 	}
 
 	@Override
-	public MemStatementList getContextStatementList() {
-		if (contextStatements == null) {
-			return EMPTY_LIST;
-		} else {
-			return contextStatements;
-		}
+	public boolean hasObjectStatements() {
+		return !objectStatements.isEmpty();
 	}
 
 	@Override
-	public int getContextStatementCount() {
-		if (contextStatements == null) {
-			return 0;
-		} else {
-			return contextStatements.size();
-		}
+	public String getID() {
+		return id;
 	}
 
 	@Override
-	public void addContextStatement(MemStatement st) {
-		if (contextStatements == null) {
-			contextStatements = new MemStatementList(4);
-		}
-
-		contextStatements.add(st);
+	public String stringValue() {
+		return getID();
 	}
 
 	@Override
-	public void removeContextStatement(MemStatement st) {
-		contextStatements.remove(st);
-
-		if (contextStatements.isEmpty()) {
-			contextStatements = null;
-		}
+	public boolean equals(Object o) {
+		return this == o || o instanceof BNode
+				&& getID().equals(((BNode) o).getID());
 	}
 
 	@Override
-	public void cleanSnapshotsFromContextStatements(int currentSnapshot) {
-		if (contextStatements != null) {
-			contextStatements.cleanSnapshots(currentSnapshot);
+	public int hashCode() {
+		return getID().hashCode();
+	}
 
-			if (contextStatements.isEmpty()) {
-				contextStatements = null;
-			}
-		}
+	@Override
+	public String toString() {
+		return "_:" + getID();
 	}
 }
