@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.iterator;
 
@@ -21,7 +24,7 @@ import org.eclipse.rdf4j.query.algebra.ProjectionElemList;
  * @author Arjohn Kampman
  * @author James Leigh
  */
-public class MultiProjectionIterator extends LookAheadIteration<BindingSet, QueryEvaluationException> {
+public class MultiProjectionIterator extends LookAheadIteration<BindingSet> {
 
 	/*------------*
 	 * Attributes *
@@ -29,22 +32,22 @@ public class MultiProjectionIterator extends LookAheadIteration<BindingSet, Quer
 
 	private final List<ProjectionElemList> projections;
 
-	private final CloseableIteration<BindingSet, QueryEvaluationException> iter;
+	private final CloseableIteration<BindingSet> iter;
 
 	private final BindingSet parentBindings;
 
 	private final BindingSet[] previousBindings;
 
-	private volatile BindingSet currentBindings;
+	private BindingSet currentBindings;
 
-	private volatile int nextProjectionIdx;
+	private int nextProjectionIdx;
 
 	/*--------------*
 	 * Constructors *
 	 *--------------*/
 
 	public MultiProjectionIterator(MultiProjection multiProjection,
-			CloseableIteration<BindingSet, QueryEvaluationException> iter, BindingSet bindings) {
+			CloseableIteration<BindingSet> iter, BindingSet bindings) {
 		this.projections = multiProjection.getProjections();
 		this.iter = iter;
 		this.parentBindings = bindings;
@@ -94,14 +97,10 @@ public class MultiProjectionIterator extends LookAheadIteration<BindingSet, Quer
 	@Override
 	protected void handleClose() throws QueryEvaluationException {
 		try {
-			super.handleClose();
+			iter.close();
 		} finally {
-			try {
-				iter.close();
-			} finally {
-				nextProjectionIdx = -1;
-				Arrays.fill(previousBindings, null);
-			}
+			nextProjectionIdx = -1;
+			Arrays.fill(previousBindings, null);
 		}
 	}
 }

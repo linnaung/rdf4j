@@ -1,37 +1,50 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
+
 package org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.util.Values;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
-import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.sail.shacl.SourceConstraintComponent;
-import org.eclipse.rdf4j.sail.shacl.ast.HelperTool;
+import org.eclipse.rdf4j.sail.shacl.ast.ShaclAstLists;
+import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher.Variable;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.FilterPlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.LanguageInFilter;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
+import org.eclipse.rdf4j.sail.shacl.wrapper.shape.ShapeSource;
 
-public class LanguageInConstraintComponent extends SimpleAbstractConstraintComponent {
+public class LanguageInConstraintComponent extends AbstractSimpleConstraintComponent {
 
 	private final List<String> languageIn;
 	private final ArrayList<String> languageRanges;
 	private final Set<String> lowerCaseLanguageIn;
 
-	public LanguageInConstraintComponent(RepositoryConnection connection,
+	public LanguageInConstraintComponent(ShapeSource shapeSource,
 			Resource languageIn) {
 		super(languageIn);
-		this.languageIn = HelperTool.toList(connection, languageIn, Value.class)
+		this.languageIn = ShaclAstLists.toList(shapeSource, languageIn, Value.class)
 				.stream()
 				.map(Value::stringValue)
 				.collect(Collectors.toList());
@@ -52,29 +65,32 @@ public class LanguageInConstraintComponent extends SimpleAbstractConstraintCompo
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
-		if (exported.contains(getId())) {
-			return;
-		}
-		exported.add(getId());
-
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.LANGUAGE_IN, getId());
-		HelperTool.listToRdf(languageIn.stream()
-				.map(Values::literal)
-				.collect(Collectors.toList()), getId(), model);
+
+		if (!model.contains(getId(), null, null)) {
+			ShaclAstLists.listToRdf(languageIn.stream()
+					.map(Values::literal)
+					.collect(Collectors.toList()), getId(), model);
+		}
 	}
 
 	@Override
-	String getSparqlFilterExpression(String varName, boolean negated) {
-		if (negated) {
-			return "lang(?" + varName + ") IN (" + getLangSetAsList() + ")";
-		} else {
-			return "lang(?" + varName + ") NOT IN (" + getLangSetAsList() + ")";
+	String getSparqlFilterExpression(Variable<Value> variable, boolean negated) {
+		if (languageRanges.isEmpty()) {
+			return "true";
 		}
-	}
 
-	private String getLangSetAsList() {
-		return languageIn.stream().map(lang -> "\"" + lang + "\"").reduce((a, b) -> a + ", " + b).orElse("");
+		String filter = languageRanges.stream()
+				.map(lang -> "langMatches(lang(" + variable.asSparqlVariable() + "), \"" + lang + "\")")
+				.reduce((a, b) -> a + " || " + b)
+				.orElseThrow(IllegalStateException::new);
+
+		if (negated) {
+			return "(" + filter + ")";
+		} else {
+			return "!(" + filter + ")";
+		}
 	}
 
 	@Override
@@ -88,28 +104,8 @@ public class LanguageInConstraintComponent extends SimpleAbstractConstraintCompo
 	}
 
 	@Override
-	Function<PlanNode, FilterPlanNode> getFilterAttacher() {
-		return (parent) -> new LanguageInFilter(parent, lowerCaseLanguageIn, languageRanges);
-	}
-
-	@Override
-	public boolean equals(Object o) {
-		if (this == o) {
-			return true;
-		}
-		if (o == null || getClass() != o.getClass()) {
-			return false;
-		}
-		if (!super.equals(o)) {
-			return false;
-		}
-		LanguageInConstraintComponent that = (LanguageInConstraintComponent) o;
-		return lowerCaseLanguageIn.equals(that.lowerCaseLanguageIn);
-	}
-
-	@Override
-	public int hashCode() {
-		return Objects.hash(super.hashCode(), lowerCaseLanguageIn);
+	Function<PlanNode, FilterPlanNode> getFilterAttacher(ConnectionsGroup connectionsGroup) {
+		return (parent) -> new LanguageInFilter(parent, lowerCaseLanguageIn, languageRanges, connectionsGroup);
 	}
 
 	@Override
@@ -121,4 +117,27 @@ public class LanguageInConstraintComponent extends SimpleAbstractConstraintCompo
 				'}';
 	}
 
+	@Override
+	public List<Literal> getDefaultMessage() {
+		return List.of();
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+
+		LanguageInConstraintComponent that = (LanguageInConstraintComponent) o;
+
+		return languageIn.equals(that.languageIn);
+	}
+
+	@Override
+	public int hashCode() {
+		return languageIn.hashCode() + "LanguageInConstraintComponent".hashCode();
+	}
 }

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
@@ -61,6 +64,10 @@ public class BufferedGroupingRDFHandler extends RDFHandlerWrapper {
 		this.contexts = new HashSet<>();
 	}
 
+	protected Model getBufferedStatements() {
+		return bufferedStatements;
+	}
+
 	@Override
 	public void handleStatement(Statement st) throws RDFHandlerException {
 		synchronized (bufferLock) {
@@ -76,7 +83,7 @@ public class BufferedGroupingRDFHandler extends RDFHandlerWrapper {
 	/*
 	 * not synchronized, assumes calling method has obtained a lock on bufferLock
 	 */
-	private void processBuffer() throws RDFHandlerException {
+	protected void processBuffer() throws RDFHandlerException {
 		// primary grouping per context.
 		for (Resource context : contexts) {
 			Model contextData = bufferedStatements.filter(null, null, null, context);

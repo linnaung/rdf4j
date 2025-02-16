@@ -1,20 +1,34 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
+
 package org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents;
 
+import java.util.List;
 import java.util.Set;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
-import org.eclipse.rdf4j.repository.RepositoryConnection;
-import org.eclipse.rdf4j.sail.shacl.ConnectionsGroup;
-import org.eclipse.rdf4j.sail.shacl.ShaclSail;
 import org.eclipse.rdf4j.sail.shacl.SourceConstraintComponent;
+import org.eclipse.rdf4j.sail.shacl.ValidationSettings;
 import org.eclipse.rdf4j.sail.shacl.ast.Cache;
 import org.eclipse.rdf4j.sail.shacl.ast.NodeShape;
 import org.eclipse.rdf4j.sail.shacl.ast.PropertyShape;
 import org.eclipse.rdf4j.sail.shacl.ast.ShaclProperties;
+import org.eclipse.rdf4j.sail.shacl.ast.ShaclUnsupportedException;
 import org.eclipse.rdf4j.sail.shacl.ast.Shape;
+import org.eclipse.rdf4j.sail.shacl.ast.StatementMatcher;
+import org.eclipse.rdf4j.sail.shacl.ast.ValidationQuery;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.NotValuesIn;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNodeProvider;
@@ -23,20 +37,22 @@ import org.eclipse.rdf4j.sail.shacl.ast.planNodes.UnionNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.Unique;
 import org.eclipse.rdf4j.sail.shacl.ast.targets.EffectiveTarget;
 import org.eclipse.rdf4j.sail.shacl.ast.targets.TargetChain;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
+import org.eclipse.rdf4j.sail.shacl.wrapper.shape.ShapeSource;
 
 public class NotConstraintComponent extends AbstractConstraintComponent {
 	Shape not;
 
-	public NotConstraintComponent(Resource id, RepositoryConnection connection,
-			Cache cache, ShaclSail shaclSail) {
+	public NotConstraintComponent(Resource id, ShapeSource shapeSource,
+			Shape.ParseSettings parseSettings, Cache cache) {
 		super(id);
 
-		ShaclProperties p = new ShaclProperties(id, connection);
+		ShaclProperties p = new ShaclProperties(id, shapeSource);
 
 		if (p.getType() == SHACL.NODE_SHAPE) {
-			not = NodeShape.getInstance(p, connection, cache, false, shaclSail);
+			not = NodeShape.getInstance(p, shapeSource, parseSettings, cache);
 		} else if (p.getType() == SHACL.PROPERTY_SHAPE) {
-			not = PropertyShape.getInstance(p, connection, cache, shaclSail);
+			not = PropertyShape.getInstance(p, shapeSource, parseSettings, cache);
 		} else {
 			throw new IllegalStateException("Unknown shape type for " + p.getId());
 		}
@@ -48,10 +64,10 @@ public class NotConstraintComponent extends AbstractConstraintComponent {
 	}
 
 	@Override
-	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> exported) {
+	public void toModel(Resource subject, IRI predicate, Model model, Set<Resource> cycleDetection) {
 		model.add(subject, SHACL.NOT, getId());
 
-		not.toModel(null, null, model, exported);
+		not.toModel(null, null, model, cycleDetection);
 
 	}
 
@@ -67,53 +83,61 @@ public class NotConstraintComponent extends AbstractConstraintComponent {
 	}
 
 	@Override
-	public PlanNode generateSparqlValidationPlan(ConnectionsGroup connectionsGroup, boolean logValidationPlans,
+	public ValidationQuery generateSparqlValidationQuery(ConnectionsGroup connectionsGroup,
+			ValidationSettings validationSettings,
 			boolean negatePlan, boolean negateChildren, Scope scope) {
-		return not.generateSparqlValidationPlan(connectionsGroup, logValidationPlans, !negatePlan, false, Scope.not);
+		throw new ShaclUnsupportedException();
 	}
 
 	@Override
-	public PlanNode generateTransactionalValidationPlan(ConnectionsGroup connectionsGroup, boolean logValidationPlans,
+	public PlanNode generateTransactionalValidationPlan(ConnectionsGroup connectionsGroup,
+			ValidationSettings validationSettings,
 			PlanNodeProvider overrideTargetNode, Scope scope) {
 
-		// if (scope == Scope.nodeShape) {
+		StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider = new StatementMatcher.StableRandomVariableProvider();
 
 		PlanNodeProvider planNodeProvider;
 		if (overrideTargetNode != null) {
 			planNodeProvider = overrideTargetNode;
 		} else {
-			planNodeProvider = () -> getAllTargetsPlan(connectionsGroup, scope);
+			planNodeProvider = () -> getAllTargetsPlan(connectionsGroup, validationSettings.getDataGraph(), scope,
+					stableRandomVariableProvider, validationSettings);
 		}
 
 		PlanNode planNode = not.generateTransactionalValidationPlan(
 				connectionsGroup,
-				logValidationPlans,
+				validationSettings,
 				planNodeProvider,
 				scope
 		);
 
-		PlanNode invalid = new Unique(planNode);
+		PlanNode invalid = Unique.getInstance(planNode, false, connectionsGroup);
 
 		PlanNode allTargetsPlan;
 		if (overrideTargetNode != null) {
 			if (scope == Scope.propertyShape) {
 				allTargetsPlan = getTargetChain()
-						.getEffectiveTarget("_target", Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner())
-						.extend(planNodeProvider.getPlanNode(), connectionsGroup, Scope.nodeShape,
-								EffectiveTarget.Extend.right, false);
-				allTargetsPlan = new Unique(new ShiftToPropertyShape(allTargetsPlan));
+						.getEffectiveTarget(Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner(),
+								stableRandomVariableProvider)
+						.extend(planNodeProvider.getPlanNode(), connectionsGroup, validationSettings.getDataGraph(),
+								Scope.nodeShape,
+								EffectiveTarget.Extend.right, false, null);
+				allTargetsPlan = Unique.getInstance(new ShiftToPropertyShape(allTargetsPlan, connectionsGroup), true,
+						connectionsGroup);
 			} else {
 				allTargetsPlan = getTargetChain()
-						.getEffectiveTarget("_target", scope, connectionsGroup.getRdfsSubClassOfReasoner())
-						.extend(planNodeProvider.getPlanNode(), connectionsGroup, scope, EffectiveTarget.Extend.right,
-								false);
+						.getEffectiveTarget(scope, connectionsGroup.getRdfsSubClassOfReasoner(),
+								stableRandomVariableProvider)
+						.extend(planNodeProvider.getPlanNode(), connectionsGroup, validationSettings.getDataGraph(),
+								scope, EffectiveTarget.Extend.right,
+								false, null);
 			}
 
 		} else {
 			allTargetsPlan = planNodeProvider.getPlanNode();
 		}
 
-		invalid = new NotValuesIn(allTargetsPlan, invalid);
+		invalid = new NotValuesIn(allTargetsPlan, invalid, connectionsGroup);
 
 		return invalid;
 
@@ -130,7 +154,7 @@ public class NotConstraintComponent extends AbstractConstraintComponent {
 	 * PlanNode planNode = not.generateTransactionalValidationPlan(connectionsGroup, logValidationPlans, targetProvider,
 	 * negateChildren, false, scope);
 	 *
-	 * PlanNode invalid = new Unique(planNode);
+	 * PlanNode invalid = Unique.getInstance(planNode);
 	 *
 	 * PlanNode discardedLeft = new NotValuesIn(allTargetsPlan, invalid);
 	 *
@@ -141,25 +165,32 @@ public class NotConstraintComponent extends AbstractConstraintComponent {
 	 */
 
 	@Override
-	public PlanNode getAllTargetsPlan(ConnectionsGroup connectionsGroup, Scope scope) {
+	public PlanNode getAllTargetsPlan(ConnectionsGroup connectionsGroup, Resource[] dataGraph, Scope scope,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider,
+			ValidationSettings validationSettings) {
 		PlanNode allTargets;
 
 		if (scope == Scope.propertyShape) {
 			PlanNode allTargetsPlan = getTargetChain()
-					.getEffectiveTarget("target_", Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner())
-					.getPlanNode(connectionsGroup, Scope.nodeShape, true);
+					.getEffectiveTarget(Scope.nodeShape, connectionsGroup.getRdfsSubClassOfReasoner(),
+							stableRandomVariableProvider)
+					.getPlanNode(connectionsGroup, dataGraph, Scope.nodeShape, true, null);
 
-			allTargets = new Unique(new ShiftToPropertyShape(allTargetsPlan));
+			allTargets = Unique.getInstance(new ShiftToPropertyShape(allTargetsPlan, connectionsGroup), true,
+					connectionsGroup);
 		} else {
 			allTargets = getTargetChain()
-					.getEffectiveTarget("target_", scope, connectionsGroup.getRdfsSubClassOfReasoner())
-					.getPlanNode(connectionsGroup, scope, true);
+					.getEffectiveTarget(scope, connectionsGroup.getRdfsSubClassOfReasoner(),
+							stableRandomVariableProvider)
+					.getPlanNode(connectionsGroup, dataGraph, scope, true, null);
 
 		}
 
-		PlanNode notTargets = not.getAllTargetsPlan(connectionsGroup, scope);
+		PlanNode notTargets = not.getAllTargetsPlan(connectionsGroup, dataGraph, scope,
+				new StatementMatcher.StableRandomVariableProvider(), validationSettings);
 
-		return new Unique(new UnionNode(allTargets, notTargets));
+		return Unique.getInstance(UnionNode.getInstanceDedupe(connectionsGroup, allTargets, notTargets), false,
+				connectionsGroup);
 	}
 
 	@Override
@@ -170,7 +201,32 @@ public class NotConstraintComponent extends AbstractConstraintComponent {
 	}
 
 	@Override
-	public boolean requiresEvaluation(ConnectionsGroup connectionsGroup, Scope scope) {
-		return not.requiresEvaluation(connectionsGroup, scope);
+	public boolean requiresEvaluation(ConnectionsGroup connectionsGroup, Scope scope, Resource[] dataGraph,
+			StatementMatcher.StableRandomVariableProvider stableRandomVariableProvider) {
+		return not.requiresEvaluation(connectionsGroup, scope, dataGraph, stableRandomVariableProvider);
+	}
+
+	@Override
+	public List<Literal> getDefaultMessage() {
+		return List.of();
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+
+		NotConstraintComponent that = (NotConstraintComponent) o;
+
+		return not.equals(that.not);
+	}
+
+	@Override
+	public int hashCode() {
+		return not.hashCode() + "NotConstraintComponent".hashCode();
 	}
 }

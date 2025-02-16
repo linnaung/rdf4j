@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
@@ -15,11 +18,10 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicLong;
 
-import javax.xml.bind.annotation.adapters.HexBinaryAdapter;
-
+import org.apache.commons.codec.binary.Hex;
 import org.eclipse.rdf4j.common.net.ParsedIRI;
 import org.eclipse.rdf4j.model.BNode;
 import org.eclipse.rdf4j.model.IRI;
@@ -29,6 +31,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.rio.ParseErrorListener;
 import org.eclipse.rdf4j.rio.ParseLocationListener;
@@ -44,6 +47,10 @@ import org.eclipse.rdf4j.rio.RioSetting;
  * @author Arjohn Kampman
  */
 public abstract class AbstractRDFParser implements RDFParser {
+
+	// static UUID as prefix together with a thread safe incrementing long ensures a unique identifier.
+	private final static String uniqueIdPrefix = UUID.randomUUID().toString().replace("-", "");
+	private final static AtomicLong uniqueIdSuffix = new AtomicLong();
 
 	private final MessageDigest md5;
 
@@ -93,14 +100,12 @@ public abstract class AbstractRDFParser implements RDFParser {
 	/**
 	 * Mapping from namespace prefixes to namespace names.
 	 */
-	private Map<String, String> namespaceTable;
+	private final Map<String, String> namespaceTable;
 
 	/**
 	 * A collection of configuration options for this parser.
 	 */
 	private ParserConfig parserConfig;
-
-	static int counter = 0;
 
 	/*--------------*
 	 * Constructors *
@@ -226,81 +231,12 @@ public abstract class AbstractRDFParser implements RDFParser {
 	}
 
 	@Override
-	public void setVerifyData(boolean verifyData) {
-		this.parserConfig.set(BasicParserSettings.VERIFY_RELATIVE_URIS, verifyData);
-	}
-
-	/**
-	 * @deprecated Use specific settings instead.
-	 */
-	@Deprecated
-	public boolean verifyData() {
-		return this.parserConfig.verifyData();
-	}
-
-	@Override
 	public void setPreserveBNodeIDs(boolean preserveBNodeIDs) {
 		this.parserConfig.set(BasicParserSettings.PRESERVE_BNODE_IDS, preserveBNodeIDs);
 	}
 
 	public boolean preserveBNodeIDs() {
 		return this.parserConfig.get(BasicParserSettings.PRESERVE_BNODE_IDS);
-	}
-
-	@Deprecated
-	@Override
-	public void setStopAtFirstError(boolean stopAtFirstError) {
-		getParserConfig().set(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES, stopAtFirstError);
-		if (!stopAtFirstError) {
-			getParserConfig().addNonFatalError(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES);
-		} else {
-			// TODO: Add a ParserConfig.removeNonFatalError function to avoid
-			// this
-			Set<RioSetting<?>> set = new HashSet<>(getParserConfig().getNonFatalErrors());
-			set.remove(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES);
-			getParserConfig().setNonFatalErrors(set);
-		}
-	}
-
-	/**
-	 * @deprecated Check specific settings instead.
-	 */
-	@Deprecated
-	public boolean stopAtFirstError() {
-		return this.parserConfig.stopAtFirstError();
-	}
-
-	@SuppressWarnings("deprecation")
-	@Override
-	public void setDatatypeHandling(DatatypeHandling datatypeHandling) {
-		if (datatypeHandling == DatatypeHandling.VERIFY) {
-			this.parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, true);
-			this.parserConfig.set(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES, true);
-		} else if (datatypeHandling == DatatypeHandling.NORMALIZE) {
-			this.parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, true);
-			this.parserConfig.set(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES, true);
-			this.parserConfig.set(BasicParserSettings.NORMALIZE_DATATYPE_VALUES, true);
-		} else {
-			// Only ignore if they have not explicitly set any of the relevant
-			// settings before this point
-			if (!this.parserConfig.isSet(BasicParserSettings.NORMALIZE_DATATYPE_VALUES)
-					&& !this.parserConfig.isSet(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES)
-					&& !this.parserConfig.isSet(BasicParserSettings.NORMALIZE_DATATYPE_VALUES)) {
-				this.parserConfig.set(BasicParserSettings.VERIFY_DATATYPE_VALUES, false);
-				this.parserConfig.set(BasicParserSettings.FAIL_ON_UNKNOWN_DATATYPES, false);
-				this.parserConfig.set(BasicParserSettings.NORMALIZE_DATATYPE_VALUES, false);
-			}
-		}
-	}
-
-	/**
-	 * @deprecated Use {@link BasicParserSettings#VERIFY_DATATYPE_VALUES} and
-	 *             {@link BasicParserSettings#FAIL_ON_UNKNOWN_DATATYPES} and
-	 *             {@link BasicParserSettings#NORMALIZE_DATATYPE_VALUES} instead.
-	 */
-	@Deprecated
-	public DatatypeHandling datatypeHandling() {
-		return this.parserConfig.datatypeHandling();
 	}
 
 	/**
@@ -393,7 +329,7 @@ public abstract class AbstractRDFParser implements RDFParser {
 			}
 
 			if (getParserConfig().get(BasicParserSettings.VERIFY_RELATIVE_URIS)) {
-				if (uriSpec.length() > 0 && !uriSpec.startsWith("#") && baseURI.isOpaque()) {
+				if (!uriSpec.isEmpty() && !uriSpec.startsWith("#") && baseURI.isOpaque()) {
 					reportError("Relative URI '" + uriSpec + "' cannot be resolved using the opaque base URI '"
 							+ baseURI + "'", BasicParserSettings.VERIFY_RELATIVE_URIS);
 				}
@@ -428,7 +364,7 @@ public abstract class AbstractRDFParser implements RDFParser {
 
 	/**
 	 * Creates a new {@link BNode} or Skolem {@link IRI} object.
-	 * 
+	 *
 	 * @return blank node or skolem IRI
 	 */
 	protected Resource createNode() throws RDFParseException {
@@ -450,7 +386,7 @@ public abstract class AbstractRDFParser implements RDFParser {
 
 	/**
 	 * Creates a {@link BNode} or Skolem {@link IRI} object for the specified identifier.
-	 * 
+	 *
 	 * @param nodeID node identifier
 	 * @return blank node or skolem IRI
 	 */
@@ -474,7 +410,7 @@ public abstract class AbstractRDFParser implements RDFParser {
 				// we use an MD5 hash rather than the node ID itself to get a
 				// fixed-length generated id, rather than
 				// an ever-growing one (see SES-2171)
-				toAppend = (new HexBinaryAdapter()).marshal(md5.digest(chars));
+				toAppend = Hex.encodeHexString(md5.digest(chars), false);
 			}
 
 			ParsedIRI skolem = getCachedSkolemOrigin();
@@ -525,7 +461,7 @@ public abstract class AbstractRDFParser implements RDFParser {
 				// we use an MD5 hash rather than the node ID itself to get a
 				// fixed-length generated id, rather than
 				// an ever-growing one (see SES-2171)
-				toAppend = (new HexBinaryAdapter()).marshal(md5.digest(chars));
+				toAppend = Hex.encodeHexString(md5.digest(chars), false);
 			}
 
 			return valueFactory.createBNode("genid-" + nextBNodePrefix + toAppend);
@@ -552,6 +488,21 @@ public abstract class AbstractRDFParser implements RDFParser {
 			throws RDFParseException {
 		return RDFParserHelper.createLiteral(label, lang, datatype, getParserConfig(), getParseErrorListener(),
 				valueFactory, lineNo, columnNo);
+	}
+
+	/**
+	 * Creates a {@link Literal} object with the supplied parameters, using the lineNo and columnNo to enhance error
+	 * messages or exceptions that may be generated during the creation of the literal.
+	 *
+	 * @see org.eclipse.rdf4j.rio.helpers.RDFParserHelper#createLiteral(String, String, IRI, ParserConfig,
+	 *      ParseErrorListener, ValueFactory, long, long)
+	 */
+	protected Literal createLiteral(String label, String lang, CoreDatatype datatype, long lineNo, long columnNo)
+			throws RDFParseException {
+
+		return RDFParserHelper.createLiteral(label, lang, datatype.getIri(), getParserConfig(), getParseErrorListener(),
+				valueFactory, lineNo, columnNo);
+
 	}
 
 	/**
@@ -589,7 +540,7 @@ public abstract class AbstractRDFParser implements RDFParser {
 
 	/**
 	 * Reports a warning to the registered ParseErrorListener, if any. This method simply calls
-	 * {@link #reportWarning(String, long, long)} supplying <tt>-1</tt> for the line- and column number.
+	 * {@link #reportWarning(String, long, long)} supplying <var>-1</var> for the line- and column number.
 	 */
 	protected void reportWarning(String msg) {
 		reportWarning(msg, -1, -1);
@@ -608,8 +559,8 @@ public abstract class AbstractRDFParser implements RDFParser {
 	 * Reports an error with associated line- and column number to the registered ParseErrorListener, if the given
 	 * setting has been set to true.
 	 * <p>
-	 * This method also throws an {@link RDFParseException} when the given setting has been set to <tt>true</tt> and it
-	 * is not a nonFatalError.
+	 * This method also throws an {@link RDFParseException} when the given setting has been set to <var>true</var> and
+	 * it is not a nonFatalError.
 	 *
 	 * @param msg             The message to use for {@link ParseErrorListener#error(String, long, long)} and for
 	 *                        {@link RDFParseException#RDFParseException(String, long, long)} .
@@ -628,8 +579,8 @@ public abstract class AbstractRDFParser implements RDFParser {
 	 * Reports an error with associated line- and column number to the registered ParseErrorListener, if the given
 	 * setting has been set to true.
 	 * <p>
-	 * This method also throws an {@link RDFParseException} when the given setting has been set to <tt>true</tt> and it
-	 * is not a nonFatalError.
+	 * This method also throws an {@link RDFParseException} when the given setting has been set to <var>true</var> and
+	 * it is not a nonFatalError.
 	 *
 	 * @param msg             The message to use for {@link ParseErrorListener#error(String, long, long)} and for
 	 *                        {@link RDFParseException#RDFParseException(String, long, long)} .
@@ -655,8 +606,8 @@ public abstract class AbstractRDFParser implements RDFParser {
 	 * Reports an error with associated line- and column number to the registered ParseErrorListener, if the given
 	 * setting has been set to true.
 	 * <p>
-	 * This method also throws an {@link RDFParseException} when the given setting has been set to <tt>true</tt> and it
-	 * is not a nonFatalError.
+	 * This method also throws an {@link RDFParseException} when the given setting has been set to <var>true</var> and
+	 * it is not a nonFatalError.
 	 *
 	 * @param e               The exception whose message will be used for
 	 *                        {@link ParseErrorListener#error(String, long, long)} and for
@@ -676,8 +627,8 @@ public abstract class AbstractRDFParser implements RDFParser {
 	 * Reports an error with associated line- and column number to the registered ParseErrorListener, if the given
 	 * setting has been set to true.
 	 * <p>
-	 * This method also throws an {@link RDFParseException} when the given setting has been set to <tt>true</tt> and it
-	 * is not a nonFatalError.
+	 * This method also throws an {@link RDFParseException} when the given setting has been set to <var>true</var> and
+	 * it is not a nonFatalError.
 	 *
 	 * @param e               The exception whose message will be used for
 	 *                        {@link ParseErrorListener#error(String, long, long)} and for
@@ -704,8 +655,8 @@ public abstract class AbstractRDFParser implements RDFParser {
 	 * Reports an error with associated line- and column number to the registered ParseErrorListener, if the given
 	 * setting has been set to true.
 	 * <p>
-	 * This method also throws an {@link RDFParseException} when the given setting has been set to <tt>true</tt> and it
-	 * is not a nonFatalError.
+	 * This method also throws an {@link RDFParseException} when the given setting has been set to <var>true</var> and
+	 * it is not a nonFatalError.
 	 *
 	 * @param msg             The message to use for {@link ParseErrorListener#error(String, long, long)} and for
 	 *                        {@link RDFParseException#RDFParseException(String, long, long)} .
@@ -731,9 +682,9 @@ public abstract class AbstractRDFParser implements RDFParser {
 	}
 
 	/**
-	 * Reports a fatal error to the registered ParseErrorListener, if any, and throws a <tt>ParseException</tt>
-	 * afterwards. This method simply calls {@link #reportFatalError(String, long, long)} supplying <tt>-1</tt> for the
-	 * line- and column number.
+	 * Reports a fatal error to the registered ParseErrorListener, if any, and throws a <var>ParseException</var>
+	 * afterwards. This method simply calls {@link #reportFatalError(String, long, long)} supplying <var>-1</var> for
+	 * the line- and column number.
 	 */
 	protected void reportFatalError(String msg) throws RDFParseException {
 		RDFParserHelper.reportFatalError(msg, getParseErrorListener());
@@ -741,21 +692,21 @@ public abstract class AbstractRDFParser implements RDFParser {
 
 	/**
 	 * Reports a fatal error with associated line- and column number to the registered ParseErrorListener, if any, and
-	 * throws a <tt>ParseException</tt> afterwards.
+	 * throws a <var>ParseException</var> afterwards.
 	 */
 	protected void reportFatalError(String msg, long lineNo, long columnNo) throws RDFParseException {
 		RDFParserHelper.reportFatalError(msg, lineNo, columnNo, getParseErrorListener());
 	}
 
 	/**
-	 * Reports a fatal error to the registered ParseErrorListener, if any, and throws a <tt>ParseException</tt>
+	 * Reports a fatal error to the registered ParseErrorListener, if any, and throws a <var>ParseException</var>
 	 * afterwards. An exception is made for the case where the supplied exception is a {@link RDFParseException}; in
 	 * that case the supplied exception is not wrapped in another ParseException and the error message is not reported
 	 * to the ParseErrorListener, assuming that it has already been reported when the original ParseException was
 	 * thrown.
 	 * <p>
-	 * This method simply calls {@link #reportFatalError(Exception, long, long)} supplying <tt>-1</tt> for the line- and
-	 * column number.
+	 * This method simply calls {@link #reportFatalError(Exception, long, long)} supplying <var>-1</var> for the line-
+	 * and column number.
 	 */
 	protected void reportFatalError(Exception e) throws RDFParseException {
 		RDFParserHelper.reportFatalError(e, getParseErrorListener());
@@ -763,7 +714,7 @@ public abstract class AbstractRDFParser implements RDFParser {
 
 	/**
 	 * Reports a fatal error with associated line- and column number to the registered ParseErrorListener, if any, and
-	 * throws a <tt>ParseException</tt> wrapped the supplied exception afterwards. An exception is made for the case
+	 * throws a <var>ParseException</var> wrapped the supplied exception afterwards. An exception is made for the case
 	 * where the supplied exception is a {@link RDFParseException}; in that case the supplied exception is not wrapped
 	 * in another ParseException and the error message is not reported to the ParseErrorListener, assuming that it has
 	 * already been reported when the original ParseException was thrown.
@@ -774,7 +725,7 @@ public abstract class AbstractRDFParser implements RDFParser {
 
 	/**
 	 * Reports a fatal error with associated line- and column number to the registered ParseErrorListener, if any, and
-	 * throws a <tt>ParseException</tt> wrapped the supplied exception afterwards. An exception is made for the case
+	 * throws a <var>ParseException</var> wrapped the supplied exception afterwards. An exception is made for the case
 	 * where the supplied exception is a {@link RDFParseException}; in that case the supplied exception is not wrapped
 	 * in another ParseException and the error message is not reported to the ParseErrorListener, assuming that it has
 	 * already been reported when the original ParseException was thrown.
@@ -783,19 +734,19 @@ public abstract class AbstractRDFParser implements RDFParser {
 		RDFParserHelper.reportFatalError(message, e, lineNo, columnNo, getParseErrorListener());
 	}
 
-	private final String createUniqueBNodePrefix() {
-		return UUID.randomUUID().toString().replaceAll("-", "") + "-";
+	private String createUniqueBNodePrefix() {
+		return uniqueIdPrefix + uniqueIdSuffix.incrementAndGet() + "-";
 	}
 
 	/**
 	 * Parse skolem origin, if set
-	 * 
+	 *
 	 * @return skolem origin or null
 	 */
 	private ParsedIRI getCachedSkolemOrigin() {
 		String origin = getParserConfig().get(BasicParserSettings.SKOLEMIZE_ORIGIN);
 
-		if (origin == null || origin.length() == 0) {
+		if (origin == null || origin.isEmpty()) {
 			if (skolemOrigin != null) {
 				skolemOrigin = null;
 				parsedSkolemOrigin = null;

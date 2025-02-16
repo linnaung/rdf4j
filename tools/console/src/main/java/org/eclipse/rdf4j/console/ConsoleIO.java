@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console;
 
@@ -101,9 +104,8 @@ public class ConsoleIO {
 	 * Read a command from input
 	 *
 	 * @return one line of input, or null on error
-	 * @throws IOException
 	 */
-	protected String readCommand() throws IOException {
+	protected String readCommand() {
 		try {
 			String line = input.readLine(getPrompt());
 			if (line == null) {
@@ -141,9 +143,8 @@ public class ConsoleIO {
 	 * Reads multiple lines from the input until a line that with a '.' on its own is read.
 	 *
 	 * @return input string
-	 * @throws IOException
 	 */
-	public String readMultiLineInput() throws IOException {
+	public String readMultiLineInput() {
 		return readMultiLineInput("> ");
 	}
 
@@ -152,9 +153,8 @@ public class ConsoleIO {
 	 *
 	 * @param prompt
 	 * @return input string
-	 * @throws IOException
 	 */
-	public String readMultiLineInput(String prompt) throws IOException {
+	public String readMultiLineInput(String prompt) {
 		String line = input.readLine(prompt);
 		String result = null;
 
@@ -182,9 +182,8 @@ public class ConsoleIO {
 	 *
 	 * @param message one or multiple messages
 	 * @return input string
-	 * @throws IOException
 	 */
-	public String readln(String... message) throws IOException {
+	public String readln(String... message) {
 		String prompt = !quiet && message.length > 0 && message[0] != null ? message[0] : "";
 		String result = input.readLine(prompt);
 
@@ -199,9 +198,8 @@ public class ConsoleIO {
 	 *
 	 * @param prompt prompt to display
 	 * @return password string
-	 * @throws IOException
 	 */
-	public String readPassword(final String prompt) throws IOException {
+	public String readPassword(final String prompt) {
 		String result = input.readLine(prompt, '*');
 		if (echo && !result.isEmpty()) {
 			writeln("************");
@@ -277,9 +275,8 @@ public class ConsoleIO {
 	 * @param msg          confirmation question
 	 * @param defaultValue true when default is yes
 	 * @return true when continue
-	 * @throws IOException
 	 */
-	public boolean askProceed(String msg, boolean defaultValue) throws IOException {
+	public boolean askProceed(String msg, boolean defaultValue) {
 		final String defaultString = defaultValue ? "yes" : "no";
 		boolean result = force ? true : (cautious ? false : defaultValue);
 

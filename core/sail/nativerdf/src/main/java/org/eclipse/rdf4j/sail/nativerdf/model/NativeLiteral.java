@@ -1,13 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.model;
 
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.impl.SimpleLiteral;
 import org.eclipse.rdf4j.sail.nativerdf.ValueStoreRevision;
 
@@ -58,7 +62,16 @@ public class NativeLiteral extends SimpleLiteral implements NativeValue {
 		this(revision, label, datatype, UNKNOWN_ID);
 	}
 
+	public NativeLiteral(ValueStoreRevision revision, String label, CoreDatatype datatype) {
+		this(revision, label, datatype, UNKNOWN_ID);
+	}
+
 	public NativeLiteral(ValueStoreRevision revision, String label, IRI datatype, int internalID) {
+		super(label, datatype);
+		setInternalID(internalID, revision);
+	}
+
+	public NativeLiteral(ValueStoreRevision revision, String label, CoreDatatype datatype, int internalID) {
 		super(label, datatype);
 		setInternalID(internalID, revision);
 	}

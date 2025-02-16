@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearchstore;
 
@@ -37,11 +40,16 @@ import org.slf4j.LoggerFactory;
  * <p>
  * This is an EXPERIMENTAL feature. Use at your own risk!
  * </p>
- *
+ * <p>
+ * Note that, while RDF4J is licensed under the EDL, several ElasticSearch dependencies are licensed under the Elastic
+ * License or the SSPL, which may have implications for some projects. <br/>
+ * Please consult the ElasticSearch website and Elastic license FAQ for more information.
+ * </p>
  * <p>
  * There is no write-ahead logging, so a failure during a transaction may result in partially persisted changes.
  * </p>
  *
+ * @see <a href="https://www.elastic.co/licensing/elastic-license/faq">Elastic License FAQ</a>
  *
  * @author Håvard Mikkelsen Ottestad
  */
@@ -59,11 +67,11 @@ public class ElasticsearchStore extends ExtensibleStore<ElasticsearchDataStructu
 	private String index;
 
 	public ElasticsearchStore(String hostname, int port, String clusterName, String index) {
-		this(hostname, port, clusterName, index, true);
+		this(hostname, port, clusterName, index, Cache.EAGER);
 	}
 
-	public ElasticsearchStore(String hostname, int port, String clusterName, String index, boolean cacheEnabled) {
-		super(cacheEnabled);
+	public ElasticsearchStore(String hostname, int port, String clusterName, String index, Cache cache) {
+		super(cache);
 		this.hostname = hostname;
 		this.port = port;
 		this.clusterName = clusterName;
@@ -81,11 +89,11 @@ public class ElasticsearchStore extends ExtensibleStore<ElasticsearchDataStructu
 	}
 
 	public ElasticsearchStore(ClientProvider clientPool, String index) {
-		this(clientPool, index, true);
+		this(clientPool, index, Cache.EAGER);
 	}
 
-	public ElasticsearchStore(ClientProvider clientPool, String index, boolean cacheEnabled) {
-		super(cacheEnabled);
+	public ElasticsearchStore(ClientProvider clientPool, String index, Cache cache) {
+		super(cache);
 		this.clientProvider = new UnclosableClientProvider(clientPool);
 
 		dataStructure = new ElasticsearchDataStructure(this.clientProvider, index);
@@ -94,11 +102,11 @@ public class ElasticsearchStore extends ExtensibleStore<ElasticsearchDataStructu
 	}
 
 	public ElasticsearchStore(Client client, String index) {
-		this(client, index, true);
+		this(client, index, Cache.EAGER);
 	}
 
-	public ElasticsearchStore(Client client, String index, boolean cacheEnabled) {
-		this(new UnclosableClientProvider(new UserProvidedClientProvider(client)), index, cacheEnabled);
+	public ElasticsearchStore(Client client, String index, Cache cache) {
+		this(new UnclosableClientProvider(new UserProvidedClientProvider(client)), index, cache);
 	}
 
 	@Override
@@ -261,6 +269,6 @@ public class ElasticsearchStore extends ExtensibleStore<ElasticsearchDataStructu
 
 	@Override
 	public ExtensibleStatementHelper getExtensibleStatementHelper() {
-		return ElasticsearchValueFactory.getInstance();
+		return (ExtensibleStatementHelper) ElasticsearchValueFactory.getInstance();
 	}
 }

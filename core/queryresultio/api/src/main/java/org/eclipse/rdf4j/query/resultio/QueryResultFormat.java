@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio;
 
@@ -55,10 +58,10 @@ public class QueryResultFormat extends FileFormat {
 
 	/**
 	 * @param name     The name of the format, e.g. "SPARQL/XML".
-	 * @param mimeType The MIME type of the format, e.g. <tt>application/sparql-results+xml</tt> for the SPARQL/XML file
-	 *                 format.
-	 * @param charset  The default character encoding of the format. Specify <tt>null</tt> if not applicable.
-	 * @param fileExt  The (default) file extension for the format, e.g. <tt>srx</tt> for SPARQL/XML files.
+	 * @param mimeType The MIME type of the format, e.g. <var>application/sparql-results+xml</var> for the SPARQL/XML
+	 *                 file format.
+	 * @param charset  The default character encoding of the format. Specify <var>null</var> if not applicable.
+	 * @param fileExt  The (default) file extension for the format, e.g. <var>srx</var> for SPARQL/XML files.
 	 */
 	public QueryResultFormat(String name, String mimeType, Charset charset, String fileExt) {
 		super(name, mimeType, charset, fileExt);
@@ -66,11 +69,11 @@ public class QueryResultFormat extends FileFormat {
 
 	/**
 	 * @param name           The name of the format, e.g. "SPARQL/XML".
-	 * @param mimeType       The MIME type of the format, e.g. <tt>application/sparql-results+xml</tt> for the
+	 * @param mimeType       The MIME type of the format, e.g. <var>application/sparql-results+xml</var> for the
 	 *                       SPARQL/XML format.
-	 * @param charset        The default character encoding of the format. Specify <tt>null</tt> if not applicable.
-	 * @param fileExtensions The format's file extensions, e.g. <tt>srx</tt> for SPARQL/XML files. The first item in the
-	 *                       list is interpreted as the default file extension for the format.
+	 * @param charset        The default character encoding of the format. Specify <var>null</var> if not applicable.
+	 * @param fileExtensions The format's file extensions, e.g. <var>srx</var> for SPARQL/XML files. The first item in
+	 *                       the list is interpreted as the default file extension for the format.
 	 */
 	public QueryResultFormat(String name, String mimeType, Charset charset, Collection<String> fileExtensions) {
 		super(name, mimeType, charset, fileExtensions);
@@ -78,12 +81,12 @@ public class QueryResultFormat extends FileFormat {
 
 	/**
 	 * @param name           The name of the format, e.g. "SPARQL/XML".
-	 * @param mimeTypes      The MIME types of the format, e.g. <tt>application/sparql-results+xml</tt> for the
+	 * @param mimeTypes      The MIME types of the format, e.g. <var>application/sparql-results+xml</var> for the
 	 *                       SPARQL/XML format. The first item in the list is interpreted as the default MIME type for
 	 *                       the format.
-	 * @param charset        The default character encoding of the format. Specify <tt>null</tt> if not applicable.
-	 * @param fileExtensions The format's file extensions, e.g. <tt>srx</tt> for SPARQL/XML files. The first item in the
-	 *                       list is interpreted as the default file extension for the format.
+	 * @param charset        The default character encoding of the format. Specify <var>null</var> if not applicable.
+	 * @param fileExtensions The format's file extensions, e.g. <var>srx</var> for SPARQL/XML files. The first item in
+	 *                       the list is interpreted as the default file extension for the format.
 	 */
 	public QueryResultFormat(String name, Collection<String> mimeTypes, Charset charset,
 			Collection<String> fileExtensions) {
@@ -92,12 +95,12 @@ public class QueryResultFormat extends FileFormat {
 
 	/**
 	 * @param name           The name of the format, e.g. "SPARQL/XML".
-	 * @param mimeTypes      The MIME types of the format, e.g. <tt>application/sparql-results+xml</tt> for the
+	 * @param mimeTypes      The MIME types of the format, e.g. <var>application/sparql-results+xml</var> for the
 	 *                       SPARQL/XML format. The first item in the list is interpreted as the default MIME type for
 	 *                       the format.
-	 * @param charset        The default character encoding of the format. Specify <tt>null</tt> if not applicable.
-	 * @param fileExtensions The format's file extensions, e.g. <tt>srx</tt> for SPARQL/XML files. The first item in the
-	 *                       list is interpreted as the default file extension for the format.
+	 * @param charset        The default character encoding of the format. Specify <var>null</var> if not applicable.
+	 * @param fileExtensions The format's file extensions, e.g. <var>srx</var> for SPARQL/XML files. The first item in
+	 *                       the list is interpreted as the default file extension for the format.
 	 */
 	public QueryResultFormat(String name, Collection<String> mimeTypes, Charset charset,
 			Collection<String> fileExtensions, IRI standardURI) {

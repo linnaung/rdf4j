@@ -1,22 +1,27 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.rdf;
 
+import static org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf.iri;
+
 import java.util.Optional;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.sparqlbuilder.util.SparqlBuilderUtils;
 
 /**
  * Denotes an RDF literal
  *
  * @param <T> the datatype of the literal
- *
  * @see <a href="http://www.w3.org/TR/2014/NOTE-rdf11-primer-20140225/#section-literal"> RDF Literals</a>
  * @see <a href="https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynLiterals"> RDF Literal Syntax</a>
  */
@@ -78,6 +83,10 @@ public abstract class RdfLiteral<T> implements RdfValue {
 			ofType(dataType);
 		}
 
+		StringLiteral(String stringValue, IRI dataType) {
+			this(stringValue, iri(dataType));
+		}
+
 		StringLiteral(String stringValue, String languageTag) {
 			super(stringValue);
 			ofLanguage(languageTag);
@@ -89,6 +98,10 @@ public abstract class RdfLiteral<T> implements RdfValue {
 			return this;
 		}
 
+		public StringLiteral ofType(IRI dataType) {
+			return ofType(iri(dataType));
+		}
+
 		public StringLiteral ofLanguage(String languageTag) {
 			this.languageTag = Optional.ofNullable(languageTag);
 
@@ -98,13 +111,8 @@ public abstract class RdfLiteral<T> implements RdfValue {
 		@Override
 		public String getQueryString() {
 			StringBuilder literal = new StringBuilder();
-
-			if (value.contains("'") || value.contains("\"")) {
-				literal.append(SparqlBuilderUtils.getLongQuotedString(value));
-			} else {
-				literal.append(SparqlBuilderUtils.getQuotedString(value));
-			}
-
+			String escaped = SparqlBuilderUtils.getEscapedString(value);
+			literal.append(SparqlBuilderUtils.getQuotedString(escaped));
 			SparqlBuilderUtils.appendQueryElementIfPresent(dataType, literal, DATATYPE_SPECIFIER, null);
 			SparqlBuilderUtils.appendStringIfPresent(languageTag, literal, LANG_TAG_SPECIFIER, null);
 

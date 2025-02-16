@@ -1,9 +1,12 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
@@ -11,10 +14,9 @@ package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 import java.util.Objects;
 import java.util.function.Function;
 
-import org.apache.commons.lang3.NotImplementedException;
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.sail.SailException;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
 
 public class TupleMapper implements PlanNode {
 	PlanNode parent;
@@ -22,37 +24,40 @@ public class TupleMapper implements PlanNode {
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
-	public TupleMapper(PlanNode parent, Function<ValidationTuple, ValidationTuple> function) {
-		parent = PlanNodeHelper.handleSorting(this, parent);
-		this.parent = parent;
+	public TupleMapper(PlanNode parent, Function<ValidationTuple, ValidationTuple> function,
+			ConnectionsGroup connectionsGroup) {
+		this.parent = PlanNodeHelper.handleSorting(this, parent, connectionsGroup);
 		this.function = function;
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final CloseableIteration<? extends ValidationTuple, SailException> parentIterator = parent.iterator();
+			private CloseableIteration<? extends ValidationTuple> parentIterator;
 
 			@Override
-			public void close() throws SailException {
-				parentIterator.close();
+			protected void init() {
+				parentIterator = parent.iterator();
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			public void localClose() {
+				if (parentIterator != null) {
+					parentIterator.close();
+				}
+			}
+
+			@Override
+			protected boolean localHasNext() {
 				return parentIterator.hasNext();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() {
 				return function.apply(parentIterator.next());
 			}
 
-			@Override
-			public void remove() throws SailException {
-				throw new NotImplementedException("Not implemented yet");
-			}
 		};
 	}
 
@@ -80,7 +85,7 @@ public class TupleMapper implements PlanNode {
 
 	@Override
 	public String toString() {
-		return "ModifyValidationTuple";
+		return "TupleMapper";
 	}
 
 	@Override
@@ -108,8 +113,7 @@ public class TupleMapper implements PlanNode {
 			return false;
 		}
 		TupleMapper that = (TupleMapper) o;
-		return parent.equals(that.parent) &&
-				function.equals(that.function);
+		return parent.equals(that.parent) && function.equals(that.function);
 	}
 
 	@Override

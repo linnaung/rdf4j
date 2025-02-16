@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2017 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.examples.function;
 
@@ -69,7 +72,8 @@ public class ExistingPalindromeFunction implements Function {
 		// a string is a palindrome if it is equal to its own inverse
 		boolean palindrome = inverted.equalsIgnoreCase(label);
 
-		// check if a triple with the rdfs:label predicate and this palindrome as its value exists in the database
+		// check if a triple with the rdfs:label predicate and this palindrome as its value already exists in the
+		// database
 		boolean existing = !QueryResults.asList(tripleSource.getStatements(null, RDFS.LABEL, (Literal) arg)).isEmpty();
 
 		// return a new boolean literal that is true if the input argument is a palindrome and exists as a label
@@ -78,6 +82,6 @@ public class ExistingPalindromeFunction implements Function {
 
 	@Override
 	public Value evaluate(ValueFactory valueFactory, Value... args) throws ValueExprEvaluationException {
-		throw new UnsupportedOperationException("this function needs a TripleSource");
+		throw new UnsupportedOperationException();
 	}
 }

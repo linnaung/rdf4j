@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.iterator;
 
@@ -18,45 +21,58 @@ import org.slf4j.LoggerFactory;
  * A wrapping iteration that attempts to close the dependent {@link RepositoryConnection} after consumption.
  *
  * @author Andreas Schwarte
- *
  */
-public class CloseDependentConnectionIteration<T>
-		extends AbstractCloseableIteration<T, QueryEvaluationException> {
+public class CloseDependentConnectionIteration<T> extends AbstractCloseableIteration<T> {
 
-	private static final Logger log = LoggerFactory.getLogger(CloseDependentConnectionIteration.class);
+	private static final Logger logger = LoggerFactory.getLogger(CloseDependentConnectionIteration.class);
 
-	protected final CloseableIteration<T, QueryEvaluationException> inner;
+	protected final CloseableIteration<T> inner;
 	protected final RepositoryConnection dependentConn;
 
-	public CloseDependentConnectionIteration(
-			CloseableIteration<T, QueryEvaluationException> inner,
+	public CloseDependentConnectionIteration(CloseableIteration<T> inner,
 			RepositoryConnection dependentConn) {
-		super();
 		this.inner = inner;
 		this.dependentConn = dependentConn;
 	}
 
 	@Override
 	public boolean hasNext() throws QueryEvaluationException {
-		boolean res = inner.hasNext();
-		if (!res) {
-			try {
-				dependentConn.close();
-			} catch (Throwable ignore) {
-				log.trace("Failed to close dependent connection:", ignore);
+		try {
+			if (Thread.interrupted()) {
+				Thread.currentThread().interrupt();
+				close();
+				return false;
 			}
+
+			boolean res = inner.hasNext();
+			if (!res) {
+				close();
+			}
+			return res;
+		} catch (Throwable t) {
+			close();
+			throw t;
 		}
-		return res;
 	}
 
 	@Override
 	public T next() throws QueryEvaluationException {
-		return inner.next();
+		try {
+			return inner.next();
+		} catch (Throwable t) {
+			close();
+			throw t;
+		}
 	}
 
 	@Override
 	public void remove() throws QueryEvaluationException {
-		inner.remove();
+		try {
+			inner.remove();
+		} catch (Throwable t) {
+			close();
+			throw t;
+		}
 	}
 
 	@Override
@@ -64,11 +80,7 @@ public class CloseDependentConnectionIteration<T>
 		try {
 			inner.close();
 		} finally {
-			try {
-				super.handleClose();
-			} finally {
-				dependentConn.close();
-			}
+			dependentConn.close();
 		}
 	}
 

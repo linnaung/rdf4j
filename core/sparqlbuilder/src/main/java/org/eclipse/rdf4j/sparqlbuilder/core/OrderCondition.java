@@ -1,9 +1,12 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core;
@@ -18,7 +21,7 @@ import org.eclipse.rdf4j.sparqlbuilder.util.SparqlBuilderUtils;
 public class OrderCondition implements Orderable {
 	private static final String ASC = "ASC";
 	private static final String DESC = "DESC";
-	private Orderable orderOn;
+	private final Orderable orderOn;
 	private boolean isAscending;
 
 	OrderCondition(Orderable orderOn) {

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.event;
 
@@ -21,36 +24,36 @@ import org.eclipse.rdf4j.repository.RepositoryConnection;
  */
 public interface RepositoryConnectionListener {
 
-	public abstract void close(RepositoryConnection conn);
+	void close(RepositoryConnection conn);
 
 	/**
-	 * @deprecated since 2.0. Use {@link #begin(RepositoryConnection)} instead.
 	 * @param conn
 	 * @param autoCommit
+	 * @deprecated Use {@link #begin(RepositoryConnection)} instead.
 	 */
-	@Deprecated
-	public abstract void setAutoCommit(RepositoryConnection conn, boolean autoCommit);
+	@Deprecated(since = "2.0")
+	void setAutoCommit(RepositoryConnection conn, boolean autoCommit);
 
-	public abstract void begin(RepositoryConnection conn);
+	void begin(RepositoryConnection conn);
 
-	public abstract void commit(RepositoryConnection conn);
+	void commit(RepositoryConnection conn);
 
-	public abstract void rollback(RepositoryConnection conn);
+	void rollback(RepositoryConnection conn);
 
-	public abstract void add(RepositoryConnection conn, Resource subject, IRI predicate, Value object,
+	void add(RepositoryConnection conn, Resource subject, IRI predicate, Value object,
 			Resource... contexts);
 
-	public abstract void remove(RepositoryConnection conn, Resource subject, IRI predicate, Value object,
+	void remove(RepositoryConnection conn, Resource subject, IRI predicate, Value object,
 			Resource... contexts);
 
-	public abstract void clear(RepositoryConnection conn, Resource... contexts);
+	void clear(RepositoryConnection conn, Resource... contexts);
 
-	public abstract void setNamespace(RepositoryConnection conn, String prefix, String name);
+	void setNamespace(RepositoryConnection conn, String prefix, String name);
 
-	public abstract void removeNamespace(RepositoryConnection conn, String prefix);
+	void removeNamespace(RepositoryConnection conn, String prefix);
 
-	public abstract void clearNamespaces(RepositoryConnection conn);
+	void clearNamespaces(RepositoryConnection conn);
 
-	public abstract void execute(RepositoryConnection conn, QueryLanguage ql, String update, String baseURI,
+	void execute(RepositoryConnection conn, QueryLanguage ql, String update, String baseURI,
 			Update operation);
 }

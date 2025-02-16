@@ -1,13 +1,18 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.graphpattern;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Optional;
 
 import org.eclipse.rdf4j.sparqlbuilder.constraint.Expression;
@@ -24,7 +29,7 @@ class GroupGraphPattern extends QueryElementCollection<GraphPattern> implements 
 	private static final String GRAPH = "GRAPH ";
 
 	private Optional<GraphName> from = Optional.empty();
-	private Optional<Filter> filter = Optional.empty();
+	private List<Filter> filters = new ArrayList<>();
 	protected boolean isOptional = false;
 
 	GroupGraphPattern() {
@@ -47,7 +52,7 @@ class GroupGraphPattern extends QueryElementCollection<GraphPattern> implements 
 		this.elements = original.elements;
 		this.isOptional = original.isOptional;
 		this.from = original.from;
-		this.filter = original.filter;
+		this.filters = new ArrayList<>(original.filters);
 	}
 
 	@Override
@@ -77,7 +82,7 @@ class GroupGraphPattern extends QueryElementCollection<GraphPattern> implements 
 
 	@Override
 	public GroupGraphPattern filter(Expression<?> constraint) {
-		filter = Optional.of(new Filter(constraint));
+		filters.add(new Filter(constraint));
 
 		return this;
 	}
@@ -100,7 +105,9 @@ class GroupGraphPattern extends QueryElementCollection<GraphPattern> implements 
 
 		innerPattern.append(super.getQueryString());
 
-		SparqlBuilderUtils.appendQueryElementIfPresent(filter, innerPattern, "\n", null);
+		filters.forEach(filter -> SparqlBuilderUtils.appendQueryElementIfPresent(
+				Optional.of(filter),
+				innerPattern, "\n", null));
 
 		if (bracketInner()) {
 			pattern.append(SparqlBuilderUtils.getBracedString(innerPattern.toString()));

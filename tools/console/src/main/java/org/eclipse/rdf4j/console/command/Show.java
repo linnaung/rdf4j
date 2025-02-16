@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
@@ -116,7 +119,7 @@ public class Show extends ConsoleCommand {
 		}
 
 		try (RepositoryConnection con = repository.getConnection()) {
-			try (CloseableIteration<? extends Namespace, RepositoryException> namespaces = con.getNamespaces()) {
+			try (CloseableIteration<? extends Namespace> namespaces = con.getNamespaces()) {
 				if (namespaces.hasNext()) {
 					writeln(OUTPUT_SEPARATOR);
 					while (namespaces.hasNext()) {
@@ -144,7 +147,7 @@ public class Show extends ConsoleCommand {
 		}
 
 		try (RepositoryConnection con = repository.getConnection()) {
-			try (CloseableIteration<? extends Resource, RepositoryException> contexts = con.getContextIDs()) {
+			try (CloseableIteration<? extends Resource> contexts = con.getContextIDs()) {
 				if (contexts.hasNext()) {
 					writeln(OUTPUT_SEPARATOR);
 					while (contexts.hasNext()) {

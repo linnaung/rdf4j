@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.http;
 
@@ -22,11 +25,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.http.client.HttpClient;
-import org.eclipse.rdf4j.OpenRDFUtil;
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
 import org.eclipse.rdf4j.common.transaction.TransactionSetting;
 import org.eclipse.rdf4j.http.client.HttpClientDependent;
@@ -50,6 +53,7 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.model.impl.SimpleNamespace;
+import org.eclipse.rdf4j.model.vocabulary.RDF4J;
 import org.eclipse.rdf4j.model.vocabulary.SESAME;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.BooleanQuery;
@@ -75,6 +79,7 @@ import org.eclipse.rdf4j.rio.RDFHandlerException;
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.RDFParserRegistry;
 import org.eclipse.rdf4j.rio.Rio;
+import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
 
@@ -83,10 +88,10 @@ import org.eclipse.rdf4j.rio.helpers.StatementCollector;
  * specific RepositoryException subclasses UnautorizedException and NotAllowedException, the semantics of which are
  * defined by the HTTP protocol.
  *
- * @see org.eclipse.rdf4j.http.protocol.UnauthorizedException
- * @see org.eclipse.rdf4j.http.protocol.NotAllowedException
  * @author Arjohn Kampman
  * @author Herko ter Horst
+ * @see org.eclipse.rdf4j.http.protocol.UnauthorizedException
+ * @see org.eclipse.rdf4j.http.protocol.NotAllowedException
  */
 class HTTPRepositoryConnection extends AbstractRepositoryConnection implements HttpClientDependent {
 
@@ -94,7 +99,7 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 	 * Variables *
 	 *-----------*/
 
-	private List<TransactionOperation> txn = Collections.synchronizedList(new ArrayList<>());
+	private final List<TransactionOperation> txn = Collections.synchronizedList(new ArrayList<>());
 
 	private final RDF4JProtocolSession client;
 
@@ -206,18 +211,6 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 			} else {
 				return prepareGraphQuery(ql, queryString, baseURI);
 			}
-		} else if (QueryLanguage.SERQL.equals(ql)) {
-			String strippedQuery = queryString;
-
-			// remove all opening brackets
-			strippedQuery = strippedQuery.replace('(', ' ');
-			strippedQuery = strippedQuery.trim();
-
-			if (strippedQuery.toUpperCase().startsWith("SELECT")) {
-				return prepareTupleQuery(ql, queryString, baseURI);
-			} else {
-				return prepareGraphQuery(ql, queryString, baseURI);
-			}
 		} else {
 			throw new UnsupportedOperationException("Operation not supported for query language " + ql);
 		}
@@ -317,7 +310,7 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 
 		if (this.getRepository().useCompatibleMode()) {
 			synchronized (txn) {
-				if (txn.size() > 0) {
+				if (!txn.isEmpty()) {
 					try {
 						client.sendTransaction(txn);
 						txn.clear();
@@ -422,7 +415,10 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 				mimeType = mimeType.substring(0, semiColonIdx);
 			}
 			dataFormat = Rio.getParserFormatForMIMEType(mimeType)
-					.orElse(Rio.getParserFormatForFileName(url.getPath()).orElseThrow(Rio.unsupportedFormat(mimeType)));
+					.orElseGet(() -> Rio.getParserFormatForFileName(url.getPath())
+							.orElseThrow(() -> new UnsupportedRDFormatException(
+									"Could not find RDF format for URL: " + url.toExternalForm())));
+
 		}
 
 		try {
@@ -464,7 +460,7 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 			// create a new format constant with identical properties as the
 			// N-Triples format, just with a different
 			// default MIME-type.
-			return new RDFFormat(NTRIPLES.getName(), Arrays.asList("text/plain"), NTRIPLES.getCharset(),
+			return new RDFFormat(NTRIPLES.getName(), List.of("text/plain"), NTRIPLES.getCharset(),
 					NTRIPLES.getFileExtensions(), NTRIPLES.supportsNamespaces(), NTRIPLES.supportsContexts(),
 					NTRIPLES.supportsRDFStar());
 		}
@@ -499,7 +495,8 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 	public void add(Statement st, Resource... contexts) throws RepositoryException {
 		if (!isActive()) {
 			// operation is not part of a transaction - just send directly
-			OpenRDFUtil.verifyContextNotNull(contexts);
+			Objects.requireNonNull(contexts,
+					"contexts argument may not be null; either the value should be cast to Resource or an empty array should be supplied");
 
 			final Model m = new LinkedHashModel();
 
@@ -519,11 +516,13 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 	@Override
 	public void add(Resource subject, IRI predicate, Value object, Resource... contexts) throws RepositoryException {
 		if (!isActive()) {
-			logger.debug("adding statement directly: {} {} {} {}",
-					new Object[] { subject, predicate, object, contexts });
+			if (logger.isDebugEnabled()) {
+				logger.debug("adding statement directly: {} {} {} {}", subject, predicate, object, contexts);
+			}
 			// operation is not part of a transaction - just send directly
-			OpenRDFUtil.verifyContextNotNull(contexts);
-			final Model m = new LinkedHashModel();
+			Objects.requireNonNull(contexts,
+					"contexts argument may not be null; either the value should be cast to Resource or an empty array should be supplied");
+			Model m = new LinkedHashModel();
 			m.add(subject, predicate, object, contexts);
 			addModel(m);
 		} else {
@@ -532,6 +531,8 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 		}
 	}
 
+	// This is currently disabled because the implementation of removeData in RDF4JProtocolSession
+	// relies on an active transaction. See https://github.com/eclipse/rdf4j/issues/3336
 	/*
 	 * @Override public void remove(Resource subject, URI predicate, Value object, Resource... contexts) throws
 	 * RepositoryException { if (!isActive()) { // operation is not part of a transaction - just send directly
@@ -655,6 +656,7 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 		if (toRemove == null) {
 			toRemove = new LinkedHashModel();
 		}
+
 		if (subject == null) {
 			subject = SESAME.WILDCARD;
 		}
@@ -664,7 +666,22 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 		if (object == null) {
 			object = SESAME.WILDCARD;
 		}
-		toRemove.add(subject, predicate, object, contexts);
+
+		if (contexts.length == 0) {
+			toRemove.add(subject, predicate, object);
+		} else if (contexts.length == 1) {
+			toRemove.add(subject, predicate, object, contexts[0] == null ? RDF4J.NIL : contexts[0]);
+		} else {
+			// We shouldn't modify the array of contexts that is passed to this method, so we need to mak a copy isntead
+			Resource[] contextsCopy = Arrays.copyOf(contexts, contexts.length);
+			for (int i = 0; i < contextsCopy.length; i++) {
+				if (contextsCopy[i] == null) {
+					contextsCopy[i] = RDF4J.NIL;
+				}
+			}
+			toRemove.add(subject, predicate, object, contextsCopy);
+		}
+
 	}
 
 	@Override
@@ -795,7 +812,7 @@ class HTTPRepositoryConnection extends AbstractRepositoryConnection implements H
 	 * Creates a RepositoryResult for the supplied element set.
 	 */
 	protected <E> RepositoryResult<E> createRepositoryResult(Iterable<? extends E> elements) {
-		return new RepositoryResult<>(new CloseableIteratorIteration<E, RepositoryException>(elements.iterator()));
+		return new RepositoryResult<>(new CloseableIteratorIteration<>(elements.iterator()));
 	}
 
 	@Override

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2016 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.server.repository.transaction;
 
@@ -19,12 +22,13 @@ import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
-import org.eclipse.rdf4j.IsolationLevel;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.common.transaction.TransactionSetting;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.vocabulary.RDF4J;
 import org.eclipse.rdf4j.model.vocabulary.SESAME;
 import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.Dataset;
@@ -174,7 +178,7 @@ class Transaction implements AutoCloseable {
 	 * @param queryLanguage The {@link QueryLanguage query language} in which the query is formulated.
 	 * @param query         The query string.
 	 * @param baseURI       The base URI to resolve any relative URIs that are in the query against, can be
-	 *                      <tt>null</tt> if the query does not contain any relative URIs.
+	 *                      <var>null</var> if the query does not contain any relative URIs.
 	 * @return A query ready to be evaluated on this repository.
 	 * @throws InterruptedException if the transaction thread is interrupted
 	 * @throws ExecutionException   if an error occurs while executing the operation.
@@ -385,14 +389,7 @@ class Transaction implements AutoCloseable {
 	public void close() throws InterruptedException, ExecutionException {
 		if (isClosed.compareAndSet(false, true)) {
 			try {
-				// Stop new tasks being submitted to the executor from now
-				Future<Boolean> result = submitAndShutdown(() -> {
-					txnConnection.close();
-					return true;
-				});
-				// Shutdown is atomic with the close operation above, so just need to block for it to complete before
-				// returning
-				getFromFuture(result);
+				txnConnection.close();
 			} finally {
 				try {
 					if (!executor.isTerminated()) {
@@ -417,7 +414,6 @@ class Transaction implements AutoCloseable {
 		Future<RepositoryConnection> result = submit(() -> {
 			RepositoryConnection conn = rep.getConnection();
 			ParserConfig config = conn.getParserConfig();
-			config.set(BasicParserSettings.PRESERVE_BNODE_IDS, true);
 			config.addNonFatalError(BasicParserSettings.VERIFY_DATATYPE_VALUES);
 			config.addNonFatalError(BasicParserSettings.VERIFY_LANGUAGE_TAGS);
 
@@ -468,6 +464,9 @@ class Transaction implements AutoCloseable {
 
 	private static class WildcardRDFRemover extends AbstractRDFHandler {
 
+		private static final Resource[] ALL_CONTEXT = {};
+		private static final Resource[] DEFAULT_CONTEXT = { null };
+
 		private final RepositoryConnection conn;
 
 		public WildcardRDFRemover(RepositoryConnection conn) {
@@ -481,28 +480,26 @@ class Transaction implements AutoCloseable {
 			IRI predicate = SESAME.WILDCARD.equals(st.getPredicate()) ? null : st.getPredicate();
 			Value object = SESAME.WILDCARD.equals(st.getObject()) ? null : st.getObject();
 
-			// use the RepositoryConnection.clear operation if we're removing
-			// all statements
-			final boolean clearAllTriples = subject == null && predicate == null && object == null;
+			Resource[] context;
+			if (st.getContext() == null) {
+				context = ALL_CONTEXT;
+			} else if (RDF4J.NIL.equals(st.getContext())) {
+				context = DEFAULT_CONTEXT;
+			} else {
+				context = new Resource[] { st.getContext() };
+			}
 
 			try {
-				Resource context = st.getContext();
-				if (context != null) {
-					if (clearAllTriples) {
-						conn.clear(context);
-					} else {
-						conn.remove(subject, predicate, object, context);
-					}
+				if (subject == null && predicate == null && object == null) {
+					// use the RepositoryConnection.clear operation if we're removing all statements
+					conn.clear(context);
 				} else {
-					if (clearAllTriples) {
-						conn.clear();
-					} else {
-						conn.remove(subject, predicate, object);
-					}
+					conn.remove(subject, predicate, object, context);
 				}
 			} catch (RepositoryException e) {
 				throw new RDFHandlerException(e);
 			}
+
 		}
 
 	}

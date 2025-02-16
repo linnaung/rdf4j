@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.endpoint;
 
@@ -39,7 +42,7 @@ public class EndpointFactoryTest extends SPARQLBaseTest {
 
 	@Test
 	@Disabled // needs to be fixed, connection timeout needs to be set
-	public void testNotReachableEndpoint() throws Exception {
+	public void testNotReachableEndpoint() {
 
 		try {
 			EndpointFactory.loadSPARQLEndpoint("http://invalid.org/not_sparql");

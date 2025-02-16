@@ -1,11 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf;
+
+import static org.eclipse.rdf4j.sail.nativerdf.NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES;
 
 import java.io.File;
 import java.io.IOException;
@@ -23,33 +28,37 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Value;
-import org.eclipse.rdf4j.model.impl.AbstractValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
+import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.util.Literals;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.nativerdf.datastore.DataStore;
+import org.eclipse.rdf4j.sail.nativerdf.model.CorruptIRI;
+import org.eclipse.rdf4j.sail.nativerdf.model.CorruptIRIOrBNode;
+import org.eclipse.rdf4j.sail.nativerdf.model.CorruptLiteral;
+import org.eclipse.rdf4j.sail.nativerdf.model.CorruptUnknownValue;
+import org.eclipse.rdf4j.sail.nativerdf.model.CorruptValue;
 import org.eclipse.rdf4j.sail.nativerdf.model.NativeBNode;
 import org.eclipse.rdf4j.sail.nativerdf.model.NativeIRI;
 import org.eclipse.rdf4j.sail.nativerdf.model.NativeLiteral;
 import org.eclipse.rdf4j.sail.nativerdf.model.NativeResource;
 import org.eclipse.rdf4j.sail.nativerdf.model.NativeValue;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * File-based indexed storage and retrieval of RDF values. ValueStore maps RDF values to integer IDs and vice-versa.
  *
  * @author Arjohn Kampman
- *
- * @deprecated since 3.0. This feature is for internal use only: its existence, signature or behavior may change without
- *             warning from one release to the next.
+ * @apiNote This feature is for internal use only: its existence, signature or behavior may change without warning from
+ *          one release to the next.
  */
 @InternalUseOnly
-@Deprecated
-public class ValueStore extends AbstractValueFactory {
+public class ValueStore extends SimpleValueFactory {
 
-	/*-----------*
-	 * Constants *
-	 *-----------*/
+	private static final Logger logger = LoggerFactory.getLogger(ValueStore.class);
 
 	/**
 	 * The default value cache size.
@@ -144,6 +153,7 @@ public class ValueStore extends AbstractValueFactory {
 		namespaceIDCache = new ConcurrentCache<>(namespaceIDCacheSize);
 
 		setNewRevision();
+
 	}
 
 	/*---------*
@@ -174,10 +184,11 @@ public class ValueStore extends AbstractValueFactory {
 	 * Gets the value for the specified ID.
 	 *
 	 * @param id A value ID.
-	 * @return The value for the ID, or <tt>null</tt> no such value could be found.
-	 * @exception IOException If an I/O error occurred.
+	 * @return The value for the ID, or <var>null</var> no such value could be found.
+	 * @throws IOException If an I/O error occurred.
 	 */
 	public NativeValue getValue(int id) throws IOException {
+
 		// Check value cache
 		Integer cacheID = id;
 		NativeValue resultValue = valueCache.get(cacheID);
@@ -189,12 +200,62 @@ public class ValueStore extends AbstractValueFactory {
 			if (data != null) {
 				resultValue = data2value(id, data);
 
-				// Store value in cache
-				valueCache.put(cacheID, resultValue);
+				if (!(resultValue instanceof CorruptValue)) {
+					// Store value in cache
+					valueCache.put(cacheID, resultValue);
+				}
 			}
 		}
 
 		return resultValue;
+
+	}
+
+	/**
+	 * Gets the Resource for the specified ID.
+	 *
+	 * @param id A value ID.
+	 * @return The Resource for the ID, or <var>null</var> no such value could be found.
+	 * @throws IOException If an I/O error occurred.
+	 */
+	public <T extends NativeValue & Resource> T getResource(int id) throws IOException {
+
+		NativeValue resultValue = getValue(id);
+
+		if (resultValue != null && !(resultValue instanceof Resource)) {
+			if (SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES && resultValue instanceof CorruptValue) {
+				return (T) new CorruptIRIOrBNode(revision, id, ((CorruptValue) resultValue).getData());
+			}
+			logger.warn(
+					"NativeStore is possibly corrupt. To attempt to repair or retrieve the data, read the documentation on http://rdf4j.org about the system property org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes");
+		}
+
+		return (T) resultValue;
+	}
+
+	/**
+	 * Gets the IRI for the specified ID.
+	 *
+	 * @param id A value ID.
+	 * @return The IRI for the ID, or <var>null</var> no such value could be found.
+	 * @throws IOException If an I/O error occurred.
+	 */
+	public <T extends NativeValue & IRI> T getIRI(int id) throws IOException {
+
+		NativeValue resultValue = getValue(id);
+
+		if (resultValue != null && !(resultValue instanceof IRI)) {
+			if (SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES && resultValue instanceof CorruptValue) {
+				if (resultValue instanceof CorruptIRI) {
+					return (T) resultValue;
+				}
+				return (T) new CorruptIRI(revision, id, null, ((CorruptValue) resultValue).getData());
+			}
+			logger.warn(
+					"NativeStore is possibly corrupt. To attempt to repair or retrieve the data, read the documentation on http://rdf4j.org about the system property org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes");
+		}
+
+		return (T) resultValue;
 	}
 
 	/**
@@ -202,7 +263,7 @@ public class ValueStore extends AbstractValueFactory {
 	 *
 	 * @param value A value.
 	 * @return The ID for the specified value, or {@link NativeValue#UNKNOWN_ID} if no such ID could be found.
-	 * @exception IOException If an I/O error occurred.
+	 * @throws IOException If an I/O error occurred.
 	 */
 	public int getID(Value value) throws IOException {
 		// Try to get the internal ID from the value itself
@@ -256,7 +317,7 @@ public class ValueStore extends AbstractValueFactory {
 					// Store id in cache
 					NativeValue nv = getNativeValue(value);
 					nv.setInternalID(id, revision);
-					valueIDCache.put(nv, new Integer(id));
+					valueIDCache.put(nv, Integer.valueOf(id));
 				}
 			}
 
@@ -272,7 +333,7 @@ public class ValueStore extends AbstractValueFactory {
 	 *
 	 * @param value The Value to store.
 	 * @return The ID that has been assigned to the value.
-	 * @exception IOException If an I/O error occurred.
+	 * @throws IOException If an I/O error occurred.
 	 */
 	public int storeValue(Value value) throws IOException {
 		// Try to get the internal ID from the value itself
@@ -325,7 +386,7 @@ public class ValueStore extends AbstractValueFactory {
 	/**
 	 * Removes all values from the ValueStore.
 	 *
-	 * @exception IOException If an I/O error occurred.
+	 * @throws IOException If an I/O error occurred.
 	 */
 	public void clear() throws IOException {
 		try {
@@ -337,8 +398,6 @@ public class ValueStore extends AbstractValueFactory {
 				valueIDCache.clear();
 				namespaceCache.clear();
 				namespaceIDCache.clear();
-
-				initBNodeParams();
 
 				setNewRevision();
 			} finally {
@@ -352,7 +411,7 @@ public class ValueStore extends AbstractValueFactory {
 	/**
 	 * Synchronizes any changes that are cached in memory to disk.
 	 *
-	 * @exception IOException If an I/O error occurred.
+	 * @throws IOException If an I/O error occurred.
 	 */
 	public void sync() throws IOException {
 		dataStore.sync();
@@ -361,7 +420,7 @@ public class ValueStore extends AbstractValueFactory {
 	/**
 	 * Closes the ValueStore, releasing any file references, etc. Once closed, the ValueStore can no longer be used.
 	 *
-	 * @exception IOException If an I/O error occurred.
+	 * @throws IOException If an I/O error occurred.
 	 */
 	public void close() throws IOException {
 		dataStore.close();
@@ -459,7 +518,7 @@ public class ValueStore extends AbstractValueFactory {
 		return uriData;
 	}
 
-	private byte[] bnode2data(BNode bNode, boolean create) throws IOException {
+	private byte[] bnode2data(BNode bNode, boolean create) {
 		byte[] idData = bNode.getID().getBytes(StandardCharsets.UTF_8);
 
 		byte[] bNodeData = new byte[1 + idData.length];
@@ -526,6 +585,14 @@ public class ValueStore extends AbstractValueFactory {
 	}
 
 	private NativeValue data2value(int id, byte[] data) throws IOException {
+		if (data.length == 0) {
+			if (SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+				logger.error("Soft fail on corrupt data: Empty data array for value with id {}", id);
+				return new CorruptUnknownValue(revision, id, data);
+			}
+			throw new SailException("Empty data array for value with id " + id
+					+ " consider setting the system property org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes to true");
+		}
 		switch (data[0]) {
 		case URI_VALUE:
 			return data2uri(id, data);
@@ -534,52 +601,79 @@ public class ValueStore extends AbstractValueFactory {
 		case LITERAL_VALUE:
 			return data2literal(id, data);
 		default:
-			throw new IllegalArgumentException("Namespaces cannot be converted into values: " + data2namespace(data));
+			if (SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+				logger.error("Soft fail on corrupt data: Invalid type {} for value with id {}", data[0], id);
+				return new CorruptUnknownValue(revision, id, data);
+			}
+			throw new SailException("Invalid type " + data[0] + " for value with id " + id
+					+ "  consider setting the system property org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes to true");
 		}
 	}
 
-	private NativeIRI data2uri(int id, byte[] data) throws IOException {
-		int nsID = ByteArrayUtil.getInt(data, 1);
-		String namespace = getNamespace(nsID);
+	private <T extends IRI & NativeValue> T data2uri(int id, byte[] data) throws IOException {
+		String namespace = null;
 
-		String localName = new String(data, 5, data.length - 5, StandardCharsets.UTF_8);
+		try {
+			int nsID = ByteArrayUtil.getInt(data, 1);
+			namespace = getNamespace(nsID);
 
-		return new NativeIRI(revision, namespace, localName, id);
+			String localName = new String(data, 5, data.length - 5, StandardCharsets.UTF_8);
+
+			return (T) new NativeIRI(revision, namespace, localName, id);
+		} catch (Throwable e) {
+			if (SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES
+					&& (e instanceof Exception || e instanceof AssertionError)) {
+				return (T) new CorruptIRI(revision, id, namespace, data);
+			}
+			logger.warn(
+					"NativeStore is possibly corrupt. To attempt to repair or retrieve the data, read the documentation on http://rdf4j.org about the system property org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes");
+			throw e;
+		}
+
 	}
 
-	private NativeBNode data2bnode(int id, byte[] data) throws IOException {
+	private NativeBNode data2bnode(int id, byte[] data) {
 		String nodeID = new String(data, 1, data.length - 1, StandardCharsets.UTF_8);
 		return new NativeBNode(revision, nodeID, id);
 	}
 
-	private NativeLiteral data2literal(int id, byte[] data) throws IOException {
-		// Get datatype
-		int datatypeID = ByteArrayUtil.getInt(data, 1);
-		IRI datatype = null;
-		if (datatypeID != NativeValue.UNKNOWN_ID) {
-			datatype = (IRI) getValue(datatypeID);
+	private <T extends NativeValue & Literal> T data2literal(int id, byte[] data) throws IOException {
+		try {
+			// Get datatype
+			int datatypeID = ByteArrayUtil.getInt(data, 1);
+			IRI datatype = null;
+			if (datatypeID != NativeValue.UNKNOWN_ID) {
+				datatype = (IRI) getValue(datatypeID);
+			}
+
+			// Get language tag
+			String lang = null;
+			int langLength = data[5];
+			if (langLength > 0) {
+				lang = new String(data, 6, langLength, StandardCharsets.UTF_8);
+			}
+
+			// Get label
+			String label = new String(data, 6 + langLength, data.length - 6 - langLength, StandardCharsets.UTF_8);
+
+			if (lang != null) {
+				return (T) new NativeLiteral(revision, label, lang, id);
+			} else if (datatype != null) {
+				return (T) new NativeLiteral(revision, label, datatype, id);
+			} else {
+				return (T) new NativeLiteral(revision, label, CoreDatatype.XSD.STRING, id);
+			}
+		} catch (Throwable e) {
+			if (SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES
+					&& (e instanceof Exception || e instanceof AssertionError)) {
+				return (T) new CorruptLiteral(revision, id, data);
+			}
+			throw e;
 		}
 
-		// Get language tag
-		String lang = null;
-		int langLength = data[5];
-		if (langLength > 0) {
-			lang = new String(data, 6, langLength, StandardCharsets.UTF_8);
-		}
-
-		// Get label
-		String label = new String(data, 6 + langLength, data.length - 6 - langLength, StandardCharsets.UTF_8);
-
-		if (lang != null) {
-			return new NativeLiteral(revision, label, lang, id);
-		} else if (datatype != null) {
-			return new NativeLiteral(revision, label, datatype, id);
-		} else {
-			return new NativeLiteral(revision, label, XSD.STRING, id);
-		}
 	}
 
-	private String data2namespace(byte[] data) throws UnsupportedEncodingException {
+	private String data2namespace(byte[] data) {
 		return new String(data, StandardCharsets.UTF_8);
 	}
 
@@ -640,7 +734,7 @@ public class ValueStore extends AbstractValueFactory {
 
 	@Override
 	public NativeLiteral createLiteral(String value) {
-		return new NativeLiteral(revision, value, XSD.STRING);
+		return new NativeLiteral(revision, value, CoreDatatype.XSD.STRING);
 	}
 
 	@Override

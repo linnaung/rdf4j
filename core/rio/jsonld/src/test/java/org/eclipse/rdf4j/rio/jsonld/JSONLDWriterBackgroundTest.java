@@ -1,19 +1,23 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.jsonld;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.InputStream;
+import java.util.Collection;
+import java.util.HashSet;
 
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
@@ -35,8 +39,8 @@ import org.eclipse.rdf4j.rio.helpers.BasicWriterSettings;
 import org.eclipse.rdf4j.rio.helpers.JSONLDMode;
 import org.eclipse.rdf4j.rio.helpers.JSONLDSettings;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Peter Ansell
@@ -62,15 +66,16 @@ public class JSONLDWriterBackgroundTest extends RDFWriterTest {
 
 	@Override
 	protected Model parse(InputStream reader, String baseURI)
-			throws RDFParseException, RDFHandlerException, IOException {
+			throws RDFParseException, RDFHandlerException {
 		return QueryResults
-				.asModel(QueryResults.parseGraphBackground(reader, baseURI, rdfParserFactory.getRDFFormat()));
+				.asModel(QueryResults.parseGraphBackground(reader, baseURI, rdfParserFactory.getRDFFormat()
+				));
 	}
 
 	@Test
 	@Override
-	@Ignore("TODO: Determine why this test is breaking")
-	public void testIllegalPrefix() throws RDFHandlerException, RDFParseException, IOException {
+	@Disabled("TODO: Determine why this test is breaking")
+	public void testIllegalPrefix() throws RDFHandlerException, RDFParseException {
 	}
 
 	@Test
@@ -102,13 +107,13 @@ public class JSONLDWriterBackgroundTest extends RDFWriterTest {
 
 		rdfParser.parse(in, "foo:bar");
 
-		assertEquals("Unexpected number of statements, found " + model.size(), 1, model.size());
+		assertEquals(1, model.size(), "Unexpected number of statements, found " + model.size());
 
-		assertTrue("missing namespaced statement", model.contains(st1));
+		assertTrue(model.contains(st1), "missing namespaced statement");
 
 		if (rdfParser.getRDFFormat().supportsNamespaces()) {
-			assertTrue("Expected at least one namespace, found " + model.getNamespaces().size(),
-					model.getNamespaces().size() >= 1);
+			assertTrue(!model.getNamespaces().isEmpty(),
+					"Expected at least one namespace, found " + model.getNamespaces().size());
 			assertEquals(exNs, model.getNamespace("ex").get().getName());
 		}
 	}
@@ -118,12 +123,14 @@ public class JSONLDWriterBackgroundTest extends RDFWriterTest {
 		return new RioSetting[] {
 				BasicWriterSettings.BASE_DIRECTIVE,
 				BasicWriterSettings.PRETTY_PRINT,
-				JSONLDSettings.COMPACT_ARRAYS,
-				JSONLDSettings.HIERARCHICAL_VIEW,
-				JSONLDSettings.JSONLD_MODE,
-				JSONLDSettings.PRODUCE_GENERALIZED_RDF,
-				JSONLDSettings.USE_RDF_TYPE,
-				JSONLDSettings.USE_NATIVE_TYPES
+				org.eclipse.rdf4j.rio.jsonld.JSONLDSettings.COMPACT_ARRAYS,
+				org.eclipse.rdf4j.rio.jsonld.JSONLDSettings.JSONLD_MODE,
+				org.eclipse.rdf4j.rio.jsonld.JSONLDSettings.USE_RDF_TYPE,
+				org.eclipse.rdf4j.rio.jsonld.JSONLDSettings.USE_NATIVE_TYPES,
+				org.eclipse.rdf4j.rio.jsonld.JSONLDSettings.PRODUCE_GENERALIZED_RDF,
+				org.eclipse.rdf4j.rio.jsonld.JSONLDSettings.EXCEPTION_ON_WARNING,
+				org.eclipse.rdf4j.rio.jsonld.JSONLDSettings.FRAME
+
 		};
 	}
 }

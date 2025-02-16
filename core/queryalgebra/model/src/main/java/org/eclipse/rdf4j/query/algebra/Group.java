@@ -1,20 +1,22 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
 
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 
-import org.eclipse.rdf4j.util.iterators.Iterators;
+import com.google.common.collect.Iterables;
 
 /**
  * A tuple operator that groups tuples that have a specific set of equivalent variable bindings, and that can apply
@@ -29,7 +31,7 @@ public class Group extends UnaryTupleOperator {
 	 * Variables *
 	 *-----------*/
 
-	private Set<String> groupBindings = new LinkedHashSet<>();
+	private Set<String> groupBindings = Set.of();
 
 	private List<GroupElem> groupElements = new ArrayList<>();
 
@@ -59,29 +61,47 @@ public class Group extends UnaryTupleOperator {
 	 *---------*/
 
 	public Set<String> getGroupBindingNames() {
-		return Collections.unmodifiableSet(groupBindings);
+		return groupBindings;
 	}
 
 	public void addGroupBindingName(String bindingName) {
+		if (groupBindings.isEmpty()) {
+			groupBindings = Set.of(bindingName);
+			return;
+		} else if (groupBindings.size() == 1) {
+			groupBindings = new HashSet<>(groupBindings);
+		}
 		groupBindings.add(bindingName);
 	}
 
+	public void setGroupBindingNames(List<String> bindingNames) {
+		if (bindingNames.isEmpty()) {
+			groupBindings = Set.of();
+		} else if (bindingNames.size() == 1) {
+			groupBindings = Set.of(bindingNames.get(0));
+		} else {
+			groupBindings = new LinkedHashSet<>(bindingNames);
+		}
+	}
+
 	public void setGroupBindingNames(Iterable<String> bindingNames) {
-		groupBindings.clear();
-		Iterators.addAll(bindingNames.iterator(), groupBindings);
+		groupBindings = new LinkedHashSet<>();
+		Iterables.addAll(groupBindings, bindingNames);
 	}
 
 	public List<GroupElem> getGroupElements() {
-		return Collections.unmodifiableList(groupElements);
+		return groupElements;
 	}
 
 	public void addGroupElement(GroupElem groupElem) {
+		groupElem.setParentNode(this);
 		groupElements.add(groupElem);
 	}
 
 	public void setGroupElements(Iterable<GroupElem> elements) {
 		this.groupElements.clear();
-		Iterators.addAll(elements.iterator(), this.groupElements);
+		Iterables.addAll(groupElements, elements);
+		groupElements.forEach(groupElem -> groupElem.setParentNode(this));
 	}
 
 	public Set<String> getAggregateBindingNames() {
@@ -96,21 +116,15 @@ public class Group extends UnaryTupleOperator {
 
 	@Override
 	public Set<String> getBindingNames() {
-		Set<String> bindingNames = new LinkedHashSet<>();
-
-		bindingNames.addAll(getGroupBindingNames());
+		Set<String> bindingNames = new LinkedHashSet<>(getGroupBindingNames());
 		bindingNames.addAll(getAggregateBindingNames());
-
 		return bindingNames;
 	}
 
 	@Override
 	public Set<String> getAssuredBindingNames() {
-		Set<String> bindingNames = new LinkedHashSet<>();
-
-		bindingNames.addAll(getGroupBindingNames());
+		Set<String> bindingNames = new LinkedHashSet<>(getGroupBindingNames());
 		bindingNames.retainAll(getArg().getAssuredBindingNames());
-
 		return bindingNames;
 	}
 
@@ -130,7 +144,6 @@ public class Group extends UnaryTupleOperator {
 
 	@Override
 	public void replaceChildNode(QueryModelNode current, QueryModelNode replacement) {
-
 		if (replaceNodeInList(groupElements, current, replacement)) {
 			return;
 		}

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.btree;
 
@@ -15,9 +18,6 @@ import org.eclipse.rdf4j.common.io.ByteArrayUtil;
 
 class RangeIterator implements RecordIterator, NodeListener {
 
-	/**
-	 *
-	 */
 	private final BTree tree;
 
 	private final byte[] searchKey;
@@ -45,6 +45,8 @@ class RangeIterator implements RecordIterator, NodeListener {
 	private final LinkedList<Integer> parentIndexStack = new LinkedList<>();
 
 	private volatile int currentIdx;
+
+	private volatile boolean closed = false;
 
 	public RangeIterator(BTree tree, byte[] searchKey, byte[] searchMask, byte[] minValue, byte[] maxValue) {
 		this.tree = tree;
@@ -87,7 +89,7 @@ class RangeIterator implements RecordIterator, NodeListener {
 		}
 	}
 
-	private void findMinimum() throws IOException {
+	private void findMinimum() {
 		Node nextCurrentNode = currentNode = tree.readRootNode();
 
 		if (nextCurrentNode == null) {
@@ -164,17 +166,23 @@ class RangeIterator implements RecordIterator, NodeListener {
 	}
 
 	@Override
-	public synchronized void close() throws IOException {
-		tree.btreeLock.readLock().lock();
-		try {
-			while (popStacks()) {
-				;
-			}
+	public void close() throws IOException {
+		if (!closed) {
+			synchronized (this) {
+				if (!closed) {
+					closed = true;
+					tree.btreeLock.readLock().lock();
+					try {
+						while (popStacks()) {
+						}
 
-			assert parentNodeStack.isEmpty();
-			assert parentIndexStack.isEmpty();
-		} finally {
-			tree.btreeLock.readLock().unlock();
+						assert parentNodeStack.isEmpty();
+						assert parentIndexStack.isEmpty();
+					} finally {
+						tree.btreeLock.readLock().unlock();
+					}
+				}
+			}
 		}
 	}
 
@@ -186,7 +194,7 @@ class RangeIterator implements RecordIterator, NodeListener {
 		currentIdx = 0;
 	}
 
-	private boolean popStacks() throws IOException {
+	private synchronized boolean popStacks() throws IOException {
 		Node nextCurrentNode = currentNode;
 		if (nextCurrentNode == null) {
 			// There's nothing to pop
@@ -413,5 +421,12 @@ class RangeIterator implements RecordIterator, NodeListener {
 		}
 
 		return deregister;
+	}
+
+	@Override
+	public String toString() {
+		return "RangeIterator{" +
+				"tree=" + tree +
+				'}';
 	}
 }

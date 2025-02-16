@@ -1,14 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.util;
 
 import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertNotNull;
+import static org.junit.Assert.assertThrows;
 import static org.junit.Assert.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
@@ -28,8 +32,8 @@ import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.impl.TreeModel;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class RDFCollectionsTest {
 
@@ -43,8 +47,8 @@ public class RDFCollectionsTest {
 
 	private Literal c;
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		a = Literals.createLiteral(vf, "A");
 		b = Literals.createLiteral(vf, "B");
 		c = Literals.createLiteral(vf, "C");
@@ -70,15 +74,15 @@ public class RDFCollectionsTest {
 
 	}
 
-	@Test(expected = ModelException.class)
+	@Test
 	public void testNonWellformedCollection_MissingTerminator() {
 		Resource head = vf.createBNode();
 		Model m = RDFCollections.asRDF(values, head, new TreeModel());
 		m.remove(null, RDF.REST, RDF.NIL);
-		RDFCollections.asValues(m, head, new ArrayList<>());
+		assertThrows(ModelException.class, () -> RDFCollections.asValues(m, head, new ArrayList<>()));
 	}
 
-	@Test(expected = ModelException.class)
+	@Test
 	public void testNonWellformedCollection_Cycle() {
 		Resource head = vf.createBNode("z");
 		Model m = RDFCollections.asRDF(values, head, new TreeModel());
@@ -88,16 +92,16 @@ public class RDFCollectionsTest {
 		m.remove(head, RDF.REST, null);
 		m.add(head, RDF.REST, head);
 
-		RDFCollections.asValues(m, head, new ArrayList<>());
+		assertThrows(ModelException.class, () -> RDFCollections.asValues(m, head, new ArrayList<>()));
 	}
 
-	@Test(expected = ModelException.class)
+	@Test
 	public void testNonWellformedCollection_IncorrectHeadNode() {
 		Resource head = vf.createBNode();
 		Model m = RDFCollections.asRDF(values, head, new TreeModel());
 
 		// Use resource that is unrelated to the actual collection as the head node
-		RDFCollections.asValues(m, vf.createBNode(), new ArrayList<>());
+		assertThrows(ModelException.class, () -> RDFCollections.asValues(m, vf.createBNode(), new ArrayList<>()));
 	}
 
 	@Test

@@ -1,13 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.workbench.base;
 
-import java.util.Arrays;
+import java.util.List;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -32,9 +35,8 @@ public abstract class TupleServlet extends TransformationServlet {
 	@Override
 	protected void service(WorkbenchRequest req, HttpServletResponse resp, String xslPath) throws Exception {
 		TupleResultBuilder builder = getTupleResultBuilder(req, resp, resp.getOutputStream());
-		RepositoryConnection con = repository.getConnection();
-		con.setParserConfig(NON_VERIFYING_PARSER_CONFIG);
-		try {
+		try (RepositoryConnection con = repository.getConnection()) {
+			con.setParserConfig(NON_VERIFYING_PARSER_CONFIG);
 			for (Namespace ns : Iterations.asList(con.getNamespaces())) {
 				builder.prefix(ns.getPrefix(), ns.getName());
 			}
@@ -42,11 +44,9 @@ public abstract class TupleServlet extends TransformationServlet {
 				builder.transform(xslPath, xsl);
 			}
 			builder.start(variables);
-			builder.link(Arrays.asList("info"));
+			builder.link(List.of("info"));
 			this.service(req, resp, builder, con);
 			builder.end();
-		} finally {
-			con.close();
 		}
 	}
 

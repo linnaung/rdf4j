@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.rdfxml;
 
@@ -55,7 +58,7 @@ import org.xml.sax.XMLReader;
  * <li>Set the RDFHandler.
  * <li>Optionally, set the ParseErrorListener and/or ParseLocationListener.
  * <li>Optionally, specify whether the parser should verify the data it parses and whether it should stop immediately
- * when it finds an error in the data (both default to <tt>true</tt>).
+ * when it finds an error in the data (both default to <var>true</var>).
  * <li>Call the parse method.
  * </ul>
  * Example code:
@@ -74,7 +77,7 @@ import org.xml.sax.XMLReader;
  * // relative URIs against http://foo/bar:
  * parser.parse(inputStream, &quot;http://foo/bar&quot;);
  * </pre>
- *
+ * <p>
  * Note that JAXP entity expansion limits may apply. Check the documentation on
  * <a href="https://docs.oracle.com/javase/tutorial/jaxp/limits/limits.html">limits</a> and using the
  * <a href="https://docs.oracle.com/javase/tutorial/jaxp/limits/using.html">jaxp.properties file</a> if you get one of
@@ -85,14 +88,14 @@ import org.xml.sax.XMLReader;
  * JAXP00010001: The parser has encountered more than "64000" entity expansions in this document
  * JAXP00010004: The accumulated size of entities is ... that exceeded the "50,000,000" limit
  * </pre>
- *
+ * <p>
  * As a work-around, try passing <code>-Djdk.xml.totalEntitySizeLimit=0 -DentityExpansionLimit=0</code> to the JVM.
  *
+ * @author Arjohn Kampman
  * @see org.eclipse.rdf4j.model.ValueFactory
  * @see org.eclipse.rdf4j.rio.RDFHandler
  * @see org.eclipse.rdf4j.rio.ParseErrorListener
  * @see org.eclipse.rdf4j.rio.ParseLocationListener
- * @author Arjohn Kampman
  */
 public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 
@@ -103,10 +106,10 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 	/**
 	 * A filter filtering calls to SAX methods specifically for this parser.
 	 */
-	private SAXFilter saxFilter;
+	private final SAXFilter saxFilter;
 
 	/**
-	 * The base URI of the document. This variable is set when <tt>parse(inputStream, baseURI)</tt> is called and will
+	 * The base URI of the document. This variable is set when <var>parse(inputStream, baseURI)</var> is called and will
 	 * not be changed during parsing.
 	 */
 	private String documentURI;
@@ -121,13 +124,13 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 	/**
 	 * A stack of node- and property elements.
 	 */
-	private Stack<Object> elementStack = new Stack<>();
+	private final Stack<Object> elementStack = new Stack<>();
 
 	/**
 	 * A set containing URIs that have been generated as a result of rdf:ID attributes. These URIs should be unique
 	 * within a single document.
 	 */
-	private Set<IRI> usedIDs = new HashSet<>();
+	private final Set<IRI> usedIDs = new HashSet<>();
 
 	/*--------------*
 	 * Constructors *
@@ -141,7 +144,7 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 	}
 
 	/**
-	 * Creates a new RDFXMLParser that will use the supplied <tt>ValueFactory</tt> to create RDF model objects.
+	 * Creates a new RDFXMLParser that will use the supplied <var>ValueFactory</var> to create RDF model objects.
 	 *
 	 * @param valueFactory A ValueFactory.
 	 */
@@ -163,8 +166,8 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 
 	/**
 	 * Sets the parser in a mode to parse stand-alone RDF documents. In stand-alone RDF documents, the enclosing
-	 * <tt>rdf:RDF</tt> root element is optional if this root element contains just one element (e.g.
-	 * <tt>rdf:Description</tt>.
+	 * <var>rdf:RDF</var> root element is optional if this root element contains just one element (e.g.
+	 * <var>rdf:Description</var>.
 	 */
 	public void setParseStandAloneDocuments(boolean standAloneDocs) {
 		getParserConfig().set(XMLParserSettings.PARSE_STANDALONE_DOCUMENTS, standAloneDocs);
@@ -442,7 +445,7 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 
 		if (!localName.equals("Description") || !namespaceURI.equals(RDF.NAMESPACE)) {
 			// element name is uri's type
-			IRI className = null;
+			IRI className;
 			if ("".equals(namespaceURI)) {
 				// No namespace, use base URI
 				className = buildResourceFromLocalName(localName);
@@ -501,7 +504,7 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 			}
 		}
 
-		Resource result = null;
+		Resource result;
 
 		if (id != null) {
 			result = buildURIFromID(id.getValue());
@@ -517,7 +520,9 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 		return result;
 	}
 
-	/** processes subject attributes. */
+	/**
+	 * processes subject attributes.
+	 */
 	private void processSubjectAtts(NodeElement nodeElt, Atts atts) throws RDFParseException, RDFHandlerException {
 		Resource subject = nodeElt.getResource();
 
@@ -540,7 +545,7 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 		}
 
 		// Get the URI of the property
-		IRI propURI = null;
+		IRI propURI;
 		if (namespaceURI.isEmpty()) {
 			// no namespace URI
 			reportError("unqualified property element <" + qName + "> not allowed",
@@ -719,7 +724,7 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 			}
 		}
 
-		Resource result = null;
+		Resource result;
 
 		if (resource != null) {
 			result = resolveURI(resource.getValue());
@@ -1026,9 +1031,9 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 
 	static class NodeElement {
 
-		private Resource resource;
+		private final Resource resource;
 
-		private boolean isVolatile = false;;
+		private boolean isVolatile = false;
 
 		private int liCounter = 1;
 
@@ -1055,17 +1060,23 @@ public class RDFXMLParser extends XMLReaderBasedParser implements ErrorHandler {
 
 	static class PropertyElement {
 
-		/** The property URI. */
-		private IRI uri;
+		/**
+		 * The property URI.
+		 */
+		private final IRI uri;
 
-		/** An optional reification identifier. */
+		/**
+		 * An optional reification identifier.
+		 */
 		private IRI reificationURI;
 
-		/** An optional datatype. */
+		/**
+		 * An optional datatype.
+		 */
 		private IRI datatype;
 
 		/**
-		 * Flag indicating whether this PropertyElement has an attribute <tt>rdf:parseType="Collection"</tt>.
+		 * Flag indicating whether this PropertyElement has an attribute <var>rdf:parseType="Collection"</var>.
 		 */
 		private boolean parseCollection = false;
 

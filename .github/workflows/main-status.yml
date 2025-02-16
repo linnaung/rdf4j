@@ -1,0 +1,37 @@
+name: main status
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        jdk: [11, 17]
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Set up JDK
+      uses: actions/setup-java@v1
+      with:
+        java-version: ${{ matrix.jdk }}
+    - name: Cache local Maven repository
+      uses: actions/cache@v2
+      with:
+        path: ~/.m2/repository
+        key: ${{ runner.os }}-jdk${{ matrix.jdk }}-maven-${{ hashFiles('**/pom.xml') }}
+        restore-keys: |
+          ${{ runner.os }}-jdk${{ matrix.jdk }}-maven-
+    - name: Build
+      run: mvn -B -U -T 2 clean install -Pquick,-formatting
+    - name: Run all tests
+      run: mvn -B verify -P-skipSlowTests,-formatting -Dmaven.javadoc.skip=true -Djapicmp.skip -Denforcer.skip=true -Danimal.sniffer.skip=true
+    - name: Publish Test Report
+      if: failure()
+      uses: scacap/action-surefire-report@v1
+      with:
+        check_name: Test report - main status - ${{ matrix.jdk }}

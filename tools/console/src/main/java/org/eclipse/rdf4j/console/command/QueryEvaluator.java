@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
@@ -65,7 +68,7 @@ public abstract class QueryEvaluator extends ConsoleCommand {
 	private final TupleAndGraphQueryEvaluator evaluator;
 
 	private final List<String> sparqlQueryStart = Arrays
-			.asList(new String[] { "select", "construct", "describe", "ask", "prefix", "base" });
+			.asList("select", "construct", "describe", "ask", "prefix", "base");
 
 	private final long MAX_INPUT = 1_000_000;
 
@@ -153,10 +156,10 @@ public abstract class QueryEvaluator extends ConsoleCommand {
 	}
 
 	/**
-	 * Execute a SPARQL or SERQL query, defaults to SPARQL
+	 * Execute a SPARQL query
 	 *
 	 * @param command   to execute
-	 * @param operation "sparql", "serql", "base" or SPARQL query form
+	 * @param operation "sparql", "base" or SPARQL query form
 	 */
 	public void executeQuery(final String command, final String operation) {
 		Repository repository = state.getRepository();
@@ -167,8 +170,6 @@ public abstract class QueryEvaluator extends ConsoleCommand {
 
 		if (sparqlQueryStart.contains(operation)) {
 			parseAndEvaluateQuery(QueryLanguage.SPARQL, command);
-		} else if ("serql".equals(operation)) {
-			parseAndEvaluateQuery(QueryLanguage.SERQL, command.substring("serql".length()));
 		} else if ("sparql".equals(operation)) {
 			parseAndEvaluateQuery(QueryLanguage.SPARQL, command.substring("sparql".length()));
 		} else {
@@ -237,18 +238,13 @@ public abstract class QueryEvaluator extends ConsoleCommand {
 		if (!str.isEmpty()) {
 			return str;
 		}
-		try {
-			writeln("Enter multi-line " + queryLn.getName() + " query "
-					+ "(terminate with line containing single '.')");
-			return consoleIO.readMultiLineInput();
-		} catch (IOException e) {
-			writeError("Failed to read query", e);
-		}
-		return null;
+
+		writeln("Enter multi-line " + queryLn.getName() + " query "
+				+ "(terminate with line containing single '.')");
+		return consoleIO.readMultiLineInput();
 	}
 
 	/**
-	 * Parse and evaluate a SERQL or SPARQL query. Check if query is multi-line or to be read from input file, and check
 	 * if results are to be written to an output file.
 	 *
 	 * @param queryLn   query language
@@ -320,7 +316,7 @@ public abstract class QueryEvaluator extends ConsoleCommand {
 			w = new ConsoleQueryResultWriter(consoleIO, getConsoleWidth());
 		} else {
 			Optional<QueryResultFormat> fmt = QueryResultIO.getWriterFormatForFileName(path.toFile().toString());
-			if (!fmt.isPresent()) {
+			if (fmt.isEmpty()) {
 				throw new IllegalArgumentException("No suitable result writer found");
 			}
 			w = QueryResultIO.createWriter(fmt.get(), out);
@@ -346,7 +342,7 @@ public abstract class QueryEvaluator extends ConsoleCommand {
 			w = new ConsoleRDFWriter(consoleIO, getConsoleWidth());
 		} else {
 			Optional<RDFFormat> fmt = Rio.getWriterFormatForFileName(path.toFile().toString());
-			if (!fmt.isPresent()) {
+			if (fmt.isEmpty()) {
 				throw new IllegalArgumentException("No suitable result writer found");
 			}
 			w = Rio.createWriter(fmt.get(), out);
@@ -368,7 +364,7 @@ public abstract class QueryEvaluator extends ConsoleCommand {
 	}
 
 	/**
-	 * Evaluate a SPARQL or SERQL query that has already been parsed
+	 * Evaluate a SPARQL query that has already been parsed
 	 *
 	 * @param queryLn query language
 	 * @param query   parsed query
@@ -409,7 +405,7 @@ public abstract class QueryEvaluator extends ConsoleCommand {
 	}
 
 	/**
-	 * Add namespace prefixes to SPARQL or SERQL query
+	 * Add namespace prefixes to SPARQL query
 	 *
 	 * @param queryString query string
 	 * @return query string with prefixes

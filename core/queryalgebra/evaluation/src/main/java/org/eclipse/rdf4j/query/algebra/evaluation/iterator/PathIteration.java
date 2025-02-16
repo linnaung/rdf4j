@@ -1,75 +1,104 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.iterator;
 
-import java.util.ArrayDeque;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.BiConsumer;
+import java.util.function.Function;
+import java.util.function.Predicate;
 
+import org.eclipse.rdf4j.collection.factory.api.CollectionFactory;
+import org.eclipse.rdf4j.common.annotation.InternalUseOnly;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.common.iteration.EmptyIteration;
-import org.eclipse.rdf4j.common.iteration.Iterations;
 import org.eclipse.rdf4j.common.iteration.LookAheadIteration;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.Var;
 import org.eclipse.rdf4j.query.algebra.ZeroLengthPath;
+import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.StrictEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.helpers.AbstractQueryModelVisitor;
-import org.eclipse.rdf4j.query.impl.MapBindingSet;
+import org.eclipse.rdf4j.query.impl.SimpleBinding;
 
-public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluationException> {
+public class PathIteration extends LookAheadIteration<BindingSet> {
+
+	// Should never be seen by code outside of this iterator
+	private static final String END = "$end_from_path_iteration";
+	private static final String START = "$start_from_path_iteration";
 
 	/**
-	 *
+	 * Required as we can't prepare the queries yet.
 	 */
-	private final StrictEvaluationStrategy evaluationStrategyImpl;
+	private final EvaluationStrategy strategy;
 
 	private long currentLength;
 
-	private CloseableIteration<BindingSet, QueryEvaluationException> currentIter;
+	private CloseableIteration<BindingSet> currentIter;
 
-	private BindingSet bindings;
+	private final BindingSet bindings;
 
-	private Scope scope;
+	private final Scope scope;
 
-	private Var startVar;
+	private final Var startVar;
 
-	private Var endVar;
+	private final Var endVar;
 
 	private final boolean startVarFixed;
 
 	private final boolean endVarFixed;
 
-	private Queue<ValuePair> valueQueue;
+	private final Queue<BindingSet> valueQueue;
 
-	private final Set<ValuePair> reportedValues;
+	private final Set<BindingSet> reportedValues;
 
-	private final Set<ValuePair> unreportedValues;;
+	private final Set<BindingSet> unreportedValues;
 
-	private TupleExpr pathExpression;
+	private final TupleExpr pathExpression;
 
-	private Var contextVar;
+	private final Var contextVar;
 
 	private ValuePair currentVp;
 
 	private static final String JOINVAR_PREFIX = "intermediate_join_";
 
-	public PathIteration(StrictEvaluationStrategy evaluationStrategyImpl, Scope scope, Var startVar,
+	private final Set<String> namedIntermediateJoins = new HashSet<>();
+
+	private final CollectionFactory collectionFactory;
+	/**
+	 * Instead of depending on hash codes not colliding we instead make sure that each element is unique per iteration.
+	 * Which is why this is a static volatile field. As more than one path iteration can be present in the same query.
+	 */
+	private static volatile int PATH_ITERATOR_ID_GENERATOR = 0;
+
+	/**
+	 * Using the ++ to increment the volatile shared id generator, the id in this iterator must remain constant during
+	 * execution.
+	 */
+	private final int pathIteratorId = PATH_ITERATOR_ID_GENERATOR++;
+	private final String endVarName = "END_" + JOINVAR_PREFIX + pathIteratorId;
+
+	public PathIteration(EvaluationStrategy strategy, Scope scope, Var startVar,
 			TupleExpr pathExpression, Var endVar, Var contextVar, long minLength, BindingSet bindings)
 			throws QueryEvaluationException {
-		this.evaluationStrategyImpl = evaluationStrategyImpl;
+		this.strategy = strategy;
 		this.scope = scope;
 		this.startVar = startVar;
 		this.endVar = endVar;
@@ -83,30 +112,97 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 		this.currentLength = minLength;
 		this.bindings = bindings;
 
-		this.reportedValues = makeSet();
-		this.unreportedValues = makeSet();
-		this.valueQueue = makeQueue();
+		this.collectionFactory = strategy.getCollectionFactory().get();
 
+		// This is all necessary for optimized collections to be usable. This only becomes important on very large
+		// stores with large intermediary results.
+		this.reportedValues = collectionFactory.createSetOfBindingSets(ValuePair::new, PathIteration::getHas,
+				PathIteration::getGet, PathIteration::getSet);
+		this.unreportedValues = collectionFactory.createSetOfBindingSets(ValuePair::new, PathIteration::getHas,
+				PathIteration::getGet, PathIteration::getSet);
+		this.valueQueue = collectionFactory.createBindingSetQueue(ValuePair::new, PathIteration::getHas,
+				PathIteration::getGet, PathIteration::getSet);
 		createIteration();
 	}
+
+	/**
+	 * Used to turn a method call into a direct field access
+	 *
+	 * @param s the name of the variable to see if it is in the bindingset
+	 * @return the value of the start or end or if asked for a different field a null.
+	 */
+	@InternalUseOnly
+	public static final BiConsumer<Value, MutableBindingSet> getSet(String s) {
+		switch (s) {
+		case START:
+			return (v, vp) -> ((ValuePair) vp).startValue = v;
+		case END:
+			return (v, vp) -> ((ValuePair) vp).endValue = v;
+		default:
+			return (v, vp) -> {
+				throw new IllegalStateException("A value is being asked to be set where we never expected one");
+			};
+		}
+	}
+
+	/**
+	 * Used to turn a method call into a direct field access
+	 *
+	 * @param s the name of the variable to see if it is in the bindingset
+	 * @return the value of the start or end, if asked for a different field throw an illegalstate exception
+	 */
+	public static final Function<BindingSet, Value> getGet(String s) {
+		switch (s) {
+		case START:
+			return (vp) -> ((ValuePair) vp).startValue;
+		case END:
+			return (vp) -> ((ValuePair) vp).endValue;
+		default:
+			return (vp) -> {
+				throw new IllegalStateException("A value is being asked to be set where we never expected one");
+			};
+		}
+	};
+
+	/**
+	 * Used to turn a method call into a direct field access
+	 *
+	 * @param s the name of the variable to see if it is in the bindingset
+	 * @return true if start or end is not null, if asked for a different field throw an illegalstate exception
+	 */
+	public static final Predicate<BindingSet> getHas(String s) {
+		switch (s) {
+		case START:
+			return (vp) -> ((ValuePair) vp).startValue != null;
+		case END:
+			return (vp) -> ((ValuePair) vp).endValue != null;
+		default:
+			return (vp) -> {
+				throw new IllegalStateException("A value is being asked to be set where we never expected one");
+			};
+		}
+	};
 
 	@Override
 	protected BindingSet getNextElement() throws QueryEvaluationException {
 		again: while (true) {
-			while (!currentIter.hasNext()) {
-				Iterations.closeCloseable(currentIter);
+			while (currentIter != null && !currentIter.hasNext()) {
+				currentIter.close();
 				createIteration();
 				// stop condition: if the iter is an EmptyIteration
-				if (currentIter instanceof EmptyIteration<?, ?>) {
+				if (currentIter == null) {
 					break;
 				}
 			}
 
-			while (currentIter.hasNext()) {
-				BindingSet nextElement = currentIter.next();
+			while (currentIter != null && currentIter.hasNext()) {
+				BindingSet potentialNextElement = currentIter.next();
+				QueryBindingSet nextElement;
 				// if it is not a compatible type of BindingSet
-				if (!(nextElement instanceof QueryBindingSet) && !(nextElement instanceof MapBindingSet)) {
-					nextElement = new QueryBindingSet(nextElement);
+				if (potentialNextElement instanceof QueryBindingSet) {
+					nextElement = (QueryBindingSet) potentialNextElement;
+				} else {
+					nextElement = new QueryBindingSet(potentialNextElement);
 				}
 
 				if (!startVarFixed && !endVarFixed && currentVp != null) {
@@ -118,22 +214,10 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 					}
 				}
 
-				Value v1, v2;
+				ValuePair vp = valuePairFromStartAndEnd(nextElement);
 
-				if (startVarFixed && endVarFixed && currentLength > 2) {
-					v1 = getVarValue(startVar, startVarFixed, nextElement);
-					v2 = nextElement.getValue("END_" + JOINVAR_PREFIX + this.hashCode());
-				} else if (startVarFixed && endVarFixed && currentLength == 2) {
-					v1 = getVarValue(startVar, startVarFixed, nextElement);
-					v2 = nextElement.getValue(JOINVAR_PREFIX + (currentLength - 1) + "_" + this.hashCode());
-				} else {
-					v1 = getVarValue(startVar, startVarFixed, nextElement);
-					v2 = getVarValue(endVar, endVarFixed, nextElement);
-				}
+				if (!isCyclicPath(vp)) {
 
-				if (!isCyclicPath(v1, v2)) {
-
-					ValuePair vp = new ValuePair(v1, v2);
 					if (reportedValues.contains(vp)) {
 						// new arbitrary-length path semantics: filter out
 						// duplicates
@@ -148,21 +232,21 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 
 					if (startVarFixed && endVarFixed) {
 						Value endValue = getVarValue(endVar, endVarFixed, nextElement);
-						if (endValue.equals(v2)) {
+						if (endValue.equals(vp.endValue)) {
 							add(reportedValues, vp);
-							if (!v1.equals(v2)) {
+							if (!vp.startValue.equals(vp.endValue)) {
 								addToQueue(valueQueue, vp);
 							}
 							if (!nextElement.hasBinding(startVar.getName())) {
-								addBinding(nextElement, startVar.getName(), v1);
+								addBinding(nextElement, startVar.getName(), vp.startValue);
 							}
 							if (!nextElement.hasBinding(endVar.getName())) {
-								addBinding(nextElement, endVar.getName(), v2);
+								addBinding(nextElement, endVar.getName(), vp.endValue);
 							}
-							return nextElement;
+							return removeIntermediateJoinVars(nextElement);
 						} else {
 							if (add(unreportedValues, vp)) {
-								if (!v1.equals(v2)) {
+								if (!vp.startValue.equals(vp.endValue)) {
 									addToQueue(valueQueue, vp);
 								}
 							}
@@ -170,56 +254,66 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 						}
 					} else {
 						add(reportedValues, vp);
-						if (!v1.equals(v2)) {
+						if (!vp.startValue.equals(vp.endValue)) {
 							addToQueue(valueQueue, vp);
 						}
 						if (!nextElement.hasBinding(startVar.getName())) {
-							addBinding(nextElement, startVar.getName(), v1);
+							addBinding(nextElement, startVar.getName(), vp.startValue);
 						}
 						if (!nextElement.hasBinding(endVar.getName())) {
-							addBinding(nextElement, endVar.getName(), v2);
+							addBinding(nextElement, endVar.getName(), vp.endValue);
 						}
-						return nextElement;
+						return removeIntermediateJoinVars(nextElement);
 					}
 				} else {
 					continue again;
 				}
 			}
 
-			// if we're done, throw away the cached lists of values to avoid
-			// hogging resources
-			reportedValues.clear();
-			unreportedValues.clear();
-			valueQueue.clear();
+			// We are done but let the close deal with clearing up resources.
+			// That method knows how to do it in the cheapest way possible.
 			return null;
 		}
 	}
 
-	private void addBinding(BindingSet bs, String name, Value value) {
-		if (bs instanceof QueryBindingSet) {
-			((QueryBindingSet) bs).addBinding(name, value);
-		} else if (bs instanceof MapBindingSet) {
-			((MapBindingSet) bs).addBinding(name, value);
+	private BindingSet removeIntermediateJoinVars(QueryBindingSet nextElement) {
+		nextElement.removeAll(namedIntermediateJoins);
+		return nextElement;
+	}
+
+	private ValuePair valuePairFromStartAndEnd(MutableBindingSet nextElement) {
+		Value v1, v2;
+
+		if (startVarFixed && endVarFixed && currentLength > 2) {
+			v1 = getVarValue(startVar, startVarFixed, nextElement);
+			v2 = nextElement.getValue(endVarName);
+		} else if (startVarFixed && endVarFixed && currentLength == 2) {
+			v1 = getVarValue(startVar, startVarFixed, nextElement);
+			v2 = nextElement.getValue(varNameAtPathLengthOf(currentLength - 1));
 		} else {
-			throw new IllegalStateException("Unexpected BindingSet implementation: " + bs.getClass());
+			v1 = getVarValue(startVar, startVarFixed, nextElement);
+			v2 = getVarValue(endVar, endVarFixed, nextElement);
 		}
+		return new ValuePair(v1, v2);
+	}
+
+	private void addBinding(MutableBindingSet bs, String name, Value value) {
+		bs.addBinding(name, value);
 	}
 
 	@Override
 	protected void handleClose() throws QueryEvaluationException {
-		try {
-			super.handleClose();
-		} finally {
-			Iterations.closeCloseable(currentIter);
+		if (currentIter != null) {
+			currentIter.close();
 		}
-
+		collectionFactory.close();
 	}
 
 	/**
 	 * @param valueQueue2
 	 * @param vp
 	 */
-	protected boolean addToQueue(Queue<ValuePair> valueQueue2, ValuePair vp) throws QueryEvaluationException {
+	protected boolean addToQueue(Queue<BindingSet> valueQueue2, ValuePair vp) throws QueryEvaluationException {
 		return valueQueue2.add(vp);
 	}
 
@@ -227,7 +321,7 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 	 * @param valueSet
 	 * @param vp
 	 */
-	protected boolean add(Set<ValuePair> valueSet, ValuePair vp) throws QueryEvaluationException {
+	protected boolean add(Set<BindingSet> valueSet, ValuePair vp) throws QueryEvaluationException {
 		return valueSet.add(vp);
 	}
 
@@ -245,12 +339,12 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 		return v;
 	}
 
-	private boolean isCyclicPath(Value v1, Value v2) {
+	private boolean isCyclicPath(ValuePair vp) {
 		if (currentLength <= 2) {
 			return false;
 		}
 
-		return reportedValues.contains(new ValuePair(v1, v2));
+		return reportedValues.contains(vp);
 
 	}
 
@@ -258,25 +352,27 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 
 		if (isUnbound(startVar, bindings) || isUnbound(endVar, bindings)) {
 			// the variable must remain unbound for this solution see https://www.w3.org/TR/sparql11-query/#assignment
-			currentIter = new EmptyIteration<>();
+			currentIter = null;
 		} else if (currentLength == 0L) {
-			ZeroLengthPath zlp = new ZeroLengthPath(scope, startVar, endVar, contextVar);
-			currentIter = this.evaluationStrategyImpl.evaluate(zlp, bindings);
+			ZeroLengthPath zlp = new ZeroLengthPath(scope, startVar.clone(), endVar.clone(),
+					contextVar != null ? contextVar.clone() : null);
+			currentIter = this.strategy.evaluate(zlp, bindings);
 			currentLength++;
 		} else if (currentLength == 1) {
 			TupleExpr pathExprClone = pathExpression.clone();
 
 			if (startVarFixed && endVarFixed) {
-				Var replacement = createAnonVar(JOINVAR_PREFIX + currentLength + "_" + this.hashCode());
+				String varName = varNameAtPathLengthOf(currentLength);
+				Var replacement = createAnonVar(varName, null, true);
 
 				VarReplacer replacer = new VarReplacer(endVar, replacement, 0, false);
 				pathExprClone.visit(replacer);
 			}
-			currentIter = this.evaluationStrategyImpl.evaluate(pathExprClone, bindings);
+			currentIter = this.strategy.evaluate(pathExprClone, bindings);
 			currentLength++;
 		} else {
 
-			currentVp = valueQueue.poll();
+			currentVp = (ValuePair) valueQueue.poll();
 
 			if (currentVp != null) {
 
@@ -284,13 +380,10 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 
 				if (startVarFixed && endVarFixed) {
 
-					Var startReplacement = createAnonVar(JOINVAR_PREFIX + currentLength + "_" + this.hashCode());
-					Var endReplacement = createAnonVar("END_" + JOINVAR_PREFIX + this.hashCode());
-					startReplacement.setAnonymous(false);
-					endReplacement.setAnonymous(false);
-
 					Value v = currentVp.getEndValue();
-					startReplacement.setValue(v);
+					Var startReplacement = createAnonVar(varNameAtPathLengthOf(currentLength), v,
+							false);
+					Var endReplacement = createAnonVar(endVarName, null, false);
 
 					VarReplacer replacer = new VarReplacer(startVar, startReplacement, 0, false);
 					pathExprClone.visit(replacer);
@@ -308,20 +401,24 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 						v = currentVp.getStartValue();
 					}
 
-					Var replacement = createAnonVar(JOINVAR_PREFIX + currentLength + "-" + this.hashCode());
-					replacement.setValue(v);
+					String varName = varNameAtPathLengthOf(currentLength);
+					Var replacement = createAnonVar(varName, v, true);
 
 					VarReplacer replacer = new VarReplacer(toBeReplaced, replacement, 0, false);
 					pathExprClone.visit(replacer);
 				}
 
-				currentIter = this.evaluationStrategyImpl.evaluate(pathExprClone, bindings);
+				currentIter = this.strategy.evaluate(pathExprClone, bindings);
 			} else {
-				currentIter = new EmptyIteration<>();
+				currentIter = null;
 			}
 			currentLength++;
 
 		}
+	}
+
+	private String varNameAtPathLengthOf(long atLength) {
+		return JOINVAR_PREFIX + atLength + "_" + pathIteratorId;
 	}
 
 	protected boolean isUnbound(Var var, BindingSet bindings) {
@@ -332,19 +429,20 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 		}
 	}
 
-	protected Set<ValuePair> makeSet() {
-		return new HashSet<>(64, 0.9f);
-	}
+	/**
+	 * A specialized BingingSet that can only hold the start and end values of a Path. Minimizing unneeded memory use,
+	 * and allows specialization in the sets required to answer this part of a query.
+	 */
+	public static class ValuePair implements MutableBindingSet {
+		private static final long serialVersionUID = 1L;
 
-	protected Queue<ValuePair> makeQueue() {
-		return new ArrayDeque<>();
-	}
+		private Value startValue;
 
-	protected static class ValuePair {
+		private Value endValue;
 
-		private final Value startValue;
+		public ValuePair() {
 
-		private final Value endValue;
+		}
 
 		public ValuePair(Value startValue, Value endValue) {
 			this.startValue = startValue;
@@ -402,17 +500,107 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 			}
 			return true;
 		}
+
+		@Override
+		public Iterator<Binding> iterator() {
+			Binding sb = new SimpleBinding(START, startValue);
+			Binding eb = new SimpleBinding(END, endValue);
+			return List.of(sb, eb).iterator();
+		}
+
+		@Override
+		public Set<String> getBindingNames() {
+			return Set.of(START, END);
+		}
+
+		@Override
+		public Binding getBinding(String bindingName) {
+			switch (bindingName) {
+			case START:
+				return new SimpleBinding(START, startValue);
+			case END:
+				return new SimpleBinding(END, endValue);
+			default:
+				return null;
+			}
+		}
+
+		@Override
+		public boolean hasBinding(String bindingName) {
+			switch (bindingName) {
+			case START:
+				return true;
+			case END:
+				return false;
+			default:
+				return false;
+			}
+		}
+
+		@Override
+		public Value getValue(String bindingName) {
+			switch (bindingName) {
+			case START:
+				return startValue;
+			case END:
+				return endValue;
+			default:
+				return null;
+			}
+		}
+
+		@Override
+		public int size() {
+			return 2;
+		}
+
+		@Override
+		public void addBinding(Binding binding) {
+			switch (binding.getName()) {
+			case START:
+				startValue = binding.getValue();
+				break;
+			case END:
+				endValue = binding.getValue();
+				break;
+			}
+		}
+
+		@Override
+		public void setBinding(String name, Value value) {
+			switch (name) {
+			case START:
+				startValue = value;
+				break;
+			case END:
+				endValue = value;
+				break;
+			}
+
+		}
+
+		@Override
+		public void setBinding(Binding binding) {
+			switch (binding.getName()) {
+			case START:
+				startValue = binding.getValue();
+				break;
+			case END:
+				endValue = binding.getValue();
+				break;
+			}
+		}
 	}
 
-	class VarReplacer extends AbstractQueryModelVisitor<QueryEvaluationException> {
+	private class VarReplacer extends AbstractQueryModelVisitor<QueryEvaluationException> {
 
-		private Var toBeReplaced;
+		private final Var toBeReplaced;
 
-		private Var replacement;
+		private final Var replacement;
 
-		private long index;
+		private final long index;
 
-		private boolean replaceAnons;
+		private final boolean replaceAnons;
 
 		public VarReplacer(Var toBeReplaced, Var replacement, long index, boolean replaceAnons) {
 			this.toBeReplaced = toBeReplaced;
@@ -426,21 +614,20 @@ public class PathIteration extends LookAheadIteration<BindingSet, QueryEvaluatio
 			if (toBeReplaced.equals(var) || (toBeReplaced.isAnonymous() && var.isAnonymous()
 					&& (toBeReplaced.hasValue() && toBeReplaced.getValue().equals(var.getValue())))) {
 				QueryModelNode parent = var.getParentNode();
-				parent.replaceChildNode(var, replacement);
-				replacement.setParentNode(parent);
+				parent.replaceChildNode(var, replacement.clone());
 			} else if (replaceAnons && var.isAnonymous() && !var.hasValue()) {
-				Var replacementVar = createAnonVar("anon-replace-" + var.getName() + index);
+				String varName = "anon_replace_" + var.getName() + index;
+				Var replacementVar = createAnonVar(varName, null, true);
 				QueryModelNode parent = var.getParentNode();
 				parent.replaceChildNode(var, replacementVar);
-				replacementVar.setParentNode(parent);
 			}
 		}
 
 	}
 
-	public Var createAnonVar(String varName) {
-		Var var = new Var(varName);
-		var.setAnonymous(true);
-		return var;
+	private Var createAnonVar(String varName, Value v, boolean anonymous) {
+		namedIntermediateJoins.add(varName);
+		return new Var(varName, v, anonymous, false);
 	}
+
 }

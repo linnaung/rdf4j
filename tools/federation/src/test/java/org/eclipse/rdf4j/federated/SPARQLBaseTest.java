@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated;
 
@@ -41,22 +44,7 @@ public abstract class SPARQLBaseTest extends SPARQLServerBaseTest {
 
 	}
 
-	/**
-	 * Execute a testcase, both queryFile and expectedResultFile must be files
-	 *
-	 * @param queryFile
-	 * @param expectedResultFile
-	 * @param checkOrder
-	 * @throws Exception
-	 */
-	protected void execute(String queryFile, String expectedResultFile, boolean checkOrder) throws Exception {
-
-		try (RepositoryConnection conn = fedxRule.getRepository().getConnection()) {
-			super.execute(conn, queryFile, expectedResultFile, checkOrder);
-		}
-	}
-
-	protected Set<Statement> getStatements(Resource subj, IRI pred, Value obj) throws Exception {
+	protected Set<Statement> getStatements(Resource subj, IRI pred, Value obj) {
 
 		Set<Statement> res = new HashSet<>();
 		try (RepositoryConnection conn = fedxRule.getRepository()

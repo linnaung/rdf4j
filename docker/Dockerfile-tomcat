@@ -1,0 +1,38 @@
+# Temp to reduce image size
+FROM ubuntu:jammy AS temp
+
+RUN  apt-get clean && apt-get update && apt-get install -y unzip
+
+
+COPY ignore/rdf4j.zip /tmp/rdf4j.zip
+
+WORKDIR /tmp
+
+RUN unzip -q /tmp/rdf4j.zip
+
+# Final workbench
+FROM tomcat:9-jre17-temurin-jammy
+MAINTAINER Bart Hanssens (bart.hanssens@bosa.fgov.be)
+
+RUN apt-get clean && apt-get update && apt-get upgrade -y && apt-get clean
+
+ENV JAVA_OPTS="-Xmx2g"
+ENV CATALINA_OPTS="-Dorg.eclipse.rdf4j.appdata.basedir=/var/rdf4j -Dorg.eclipse.rdf4j.rio.jsonld_secure_mode=false"
+
+RUN adduser --system tomcat
+
+RUN	rm -rf /usr/local/tomcat/webapps/* && \
+	mkdir -p /var/rdf4j && \
+	chown -R tomcat /var/rdf4j /usr/local/tomcat && \
+	chmod a+x /usr/local/tomcat /usr/local/tomcat/bin /usr/local/tomcat/bin/catalina.sh
+
+COPY --from=temp /tmp/eclipse-rdf4j*/war/*.war /usr/local/tomcat/webapps/
+
+COPY tomcat/web.xml /usr/local/tomcat/conf/web.xml
+
+USER tomcat
+
+WORKDIR /usr/local/tomcat/
+
+EXPOSE 8080
+

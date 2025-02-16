@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf;
 
@@ -16,6 +19,7 @@ import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -36,8 +40,8 @@ import org.slf4j.LoggerFactory;
 /**
  * File-based indexed storage and retrieval of RDF statements. TripleStore stores statements in the form of four integer
  * IDs. Each ID represent an RDF value that is stored in a {@link ValueStore}. The four IDs refer to the statement's
- * subject, predicate, object and context. The ID <tt>0</tt> is used to represent the "null" context and doesn't map to
- * an actual RDF value.
+ * subject, predicate, object and context. The ID <var>0</var> is used to represent the "null" context and doesn't map
+ * to an actual RDF value.
  *
  * @author Arjohn Kampman
  */
@@ -47,6 +51,10 @@ class TripleStore implements Closeable {
 	/*-----------*
 	 * Constants *
 	 *-----------*/
+
+	private static final int CHECK_MEMORY_PRESSURE_INTERVAL = isAssertionsEnabled() ? 3 : 1024;
+	private static final long MIN_FREE_MEMORY_BEFORE_OVERFLOW = isAssertionsEnabled() ? Long.MAX_VALUE
+			: 1024 * 1024 * 128;
 
 	/**
 	 * The default triple indexes.
@@ -143,7 +151,7 @@ class TripleStore implements Closeable {
 
 	private final TxnStatusFile txnStatusFile;
 
-	private volatile RecordCache updatedTriplesCache;
+	private volatile SortedRecordCache updatedTriplesCache;
 
 	/*--------------*
 	 * Constructors *
@@ -279,9 +287,71 @@ class TripleStore implements Closeable {
 	}
 
 	private void initIndexes(Set<String> indexSpecs) throws IOException {
+
+		HashSet<String> invalidIndexes = new HashSet<>();
+
 		for (String fieldSeq : indexSpecs) {
 			logger.trace("Initializing index '{}'...", fieldSeq);
-			indexes.add(new TripleIndex(fieldSeq));
+			try {
+				indexes.add(new TripleIndex(fieldSeq, false));
+			} catch (Exception e) {
+				if (NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+					invalidIndexes.add(fieldSeq);
+					logger.warn("Ignoring index because it failed to initialize index '{}'", fieldSeq, e);
+				} else {
+					logger.error(
+							"Failed to initialize index '{}', consider setting org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes to true.",
+							fieldSeq, e);
+					throw e;
+				}
+
+			}
+
+		}
+
+		if (NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+			indexSpecs.removeAll(invalidIndexes);
+		}
+
+		List<TripleIndex> emptyIndexes = new ArrayList<>();
+		List<TripleIndex> nonEmptyIndexes = new ArrayList<>();
+
+		checkIfIndexesAreEmptyOrNot(nonEmptyIndexes, emptyIndexes);
+
+		if (!emptyIndexes.isEmpty() && !nonEmptyIndexes.isEmpty()) {
+			if (NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+				indexes.removeAll(emptyIndexes);
+			} else {
+				for (TripleIndex index : emptyIndexes) {
+					throw new IOException("Index '" + new String(index.getFieldSeq())
+							+ "' is unexpectedly empty while other indexes are not. Consider setting the system property org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes to true. Index file: "
+							+ index.getBTree().getFile().getAbsolutePath());
+				}
+			}
+		}
+
+	}
+
+	private void checkIfIndexesAreEmptyOrNot(List<TripleIndex> nonEmptyIndexes, List<TripleIndex> emptyIndexes)
+			throws IOException {
+		for (TripleIndex index : indexes) {
+			try (RecordIterator recordIterator = index.getBTree().iterateAll()) {
+				try {
+					byte[] next = recordIterator.next();
+					if (next != null) {
+						next = recordIterator.next();
+						if (next != null) {
+							nonEmptyIndexes.add(index);
+						} else {
+							emptyIndexes.add(index);
+						}
+					} else {
+						emptyIndexes.add(index);
+					}
+				} catch (Throwable ignored) {
+					emptyIndexes.add(index);
+				}
+			}
 		}
 	}
 
@@ -347,13 +417,13 @@ class TripleStore implements Closeable {
 			for (String fieldSeq : addedIndexSpecs) {
 				logger.debug("Initializing new index '{}'...", fieldSeq);
 
-				TripleIndex addedIndex = new TripleIndex(fieldSeq);
+				TripleIndex addedIndex = new TripleIndex(fieldSeq, true);
 				BTree addedBTree = null;
 				RecordIterator sourceIter = null;
 				try {
 					addedBTree = addedIndex.getBTree();
 					sourceIter = sourceIndex.getBTree().iterateAll();
-					byte[] value = null;
+					byte[] value;
 					while ((value = sourceIter.next()) != null) {
 						addedBTree.insert(value);
 					}
@@ -437,13 +507,12 @@ class TripleStore implements Closeable {
 		}
 	}
 
-	public RecordIterator getTriples(int subj, int pred, int obj, int context) throws IOException {
+	public RecordIterator getTriples(int subj, int pred, int obj, int context) {
 		// Return all triples except those that were added but not yet committed
 		return getTriples(subj, pred, obj, context, 0, ADDED_FLAG);
 	}
 
-	public RecordIterator getTriples(int subj, int pred, int obj, int context, boolean readTransaction)
-			throws IOException {
+	public RecordIterator getTriples(int subj, int pred, int obj, int context, boolean readTransaction) {
 		if (readTransaction) {
 			// Don't read removed statements
 			return getTriples(subj, pred, obj, context, 0, TripleStore.REMOVED_FLAG);
@@ -458,9 +527,8 @@ class TripleStore implements Closeable {
 	 *
 	 * @param readTransaction
 	 * @return All triples sorted by context or null if no context index exists
-	 * @throws IOException
 	 */
-	public RecordIterator getAllTriplesSortedByContext(boolean readTransaction) throws IOException {
+	public RecordIterator getAllTriplesSortedByContext(boolean readTransaction) {
 		if (readTransaction) {
 			// Don't read removed statements
 			return getAllTriplesSortedByContext(0, TripleStore.REMOVED_FLAG);
@@ -471,7 +539,7 @@ class TripleStore implements Closeable {
 	}
 
 	public RecordIterator getTriples(int subj, int pred, int obj, int context, boolean explicit,
-			boolean readTransaction) throws IOException {
+			boolean readTransaction) {
 		int flags = 0;
 		int flagsMask = 0;
 
@@ -498,6 +566,10 @@ class TripleStore implements Closeable {
 		}
 
 		return btreeIter;
+	}
+
+	public void disableTxnStatus() {
+		txnStatusFile.disable();
 	}
 
 	/*-------------------------------------*
@@ -578,14 +650,13 @@ class TripleStore implements Closeable {
 		}
 	} // end inner class ImplicitStatementFilter
 
-	private RecordIterator getTriples(int subj, int pred, int obj, int context, int flags, int flagsMask)
-			throws IOException {
+	private RecordIterator getTriples(int subj, int pred, int obj, int context, int flags, int flagsMask) {
 		TripleIndex index = getBestIndex(subj, pred, obj, context);
 		boolean doRangeSearch = index.getPatternScore(subj, pred, obj, context) > 0;
 		return getTriplesUsingIndex(subj, pred, obj, context, flags, flagsMask, index, doRangeSearch);
 	}
 
-	private RecordIterator getAllTriplesSortedByContext(int flags, int flagsMask) throws IOException {
+	private RecordIterator getAllTriplesSortedByContext(int flags, int flagsMask) {
 		for (TripleIndex index : indexes) {
 			if (index.getFieldSeq()[0] == 'c') {
 				// found a context-first index
@@ -656,7 +727,7 @@ class TripleStore implements Closeable {
 	}
 
 	public boolean storeTriple(int subj, int pred, int obj, int context, boolean explicit) throws IOException {
-		boolean stAdded = false;
+		boolean stAdded;
 
 		byte[] data = getData(subj, pred, obj, context, 0);
 		byte[] storedData = indexes.get(0).getBTree().get(data);
@@ -726,18 +797,15 @@ class TripleStore implements Closeable {
 	/**
 	 * Remove triples
 	 *
-	 * @param subj     The subject for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param pred     The predicate for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param obj      The object for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param context  The context for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <tt>true</tt> removes
-	 *                 explicit statements that match the pattern, <tt>false</tt> removes inferred statements that match
-	 *                 the pattern.
+	 * @param subj    The subject for the pattern, or <var>-1</var> for a wildcard.
+	 * @param pred    The predicate for the pattern, or <var>-1</var> for a wildcard.
+	 * @param obj     The object for the pattern, or <var>-1</var> for a wildcard.
+	 * @param context The context for the pattern, or <var>-1</var> for a wildcard.
 	 * @return The number of triples that were removed.
 	 * @throws IOException
-	 * @deprecated since 2.5.3. use {@link #removeTriplesByContext(int, int, int, int)} instead.
+	 * @deprecated Use {@link #removeTriplesByContext(int, int, int, int)} instead.
 	 */
-	@Deprecated
+	@Deprecated(since = "2.5.3")
 	public int removeTriples(int subj, int pred, int obj, int context) throws IOException {
 		Map<Integer, Long> countPerContext = removeTriplesByContext(subj, pred, obj, context);
 		return (int) countPerContext.values().stream().mapToLong(Long::longValue).sum();
@@ -746,13 +814,10 @@ class TripleStore implements Closeable {
 	/**
 	 * Remove triples by context
 	 *
-	 * @param subj     The subject for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param pred     The predicate for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param obj      The object for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param context  The context for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <tt>true</tt> removes
-	 *                 explicit statements that match the pattern, <tt>false</tt> removes inferred statements that match
-	 *                 the pattern.
+	 * @param subj    The subject for the pattern, or <var>-1</var> for a wildcard.
+	 * @param pred    The predicate for the pattern, or <var>-1</var> for a wildcard.
+	 * @param obj     The object for the pattern, or <var>-1</var> for a wildcard.
+	 * @param context The context for the pattern, or <var>-1</var> for a wildcard.
 	 * @return A mapping of each modified context to the number of statements removed in that context.
 	 * @throws IOException
 	 * @since 2.5.3
@@ -765,64 +830,76 @@ class TripleStore implements Closeable {
 	/**
 	 * Remove triples
 	 *
-	 * @param subj     The subject for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param pred     The predicate for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param obj      The object for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param context  The context for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <tt>true</tt> removes
-	 *                 explicit statements that match the pattern, <tt>false</tt> removes inferred statements that match
-	 *                 the pattern.
+	 * @param subj     The subject for the pattern, or <var>-1</var> for a wildcard.
+	 * @param pred     The predicate for the pattern, or <var>-1</var> for a wildcard.
+	 * @param obj      The object for the pattern, or <var>-1</var> for a wildcard.
+	 * @param context  The context for the pattern, or <var>-1</var> for a wildcard.
+	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <var>true</var>
+	 *                 removes explicit statements that match the pattern, <var>false</var> removes inferred statements
+	 *                 that match the pattern.
 	 * @return The number of triples that were removed.
 	 * @throws IOException
 	 * @deprecated since 2.5.3. use {@link #removeTriplesByContext(int, int, int, int, boolean)} instead.
 	 */
-	@Deprecated
+	@Deprecated(since = "2.5.3")
 	public int removeTriples(int subj, int pred, int obj, int context, boolean explicit) throws IOException {
 		Map<Integer, Long> countPerContext = removeTriplesByContext(subj, pred, obj, context, explicit);
 		return (int) countPerContext.values().stream().mapToLong(Long::longValue).sum();
 	}
 
 	/**
-	 * @param subj     The subject for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param pred     The predicate for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param obj      The object for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param context  The context for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <tt>true</tt> removes
-	 *                 explicit statements that match the pattern, <tt>false</tt> removes inferred statements that match
-	 *                 the pattern.
+	 * @param subj     The subject for the pattern, or <var>-1</var> for a wildcard.
+	 * @param pred     The predicate for the pattern, or <var>-1</var> for a wildcard.
+	 * @param obj      The object for the pattern, or <var>-1</var> for a wildcard.
+	 * @param context  The context for the pattern, or <var>-1</var> for a wildcard.
+	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <var>true</var>
+	 *                 removes explicit statements that match the pattern, <var>false</var> removes inferred statements
+	 *                 that match the pattern.
 	 * @return A mapping of each modified context to the number of statements removed in that context.
 	 * @throws IOException
 	 */
 	public Map<Integer, Long> removeTriplesByContext(int subj, int pred, int obj, int context, boolean explicit)
 			throws IOException {
 		byte flags = explicit ? EXPLICIT_FLAG : 0;
-		RecordIterator iter = getTriples(subj, pred, obj, context, flags, EXPLICIT_FLAG);
-		return removeTriples(iter);
+		try (RecordIterator iter = getTriples(subj, pred, obj, context, flags, EXPLICIT_FLAG)) {
+			return removeTriples(iter);
+		}
 	}
 
 	private Map<Integer, Long> removeTriples(RecordIterator iter) throws IOException {
-		final Map<Integer, Long> perContextCounts = new HashMap<>();
 
 		byte[] data = iter.next();
 		if (data == null) {
 			// no triples to remove
-			return perContextCounts;
+			return Collections.emptyMap();
 		}
+
+		final HashMap<Integer, Long> perContextCounts = new HashMap<>();
 
 		// Store the values that need to be removed in a tmp file and then
 		// iterate over this file to set the REMOVED flag
-		RecordCache removedTriplesCache = new SequentialRecordCache(dir, RECORD_LENGTH);
+		RecordCache removedTriplesCache = new InMemRecordCache();
 		try {
-			while (data != null) {
-				if ((data[FLAG_IDX] & REMOVED_FLAG) == 0) {
-					data[FLAG_IDX] |= REMOVED_FLAG;
-					removedTriplesCache.storeRecord(data);
-					int context = ByteArrayUtil.getInt(data, CONTEXT_IDX);
-					perContextCounts.merge(context, 1L, (c, one) -> c + one);
+			try (iter) {
+				while (data != null) {
+					if ((data[FLAG_IDX] & REMOVED_FLAG) == 0) {
+						data[FLAG_IDX] |= REMOVED_FLAG;
+						removedTriplesCache.storeRecord(data);
+						int context = ByteArrayUtil.getInt(data, CONTEXT_IDX);
+						perContextCounts.merge(context, 1L, Long::sum);
+					}
+					data = iter.next();
+
+					if (shouldOverflowToDisk(removedTriplesCache)) {
+						logger.debug("Overflowing RecordCache to disk due to low free mem.");
+						assert removedTriplesCache instanceof InMemRecordCache;
+						InMemRecordCache old = (InMemRecordCache) removedTriplesCache;
+						removedTriplesCache = new SequentialRecordCache(dir, RECORD_LENGTH);
+						removedTriplesCache.storeRecords(old);
+						old.clear();
+					}
 				}
-				data = iter.next();
 			}
-			iter.close();
 
 			updatedTriplesCache.storeRecords(removedTriplesCache);
 
@@ -841,6 +918,21 @@ class TripleStore implements Closeable {
 		}
 
 		return perContextCounts;
+	}
+
+	private boolean shouldOverflowToDisk(RecordCache removedTriplesCache) {
+		if (removedTriplesCache instanceof InMemRecordCache
+				&& removedTriplesCache.getRecordCount() % CHECK_MEMORY_PRESSURE_INTERVAL == 0) {
+			Runtime runtime = Runtime.getRuntime();
+			long allocatedMemory = runtime.totalMemory() - runtime.freeMemory();
+			long presumableFreeMemory = runtime.maxMemory() - allocatedMemory;
+
+			logger.trace("Free memory {} MB and required free memory {} MB", presumableFreeMemory / 1024 / 1024,
+					MIN_FREE_MEMORY_BEFORE_OVERFLOW / 1024 / 1024);
+			return presumableFreeMemory < MIN_FREE_MEMORY_BEFORE_OVERFLOW;
+		}
+
+		return false;
 	}
 
 	public void startTransaction() throws IOException {
@@ -957,7 +1049,7 @@ class TripleStore implements Closeable {
 			}
 
 			try {
-				byte[] data = null;
+				byte[] data;
 				while ((data = iter.next()) != null) {
 					byte flags = data[FLAG_IDX];
 					boolean wasAdded = (flags & ADDED_FLAG) != 0;
@@ -1092,7 +1184,17 @@ class TripleStore implements Closeable {
 
 		private final BTree btree;
 
-		public TripleIndex(String fieldSeq) throws IOException {
+		public TripleIndex(String fieldSeq, boolean deleteExistingIndexFile) throws IOException {
+			if (deleteExistingIndexFile) {
+				File indexFile = new File(dir, getFilenamePrefix(fieldSeq) + ".dat");
+				if (indexFile.exists()) {
+					indexFile.delete();
+				}
+				File alloxFile = new File(dir, getFilenamePrefix(fieldSeq) + ".alloc");
+				if (alloxFile.exists()) {
+					alloxFile.delete();
+				}
+			}
 			tripleComparator = new TripleComparator(fieldSeq);
 			btree = new BTree(dir, getFilenamePrefix(fieldSeq), 2048, RECORD_LENGTH, tripleComparator, forceSync);
 		}
@@ -1185,7 +1287,7 @@ class TripleStore implements Closeable {
 		@Override
 		public final int compareBTreeValues(byte[] key, byte[] data, int offset, int length) {
 			for (char field : fieldSeq) {
-				int fieldIdx = 0;
+				int fieldIdx;
 
 				switch (field) {
 				case 's':
@@ -1213,6 +1315,15 @@ class TripleStore implements Closeable {
 			}
 
 			return 0;
+		}
+	}
+
+	private static boolean isAssertionsEnabled() {
+		try {
+			assert false;
+			return false;
+		} catch (AssertionError ignored) {
+			return true;
 		}
 	}
 }

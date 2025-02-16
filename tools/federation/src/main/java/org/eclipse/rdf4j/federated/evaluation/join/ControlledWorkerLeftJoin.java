@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.join;
 
@@ -42,7 +45,7 @@ public class ControlledWorkerLeftJoin extends JoinExecutorBase<BindingSet> {
 	protected final LeftJoin join;
 
 	public ControlledWorkerLeftJoin(ControlledWorkerScheduler<BindingSet> scheduler, FederationEvalStrategy strategy,
-			CloseableIteration<BindingSet, QueryEvaluationException> leftIter,
+			CloseableIteration<BindingSet> leftIter,
 			LeftJoin join, BindingSet bindings, QueryInfo queryInfo)
 			throws QueryEvaluationException {
 		super(strategy, leftIter, join.getRightArg(), bindings, queryInfo);
@@ -55,12 +58,23 @@ public class ControlledWorkerLeftJoin extends JoinExecutorBase<BindingSet> {
 
 		int totalBindings = 0; // the total number of bindings
 
-		while (!closed && leftIter.hasNext()) {
-			ParallelLeftJoinTask task = new ParallelLeftJoinTask(this, strategy, join, leftIter.next());
+		Phaser currentPhaser = phaser;
+		while (!isClosed() && leftIter.hasNext()) {
 			totalBindings++;
-			phaser.register();
+			// create a new phaser if there are more than 10000 parties
+			// note: a phaser supports only up to 65535 registered parties
+			if (totalBindings % 10000 == 0) {
+				currentPhaser = new Phaser(currentPhaser);
+			}
+			ParallelLeftJoinTask task = new ParallelLeftJoinTask(
+					new PhaserHandlingParallelExecutor(this, currentPhaser), strategy, join, leftIter.next());
+
+			currentPhaser.register();
 			scheduler.schedule(task);
 		}
+
+		// proactively close
+		leftIter.close();
 
 		scheduler.informFinish(this);
 
@@ -74,14 +88,12 @@ public class ControlledWorkerLeftJoin extends JoinExecutorBase<BindingSet> {
 	}
 
 	@Override
-	public void done() {
-		phaser.arriveAndDeregister();
-		super.done();
-	}
-
-	@Override
-	public void toss(Exception e) {
-		phaser.arriveAndDeregister();
-		super.toss(e);
+	public void handleClose() throws QueryEvaluationException {
+		try {
+			super.handleClose();
+		} finally {
+			// signal the phaser to close (if currently being blocked)
+			phaser.forceTermination();
+		}
 	}
 }

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.datastore;
 
@@ -23,7 +26,7 @@ import com.google.common.math.LongMath;
  * Class supplying access to an ID file. An ID file maps IDs (integers &gt;= 1) to file pointers (long integers). There
  * is a direct correlation between IDs and the position at which the file pointers are stored; the file pointer for ID X
  * is stored at position 8*X.
- *
+ * <p>
  * This class supports parallel reads but not parallel writes.
  *
  * @author Arjohn Kampman
@@ -133,10 +136,9 @@ public class IDFile implements Closeable {
 	/**
 	 * Gets the largest ID that is stored in this ID file.
 	 *
-	 * @return The largest ID, or <tt>0</tt> if the file does not contain any data.
-	 * @throws IOException If an I/O error occurs.
+	 * @return The largest ID, or <var>0</var> if the file does not contain any data.
 	 */
-	public int getMaxID() throws IOException {
+	public int getMaxID() {
 		return (int) (nioFileSize / ITEM_SIZE) - 1;
 	}
 

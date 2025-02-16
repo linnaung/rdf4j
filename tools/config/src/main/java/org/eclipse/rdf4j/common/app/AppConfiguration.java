@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.common.app;
 
@@ -198,7 +201,7 @@ public class AppConfiguration implements Configuration {
 	}
 
 	/**
-	 * Get the long name of the application (e.g. "Aduna AutoFocus" or "OpenRDF Sesame Server").
+	 * Get the long name of the application.
 	 *
 	 * @return the long name of the application
 	 */
@@ -216,8 +219,7 @@ public class AppConfiguration implements Configuration {
 	}
 
 	/**
-	 * Get the full name of the application, which consists of the long name and the version number (e.g. "Aduna
-	 * AutoFocus 4.0-beta1" or "OpenRDF Sesame Webclient 2.0")
+	 * Get the full name of the application, which consists of the long name and the version number.
 	 *
 	 * @return the full name of the application
 	 */

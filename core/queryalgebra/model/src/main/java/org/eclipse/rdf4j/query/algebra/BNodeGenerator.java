@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
 
@@ -36,11 +39,27 @@ public class BNodeGenerator extends AbstractQueryModelNode implements ValueExpr 
 
 	public void setNodeIdExpr(ValueExpr nodeIdExpr) {
 		this.nodeIdExpr = nodeIdExpr;
+		this.nodeIdExpr.setParentNode(this);
 	}
 
 	@Override
 	public <X extends Exception> void visit(QueryModelVisitor<X> visitor) throws X {
 		visitor.meet(this);
+	}
+
+	@Override
+	public <X extends Exception> void visitChildren(QueryModelVisitor<X> visitor) throws X {
+		if (nodeIdExpr != null) {
+			nodeIdExpr.visit(visitor);
+		}
+	}
+
+	@Override
+	public void replaceChildNode(QueryModelNode current, QueryModelNode replacement) {
+		if (current == nodeIdExpr) {
+			setNodeIdExpr((ValueExpr) replacement);
+		}
+
 	}
 
 	@Override
@@ -55,6 +74,10 @@ public class BNodeGenerator extends AbstractQueryModelNode implements ValueExpr 
 
 	@Override
 	public BNodeGenerator clone() {
-		return (BNodeGenerator) super.clone();
+		BNodeGenerator clone = (BNodeGenerator) super.clone();
+		if (nodeIdExpr != null) {
+			clone.setNodeIdExpr(nodeIdExpr.clone());
+		}
+		return clone;
 	}
 }

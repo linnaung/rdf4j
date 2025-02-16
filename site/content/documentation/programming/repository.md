@@ -4,20 +4,16 @@ weight: 3
 toc: true
 autonumbering: true
 ---
-The Repository API is the central access point for RDF4J-compatible RDF databases (a.k.a. triplestores), as well as for SPARQL endpoints.
+The Repository API is the central access point for RDF4J-compatible RDF databases (a.k.a. triplestores), as well as for SPARQL endpoints. This is what you use to execute SPARQL queries and update your data.
 <!--more-->
-
-Its purpose is to give a developer-friendly access point to RDF repositories, offering various methods for querying and updating the data, while hiding a lot of the nitty gritty details of the underlying machinery.
 
 The interfaces for the Repository API can be found in package `org.eclipse.rdf4j.repository`. Several implementations for these interface exist in various sub-packages.
 
 ## Creating a Repository object
 
-The first step in any action that involves repositories is to create a Repository for it.
-
 The central interface of the Repository API is the {{< javadoc "Repository" "repository/Repository.html" >}} interface. There are several implementations available of this interface. The three main ones are:
 
-{{< javadoc "SailRepository" "repository/sail/SailRepository.html" >}} is a Repository that operates directly on top of a {{< javadoc "Sail" "sail/Sail.html" >}} - that is, a particular database. This is the class most commonly used when accessing/creating a local RDF4J repository. SailRepository operates on a (stack of) Sail object(s) for storage and retrieval of RDF data. An important thing to remember is that the behaviour of a repository is determined by the Sail(s) that it operates on; for example, the repository will only support RDF Schema or OWL semantics if the Sail stack includes an inferencer for this.
+{{< javadoc "SailRepository" "repository/sail/SailRepository.html" >}} is a Repository that operates directly on top of a {{< javadoc "Sail" "sail/Sail.html" >}} - that is, a particular database. This is the class most commonly used when accessing/creating a local RDF4J repository. SailRepository operates on a (stack of) Sail object(s) for storage and retrieval of RDF data. An important thing to remember is that the behaviour of a repository is determined by the Sail(s) that it operates on; for example, the repository will only support RDF Schema or OWL semantics if the Sail stack includes support for this.
 
 {{< javadoc "HTTPRepository" "repository/http/HTTPRepository.html" >}} is a Repository implementation that acts as a proxy to a repository available on a remote RDF4J Server, accessible through HTTP.
 
@@ -25,11 +21,9 @@ The central interface of the Repository API is the {{< javadoc "Repository" "rep
 
 Creating Repository objects can be done in multiple ways. We will first show an easy way to quickly create such an object ‘on the fly’. In the section about the RepositoryManager and RepositoryProvider, we show some more advanced patterns, which are particularly useful in larger applications which have to handle and share references to multiple repositories.
 
-We will first take a look at the use of the SailRepository class in order to create and use a local repository.
-
 ### Main memory RDF Repository
 
-One of the simplest configurations is a repository that just stores RDF data in main memory without applying any inferencing. This is also by far the fastest type of repository that can be used. The following code creates and initializes a non-inferencing main-memory repository:
+One of the simplest configurations is a repository that just stores RDF data in main memory without applying any inferencing. This is also the fastest type of repository that can be used. The following code creates and initializes a non-inferencing main-memory repository:
 
 ```java
 import org.eclipse.rdf4j.repository.Repository;
@@ -59,9 +53,13 @@ memStore.setSyncDelay(1000L);
 Repository repo = new SailRepository(memStore);
 ```
 
+ The MemoryStore is designed for datasets with fewer than 100,000 triples.
+
 ### Native RDF Repository
 
-A Native RDF Repository does not keep its data in main memory, but instead stores it directly to disk (in a binary format optimized for compact storage and fast retrieval). It is an efficient, scalable and fast solution for RDF storage of datasets that are too large to keep entirely in memory.
+The NativeStore saves data to disk in a binary format which is optimized for compact storage and fast retrieval. If there is sufficient physical memory, the Native store will act like the MemoryStore on most operating systems because the read/write commands will be cached by the OS.
+
+It is therefore an efficient, scalable and fast solution for datasets with up to 100 million triples (and probably even more).
 
 The code for creation of a Native RDF repository is almost identical to that of a main memory repository:
 
@@ -86,7 +84,25 @@ String indexes = "spoc,posc,cosp";
 Repository repo = new SailRepository(new NativeStore(dataDir, indexes));
 ```
 
-### Elasticserch RDF Repository
+{{< tag " New in RDF4J 3.7" >}}
+
+If a data directory is not set, a temporary directory will be created when the native store is initialized and (contrary to the previous examples) subsequently deleted when the repository is shut down.
+
+This is convenient when the repository is only used as a means to transform large RDF files.
+
+```java
+import org.eclipse.rdf4j.repository.Repository;
+import org.eclipse.rdf4j.repository.sail.SailRepository;
+import org.eclipse.rdf4j.sail.nativerdf.NativeStore;
+...
+Repository repo = new SailRepository(new NativeStore());
+```
+
+In the unlikely event of corruption the system property `org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes` can be set to `true` to
+allow the NativeStore to output CorruptValue/CorruptIRI/CorruptIRIOrBNode/CorruptLiteral objects. Take a backup of all data before setting 
+this property as it allows the NativeStore to delete corrupt indexes in an attempt to recreate them. Consider this feature experimental and use with caution.
+
+### Elasticsearch RDF Repository
 
 {{< tag " New in RDF4J 3.1" >}}
 
@@ -97,6 +113,10 @@ The ElasticsearchStore stores RDF data in Elasticsearch. Not to be confused with
 The ElasticsearchStore is experimental and future releases may be incompatible with the current version. Write-ahead-logging is not supported.
 This means that a write operation can appear to have partially succeeded if the ElasticsearchStore looses its connection to Elasticsearch during a commit.
 
+Note that, while RDF4J is licensed under the EDL, several ElasticSearch dependencies are licensed under the Elastic License or the SSPL,
+which may have implications for some projects.
+Please consult the ElasticSearch website and [license FAQ](https://www.elastic.co/licensing/elastic-license/faq) for more information.
+ 
 Transaction isolation is not as strong as for the other stores. The highest supported level is READ_COMMITTED, and even this
 level is only guaranteed when all other transactions also use READ_COMMITTED.
 
@@ -119,7 +139,7 @@ Remember to call `repo.shutdown()` when you are done with your ElasticsearchStor
 
 ### RDF Schema inferencing
 
-As we have seen, we can create Repository objects for any kind of back-end store by passing them a reference to the appropriate Sail object. We can pass any stack of Sails this way, allowing all kinds of repository configurations to be created quite easily. For example, to stack an RDF Schema inferencer on top of a memory store, we simply create a repository like so:
+As we have seen, we can create Repository objects for any kind of back-end store by passing them a reference to the appropriate Sail object. We can pass any stack of Sails this way, allowing all kinds of repository configurations to be created. For example, to stack an RDF Schema inferencer on top of a memory store, we simply create a repository like so:
 
 ```java
 import org.eclipse.rdf4j.repository.Repository;
@@ -215,18 +235,17 @@ RDF4J REST API). The HTTP client session is managed by the {{< javadoc
 "http/client/HttpClientSessionManager.html" >}}, which in turn depends
 on the Apache HttpClient.
 
-The session uses a scheduled thread pool executor to handle multithreaded
+The session uses a caching thread pool executor to handle multithreaded
 access to a remote endpoint, defined by default to use a thread pool with a
 core size of 1.
 
-To configure this to use a different core size, you can specify the
+To configure this to use a different core pool size, you can specify the
 `org.eclipse.rdf4j.client.executors.corePoolSize` system property with a
 different number.
 
 ### The RepositoryManager and RepositoryProvider
 
-Using what we’ve seen in the previous section, we can create and use various different types of repositories. However, when developing an application in which you have to keep track of several repositories, sharing references to these repositories between different parts of your code can become complex. Ideal would be one central location where all information on the repositories in use (including id, type, directory for persistent data storage, etc.) is kept. This is the role of the {{< javadoc "RepositoryManager" "repository/manager/RepositoryManager.html" >}} and {{< javadoc "RepositoryProvider" "repository/manager/RepositoryProvider.html" >}}.
-
+Using what we’ve seen in the previous section, we can create and use various different types of repositories. However, when developing an application in which you have to keep track of several repositories, sharing references to these repositories between different parts of your code can become complex. The {{< javadoc "RepositoryManager" "repository/manager/RepositoryManager.html" >}} and {{< javadoc "RepositoryProvider" "repository/manager/RepositoryProvider.html" >}} provide one central location where all information on the repositories in use (including id, type, directory for persistent data storage, etc.) is kept.
 Using the RepositoryManager for handling repository creation and administration offers a number of advantages, including:
 
 - a single RepositoryManager object can be more easily shared throughout your application than a host of static references to individual repositories;
@@ -259,44 +278,46 @@ manager.addRepositoryConfig(repConfig);
 Repository repository = manager.getRepository(repositoryId);
 ```
 
-In the above bit of code, you may have noticed that we provide an innocuous-looking variable called repositoryTypeSpec to the constructor of our RepositoryConfig. This variable is an instance of a class called `RepositoryImplConfig`, and this specifies the actual configuration of our new repository: what backends to use, whether or not to use inferencing, and so on.
+In the above bit of code, you may have noticed that we provide a variable called repositoryTypeSpec to the constructor of our RepositoryConfig. This variable is an instance of a class called `RepositoryImplConfig`, and this specifies the actual configuration of our new repository: what backends to use, whether or not to use inferencing, and so on.
 
-Creating a RepositoryImplConfig object can be done in two ways: programmatically, or by reading a (RDF) config file. Here, we will show the programmatic way.
+Creating a RepositoryImplConfig object can be done in two ways: programmatically, or by reading a (RDF) config file. We will show the programmatic way first:
 
 ```java
-import org.eclipse.rdf4j.sail.config.SailImplConfig;
 import org.eclipse.rdf4j.sail.memory.config.MemoryStoreConfig;
 import org.eclipse.rdf4j.repository.config.RepositoryImplConfig;
 import org.eclipse.rdf4j.repository.sail.config.SailRepositoryConfig;
 
 // create a configuration for the SAIL stack
-SailImplConfig backendConfig = new MemoryStoreConfig();
+var storeConfig = new MemoryStoreConfig();
 
 // create a configuration for the repository implementation
-RepositoryImplConfig repositoryTypeSpec = new SailRepositoryConfig(backendConfig);
+RepositoryImplConfig repositoryTypeSpec = new SailRepositoryConfig(storeConfig);
 ```
 
 As you can see, we use a class called `MemoryStoreConfig` for specifying the type of storage backend we want. This class resides in a config sub-package of the memory store package (`org.eclipse.rdf4j.sail.memory.config`). Each particular type of SAIL in RDF4J has such a config class.
 
-As a second example, we create a slightly more complex type of store: still in-memory, but this time we want it to use the memory store’s persistence option, and we also want to add RDFS inferencing. In RDF4J, RDFS inferencing is provided by a separate SAIL implementation, which can be ‘stacked’ on top of another SAIL. We follow that pattern in the creation of our config object:
+As a second example, we create a slightly more complex type of store: still in-memory, but this time we want it to use the memory store’s persistence option, and use `standard` query evaluation mode (instead of the default, which is `strict`). We also want to add RDFS inferencing on top. RDFS inferencing is provided by a separate SAIL implementation, which can be ‘stacked’ on top of another SAIL. We follow that pattern in the creation of our config object:
 
 ```java
+import org.eclipse.rdf4j.common.transaction.QueryEvaluationMode;
 import org.eclipse.rdf4j.sail.inferencer.fc.config.SchemaCachingRDFSInferencerConfig;
 
 // create a configuration for the SAIL stack
 boolean persist = true;
-SailImplConfig backendConfig = new MemoryStoreConfig(persist);
+var storeConfig = new MemoryStoreConfig(persist);
+// tweak the store config to use standard query evaluation mode
+storeConfig.setDefaultQueryEvaluationMode(QueryEvaluationMode.STANDARD);
 
 // stack an inferencer config on top of our backend-config
-backendConfig = new SchemaCachingRDFSInferencerConfig(backendConfig);
+var stackConfig = new SchemaCachingRDFSInferencerConfig(storeConfig);
 
 // create a configuration for the repository implementation
-SailRepositoryConfig repositoryTypeSpec = new SailRepositoryConfig(backendConfig);
+SailRepositoryConfig repositoryTypeSpec = new SailRepositoryConfig(stackConfig);
 ```
 
 #### The RemoteRepositoryManager
 
-A useful feature of RDF4J is that most its APIs are transparent with respect to whether you are working locally or remote. This is the case for the RDF4J repositories, but also for the RepositoryManager. In the above examples, we have used a LocalRepositoryManager, creating repositories for local use. However, it is also possible to use a RemoteRepositoryManager, using it to create and manage repositories residing on a remotely running RDF4J Server.
+A useful feature of RDF4J is that most of its APIs are transparent with respect to whether you are working locally or remote. This is the case for the RDF4J repositories, but also for the RepositoryManager. In the above examples, we have used a LocalRepositoryManager, creating repositories for local use. However, it is also possible to use a RemoteRepositoryManager, using it to create and manage repositories residing on a remotely running RDF4J Server.
 
 A RemoteRepositoryManager is initialized as follows:
 
@@ -327,43 +348,7 @@ The RepositoryProvider creates and keeps a singleton instance of RepositoryManag
 
 ### Creating a Federation
 
-It is possible to create a virtual repository that is a federation of existing repositories. The following code illustrates how to use the RepositoryManagerFederator class to create a federation. It assumes you already have a reference to a RepositoryManager instance, and is a simplified form of what the RDF4J Console runs when its federate command is invoked:
-
-```java
-void federate(RepositoryManager manager, String fedID, String description,
-	Collection<String> memberIDs, boolean readonly, boolean distinct)
-	throws MalformedURLException, RDF4JException {
-    if (manager.hasRepositoryConfig(fedID)) {
-	System.err.println(fedID + " already exists.");
-    }
-    else if (validateMembers(manager, readonly, memberIDs)) {
-	RepositoryManagerFederator rmf =
-	    new RepositoryManagerFederator(manager);
-	rmf.addFed(fedID, description, memberIDs, readonly, distinct);
-	System.out.writeln("Federation created.");
-    }
-}
-boolean validateMembers(RepositoryManager manager, boolean readonly,
-	 Collection<String> memberIDs)
-	 throws RDF4JException {
-    boolean result = true;
-    for (String memberID : memberIDs) {
-	if (manager.hasRepositoryConfig(memberID)) {
-	    if (!readonly) {
-		if (!manager.getRepository(memberID).isWritable()) {
-		    result = false;
-		    System.err.println(memberID + " is read-only.");
-		}
-	    }
-	}
-	else {
-	   result = false;
-	   System.err.println(memberID + " does not exist.");
-	}
-    }
-    return result;
-}
-```
+RDF4J has the option to create a repository that acts as a federation of stores. For more information about this, see the [FedX federation](/documentation/programming/federation) documentation.
 
 ## Using a repository: RepositoryConnections
 
@@ -458,8 +443,7 @@ try (RepositoryConnection conn = repo.getConnection()) {
    String queryString = "SELECT ?x ?y WHERE { ?x ?p ?y } ";
    TupleQuery tupleQuery = con.prepareTupleQuery(queryString);
    try (TupleQueryResult result = tupleQuery.evaluate()) {
-      while (result.hasNext()) {  // iterate over the result
-         BindingSet bindingSet = result.next();
+      for (BindingSet bindingSet: result) {
          Value valueOfX = bindingSet.getValue("x");
          Value valueOfY = bindingSet.getValue("y");
          // do something interesting with the values here...
@@ -470,15 +454,11 @@ try (RepositoryConnection conn = repo.getConnection()) {
 
 This evaluates a SPARQL SELECT query and returns a TupleQueryResult, which consists of a sequence of BindingSet objects. Each BindingSet contains a set of Binding objects. A binding is pair relating a variable name (as used in the query’s SELECT clause) with a value.
 
-
-
-
-As you can see, we use the TupleQueryResult to iterate over all results and get each individual result for x and y. We retrieve values by name rather than by an index. The names used should be the names of variables as specified in your query (note that we leave out the ‘?’ or ‘$’ prefixes used in SPARQL). The TupleQueryResult.getBindingNames() method returns a list of binding names, in the order in which they were specified in the query. To process the bindings in each binding set in the order specified by the projection, you can do the following:
+We can use the TupleQueryResult to iterate over all results and get each individual result for x and y. We retrieve values by name rather than by an index. The names used should be the names of variables as specified in your query (note that we leave out the ‘?’ or ‘$’ prefixes used in SPARQL). The `TupleQueryResult.getBindingNames()` method returns a list of binding names, in the order in which they were specified in the query. To process the bindings in each binding set in the order specified by the projection, you can do the following:
 
 ```java
 List<String> bindingNames = result.getBindingNames();
-while (result.hasNext()) {
-   BindingSet bindingSet = result.next();
+for (BindingSet bindingSet: result) {
    Value firstValue = bindingSet.getValue(bindingNames.get(0));
    Value secondValue = bindingSet.getValue(bindingNames.get(1));
    // do something interesting with the values here...
@@ -496,22 +476,7 @@ try (TupleQueryResult result = tupleQuery.evaluate()) {
 }
 ```
 
-> New in RDF4J 3.1.0
-
-Since RDF4J 3.1.0, query results from a RepositoryConnection also implement `java.lang.Iterable`. This means that it is now possible to iterate over a query result directly, without first materializing the result, as follows:
-
-```java
-List<BindingSet> resultList;
-try (TupleQueryResult result = tupleQuery.evaluate()) {
-  for (BindingSet bindingSet: result) {
-     Value firstValue = bindingSet.getValue(bindingNames.get(0));
-     Value secondValue = bindingSet.getValue(bindingNames.get(1));
-     // do something interesting with the values here...
-  }
-}
-```
-
-#### A tuple query in a single line of code: the Repositories utility
+#### A SPARQL SELECT query in a single line of code: the Repositories utility
 
 RDF4J provides a convenience utility class `org.eclipse.rdf4j.repository.util.Repositories`, which allows us to significantly shorten our boilerplate code. In particular, the `Repositories` utility allows us to do away with opening/closing a RepositoryConnection completely. For example, to open a connection, create and evaluate a SPARQL SELECT query, and then put that query’s result in a list, we can do the following:
 
@@ -519,7 +484,7 @@ RDF4J provides a convenience utility class `org.eclipse.rdf4j.repository.util.Re
 List<BindingSet> results = Repositories.tupleQuery(rep, "SELECT * WHERE {?s ?p ?o }", r -> QueryResults.asList(r));
 ```
 
-We make use of so-called Lambda expressions to process the result. In this particular example, the only processing we do is to convert the `TupleQueryResult` object into a `List`. However, you can supply any kind of function to this interface to fully customize the processing that you do on the result.
+We make use of Lambda expressions to process the result. In this particular example, the only processing we do is to convert the `TupleQueryResult` object into a `List`. However, you can supply any kind of function to this interface to fully customize the processing that you do on the result.
 
 #### Using TupleQueryResultHandlers
 
@@ -604,18 +569,18 @@ try (RepositoryConnection con = repo.getConnection()){
    try (TupleQueryResult nameResult = nameQuery.evaluate()){
       // Loop over all names, and retrieve the corresponding e-mail address.
       for (BindingSet bindingSet: nameResult) {
-	 Value name = bindingSet.get("name");
+         Value name = bindingSet.get("name");
 
-	 // Retrieve the matching mailbox, by setting the binding for
-	 // the variable 'name' to the retrieved value. Note that we
-	 // can set the same binding name again for each iteration, it will
-	 // overwrite the previous setting.
-	 mailQuery.setBinding("name", name);
-	 try ( TupleQueryResult mailResult = mailQuery.evaluate()) {
-	    // mailResult now contains the e-mail addresses for one particular person
+         // Retrieve the matching mailbox, by setting the binding for
+         // the variable 'name' to the retrieved value. Note that we
+         // can set the same binding name again for each iteration, it will
+         // overwrite the previous setting.
+         mailQuery.setBinding("name", name);
+         try ( TupleQueryResult mailResult = mailQuery.evaluate()) {
+            // mailResult now contains the e-mail addresses for one particular person
 
-	    ....
-	 }
+            ....
+         }
       }
    }
 }
@@ -646,9 +611,39 @@ keywordQuery.setBinding("keyword", literal(keyword));
 TupleQueryResult keywordQueryResult = keywordQuery.evaluate();
 ```
 
-#### Explaining queries
+#### Tweaking the query evaluation mode
 
-> New in RDF4J 3.2.0 - Experimental feature
+{{< tag " New in RDF4J 4.3" >}}
+
+The SPARQL specification is by nature extensible, allowing query engines to add support for additional operators and operator functions (see [section 17.3.1 "Operator Extensibility"](https://www.w3.org/TR/sparql11-query/#operatorExtensibility)). The SPARQL query engine in RDF4J has two configurable evaluation modes that regulate this: `strict` mode, and `standard` mode.
+
+- in `strict` mode, SPARQL queries are evaluated using the strictest form of minimal compliance to the recommendation. No additional operators have been added. 
+- in `standard` mode, SPARQL queries are evaluated using a set of operator extensions that make practical sense, in a way that is still fully compliant with the W3C Recommendation. For example, in `standard` mode, comparisons and math operations between literals using calendar datatypes (`xsd:DateTime`, etc) are supported.
+
+For historic reasons the default evaluation mode for RDF4J repositories is `strict`, but this can be changed in several ways. It's possible to set a repository's default evaluation mode to `standard` at Repository creation/configuration time. But you can also override the default behaviour per query, by wrapping the query in a transaction and using the {{< javadoc "QueryEvaluationMode" "common/transaction/QueryEvaluationMode.html" >}} transaction setting:
+
+```java
+import org.eclipse.rdf4j.common.transaction.QueryEvaluationMode;
+...
+
+try (RepositoryConnection conn = repo.getConnection()) {
+   String queryString = "SELECT ?x ?y WHERE { ?x ?p ?y } ";
+
+   // set query evaluation mode to STANDARD in this transaction
+   conn.begin(QueryEvaluationMode.STANDARD);
+   TupleQuery tupleQuery = con.prepareTupleQuery(queryString);
+   try (TupleQueryResult result = tupleQuery.evaluate()) {
+      for (BindingSet bindingSet: result) {
+         Value valueOfX = bindingSet.getValue("x");
+         Value valueOfY = bindingSet.getValue("y");
+         // do something interesting with the values here...
+      }
+   }
+   conn.commit();
+}
+```
+
+#### Explaining queries
 
 SPARQL queries are translated to query plans and then run through an optimization pipeline before they get evaluated and
 the results returned. The query explain feature gives a peek into what decisions are being made and how they affect
@@ -659,7 +654,7 @@ Explaining queries currently only works if you are using one of the built in sto
 If you are connecting to a remote RDF4J Server, using the Workbench or connecting to a third party database then you will get an
 UnsupportedException.
 
-In 3.2.0 queries have a new method `explain(...)` that returns an `Explanation` explaining how the query will be, or has been, evaluated.
+In RDF4J 3.2.0, queries have a new method `explain(...)` that returns an `Explanation` explaining how the query will be, or has been, evaluated.
 
  ```java
  try (SailRepositoryConnection connection = sailRepository.getConnection()) {
@@ -989,6 +984,13 @@ Projection (resultSizeActual=9, totalTimeActual=0.448ms, selfTimeActual=0.007ms)
 
 Notice that `ArbitraryLengthPath` produces 5 results and that the entire query runs in 0.164ms instead of 1.5s.
 
+Another way to visualize the query plan is to use the Graphiz DOT format with `query.explain(Explanation.Level.Timed).toDot()`.
+This visualization makes it easier to see which part of the query is slowest by looking at the color coding.
+
+<img src="../images/query-plan-explanation.png" alt="Picture of query explanation visualized with Graphviz." class="img-responsive"/>
+
+[Image produced by Dreampuf GraphvizOnline](https://dreampuf.github.io/GraphvizOnline/#digraph%20Explanation%20%7B%0A%20%20%20UUID_beb1d25d33bd4dcc9e6b42e6fd85fa2b%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FF0000%22%3E%3CU%3EProjection%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3EResult%20size%20actual%3C%2Ftd%3E%3Ctd%3E9%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3ETotal%20time%20actual%3C%2Ftd%3E%3Ctd%20BGCOLOR%3D%22%23FF0000%22%3E1.47ms%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3ESelf%20time%20actual%3C%2Ftd%3E%3Ctd%20BGCOLOR%3D%22%23FFE9E9%22%3E0.038ms%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_beb1d25d33bd4dcc9e6b42e6fd85fa2b%20-%3E%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20%5Blabel%3D%22left%22%5D%20%3B%0A%20%20%20UUID_beb1d25d33bd4dcc9e6b42e6fd85fa2b%20-%3E%20UUID_e3dd648f8f684d4fbfd4b7f7a6960947%20%5Blabel%3D%22right%22%5D%20%3B%0A%20%20%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FFFFFF%22%3E%3CU%3EProjectionElemList%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20-%3E%20UUID_3c67ab803c074c60bd1a0c8a0a070a67%20%5Blabel%3D%22index%200%22%5D%20%3B%0A%20%20%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20-%3E%20UUID_c55be31929a046e1acaeee2cd0aebf7b%20%5Blabel%3D%22index%201%22%5D%20%3B%0A%20%20%20UUID_277b9dba1bb44f4b87f15fdfa32de472%20-%3E%20UUID_fb810ed934504076840e795c5fd49493%20%5Blabel%3D%22index%202%22%5D%20%3B%0A%20%20%20UUID_3c67ab803c074c60bd1a0c8a0a070a67%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FFFFFF%22%3E%3CU%3EProjectionElem%20%26quot%3Bperson%26quot%3B%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_c55be31929a046e1acaeee2cd0aebf7b%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FFFFFF%22%3E%3CU%3EProjectionElem%20%26quot%3Bfriend%26quot%3B%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_fb810ed934504076840e795c5fd49493%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FFFFFF%22%3E%3CU%3EProjectionElem%20%26quot%3Bage%26quot%3B%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20subgraph%20cluster_UUID_e3dd648f8f684d4fbfd4b7f7a6960947%20%7B%0A%20%20%20color%3Dgrey%0AUUID_e3dd648f8f684d4fbfd4b7f7a6960947%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCOLOR%3D%22%23FF0606%22%3E%3CU%3EUnion%3C%2FU%3E%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%3E%3CB%3ENew%20scope%3C%2FB%3E%3C%2Ftd%3E%3Ctd%3E%3CB%3Etrue%3C%2FB%3E%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3EResult%20size%20actual%3C%2Ftd%3E%3Ctd%3E9%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3ETotal%20time%20actual%3C%2Ftd%3E%3Ctd%20BGCOLOR%3D%22%23FF0606%22%3E1.44ms%3C%2Ftd%3E%3C%2Ftr%3E%20%3Ctr%3E%3Ctd%20%3ESelf%20time%20actual%3C%2Ftd%3E%3Ctd%20BGCOLOR%3D%22%23FFAEAE%22%3E0.14ms%3C%2Ftd%3E%3C%2Ftr%3E%3C%2Ftable%3E%3E%20shape%3Dplaintext%5D%3B%0A%20%20%20UUID_e3dd648f8f684d4fbfd4b7f7a6960947%20-%3E%20UUID_460b578e6230407f986cd444b91ab796%20%5Blabel%3D%22left%22%5D%20%3B%0A%20%20%20UUID_e3dd648f8f684d4fbfd4b7f7a6960947%20-%3E%20UUID_b603ce18210d4c059f2aa6302341fb39%20%5Blabel%3D%22right%22%5D%20%3B%0A%20%20%20UUID_460b578e6230407f986cd444b91ab796%20%5Blabel%3D%3C%3Ctable%20BORDER%3D%220%22%20CELLBORDER%3D%221%22%20CELLSPACING%3D%220%22%20CELLPADDING%3D%223%22%20%3E%3Ctr%3E%3Ctd%20COLSPAN%3D%222%22%20BGCO)
+
 If you want to practice with these examples, the code below produces these three plans.
 
 ```java
@@ -1107,6 +1109,7 @@ public class QueryExplainExample {
 
 			Explanation explain = query.explain(Explanation.Level.Timed);
 			System.out.println(explain);
+			System.out.println(explain.toDot());
 
 		}
 
@@ -1122,7 +1125,7 @@ public class QueryExplainExample {
 
 The RepositoryConnection can also be used for adding, retrieving, removing or otherwise manipulating individual statements, or sets of statements.
 
-To be able to add new statements, we can use either the {{ < javadoc "Values" "model/util/Values.html" > }} factory methods or a `ValueFactory` to create the Values out of which the statements consist. For example, we want to add a few statements about two resources, Alice and Bob:
+To be able to add new statements, we can use either the {{< javadoc "Values" "model/util/Values.html" >}} factory methods or a `ValueFactory` to create the Values out of which the statements consist. For example, we want to add a few statements about two resources, Alice and Bob:
 
 ```java
 import org.eclipse.rdf4j.model.vocabulary.RDF;

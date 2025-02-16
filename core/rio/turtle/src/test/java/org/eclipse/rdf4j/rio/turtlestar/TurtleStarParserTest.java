@@ -1,15 +1,23 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.turtlestar;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.eclipse.rdf4j.model.util.Statements.statement;
+import static org.eclipse.rdf4j.model.util.Values.iri;
+import static org.eclipse.rdf4j.model.util.Values.literal;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -23,6 +31,7 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.util.Values;
 import org.eclipse.rdf4j.model.vocabulary.DCTERMS;
 import org.eclipse.rdf4j.model.vocabulary.FOAF;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
@@ -31,8 +40,8 @@ import org.eclipse.rdf4j.rio.helpers.ParseErrorCollector;
 import org.eclipse.rdf4j.rio.helpers.SimpleParseLocationListener;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
 import org.eclipse.rdf4j.rio.helpers.TurtleParserSettings;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Pavel Mihaylov
@@ -40,7 +49,7 @@ import org.junit.Test;
 public class TurtleStarParserTest {
 	private TurtleStarParser parser;
 
-	private ValueFactory vf = SimpleValueFactory.getInstance();
+	private final ValueFactory vf = SimpleValueFactory.getInstance();
 
 	private final ParseErrorCollector errorCollector = new ParseErrorCollector();
 
@@ -48,9 +57,9 @@ public class TurtleStarParserTest {
 
 	private final String baseURI = "http://example.org/";
 
-	private SimpleParseLocationListener locationListener = new SimpleParseLocationListener();
+	private final SimpleParseLocationListener locationListener = new SimpleParseLocationListener();
 
-	@Before
+	@BeforeEach
 	public void setUp() {
 		parser = new TurtleStarParser();
 		parser.setParseErrorListener(errorCollector);
@@ -113,7 +122,7 @@ public class TurtleStarParserTest {
 		try (InputStream in = this.getClass().getResourceAsStream("/test-rdfstar.ttls")) {
 			parser.parse(in, baseURI);
 		} catch (RDFParseException e) {
-			fail("parser setting should have no influence on TurtleStarParser handling of RDF* data");
+			fail("parser setting should have no influence on TurtleStarParser handling of RDF-star data");
 		}
 	}
 
@@ -138,4 +147,76 @@ public class TurtleStarParserTest {
 			assertEquals("Illegal datatype value: <<urn:a urn:b urn:c>> [line 2]", e.getMessage());
 		}
 	}
+
+	@Test
+	public void testTripleAnnotation() throws IOException {
+		IRI example = iri("http://example.com/Example");
+		IRI a = iri("urn:a"), b = iri("urn:b"), c = iri("urn:c");
+		Literal foo = literal("foo");
+		String data = "@prefix ex: <http://example.com/>.\nex:Example  <urn:a> <urn:b> {| <urn:c> \"foo\" |}.";
+		Statement st = statement(example, a, b, null);
+		try (Reader r = new StringReader(data)) {
+			parser.parse(r, baseURI);
+			Collection<Statement> stmts = statementCollector.getStatements();
+
+			assertThat(stmts).contains(st);
+			assertThat(stmts).contains(statement(Values.triple(st), c, foo, null));
+		}
+	}
+
+	@Test
+	public void testTripleMultipleAnnotationSameObject() throws IOException {
+		IRI example = iri("http://example.com/Example");
+		IRI a = iri("urn:a"), b = iri("urn:b"), c = iri("urn:c"), d = iri("urn:d");
+		Literal foo = literal("foo"), bar = literal("bar");
+		String data = "@prefix ex: <http://example.com/>.\n"
+				+ "ex:Example  <urn:a> <urn:b> {| <urn:c> \"foo\", \"bar\"; <urn:d> \"foo\" |}."
+				+ "ex:Example <urn:d> <urn:a> .";
+
+		Statement annotatedSt = statement(example, a, b, null);
+		try (Reader r = new StringReader(data)) {
+			parser.parse(r, baseURI);
+			Collection<Statement> stmts = statementCollector.getStatements();
+
+			assertThat(stmts).contains(annotatedSt);
+			assertThat(stmts).contains(statement(Values.triple(annotatedSt), c, foo, null));
+			assertThat(stmts).contains(statement(Values.triple(annotatedSt), c, bar, null));
+			assertThat(stmts).contains(statement(Values.triple(annotatedSt), d, foo, null));
+			assertThat(stmts).contains(statement(example, d, a, null));
+		}
+	}
+
+	@Test
+	public void testTripleMultipleAnnotationMultipleObjects() throws IOException {
+		IRI example = iri("http://example.com/Example");
+		IRI a = iri("urn:a"), b = iri("urn:b"), c = iri("urn:c"), d = iri("urn:d");
+		Literal foo = literal("foo"), bar = literal("bar");
+		String data = "@prefix ex: <http://example.com/>.\n"
+				+ "ex:Example  <urn:a> <urn:b> {| <urn:c> \"foo\" |}, <urn:d> {| <urn:c> \"bar\" |}."
+				+ "ex:Example <urn:d> <urn:a> .";
+
+		Statement annotatedSt1 = statement(example, a, b, null), annotatedSt2 = statement(example, a, d, null);
+		try (Reader r = new StringReader(data)) {
+			parser.parse(r, baseURI);
+			Collection<Statement> stmts = statementCollector.getStatements();
+
+			assertThat(stmts).contains(annotatedSt1);
+			assertThat(stmts).contains(statement(Values.triple(annotatedSt1), c, foo, null));
+			assertThat(stmts).contains(statement(Values.triple(annotatedSt2), c, bar, null));
+			assertThat(stmts).contains(statement(example, d, a, null));
+			assertThat(stmts).doesNotContain(statement(Values.triple(annotatedSt1), c, bar, null));
+
+		}
+	}
+
+	@Test
+	public void testMalformedTripleAnnotation() throws IOException {
+		String data = "@prefix ex: <http://example.com/>.\nex:Example  <urn:a> <urn:b> {| <urn:c> \"foo\"  }.";
+		try (Reader r = new StringReader(data)) {
+			assertThatThrownBy(() -> parser.parse(r, baseURI))
+					.isInstanceOf(RDFParseException.class)
+					.hasMessageContaining("Expected '|', found '}'");
+		}
+	}
+
 }

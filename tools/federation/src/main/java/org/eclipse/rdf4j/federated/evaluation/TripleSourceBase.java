@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation;
 
@@ -11,7 +14,6 @@ import java.util.function.Supplier;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.EmptyIteration;
-import org.eclipse.rdf4j.common.iteration.Iterations;
 import org.eclipse.rdf4j.federated.FederationContext;
 import org.eclipse.rdf4j.federated.algebra.ExclusiveTupleExpr;
 import org.eclipse.rdf4j.federated.algebra.FilterValueExpr;
@@ -36,12 +38,15 @@ import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.GraphQuery;
+import org.eclipse.rdf4j.query.GraphQueryResult;
 import org.eclipse.rdf4j.query.MalformedQueryException;
 import org.eclipse.rdf4j.query.Operation;
 import org.eclipse.rdf4j.query.Query;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.QueryLanguage;
+import org.eclipse.rdf4j.query.QueryResult;
 import org.eclipse.rdf4j.query.TupleQuery;
+import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -54,61 +59,76 @@ public abstract class TripleSourceBase implements TripleSource {
 	protected final FederationContext federationContext;
 	protected final Monitoring monitoringService;
 	protected final Endpoint endpoint;
-	protected final FederationEvalStrategy strategy;
 
 	public TripleSourceBase(FederationContext federationContext, Endpoint endpoint) {
 		this.federationContext = federationContext;
 		this.monitoringService = federationContext.getMonitoringService();
 		this.endpoint = endpoint;
-		this.strategy = federationContext.getStrategy();
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> getStatements(
+	public CloseableIteration<BindingSet> getStatements(
 			String preparedQuery, BindingSet queryBindings, QueryType queryType, QueryInfo queryInfo)
 			throws RepositoryException, MalformedQueryException,
 			QueryEvaluationException {
 
 		return withConnection((conn, resultHolder) -> {
+			QueryResult<?> evaluate = null;
+
 			final String baseURI = queryInfo.getBaseURI();
-			switch (queryType) {
-			case SELECT:
-				monitorRemoteRequest();
-				TupleQuery tQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, preparedQuery, baseURI);
-				applyBindings(tQuery, queryBindings);
-				applyMaxExecutionTimeUpperBound(tQuery);
-				configureInference(tQuery, queryInfo);
-				if (queryInfo.getResultHandler().isPresent()) {
-					// pass through result to configured handler, and return an empty iteration as marker result
-					tQuery.evaluate(queryInfo.getResultHandler().get());
-					resultHolder.set(new EmptyIteration<BindingSet, QueryEvaluationException>());
-				} else {
-					resultHolder.set(tQuery.evaluate());
+
+			try {
+				switch (queryType) {
+				case SELECT:
+					monitorRemoteRequest();
+					TupleQuery tQuery = conn.prepareTupleQuery(QueryLanguage.SPARQL, preparedQuery, baseURI);
+					applyBindings(tQuery, queryBindings);
+					applyMaxExecutionTimeUpperBound(tQuery);
+					configureInference(tQuery, queryInfo);
+					tQuery.setDataset(queryInfo.getDataset());
+					if (queryInfo.getResultHandler().isPresent()) {
+						// pass through result to configured handler, and return an empty iteration as marker result
+						tQuery.evaluate(queryInfo.getResultHandler().get());
+						resultHolder.set(new EmptyIteration<>());
+					} else {
+						evaluate = tQuery.evaluate();
+						resultHolder.set(((TupleQueryResult) evaluate));
+					}
+					return;
+				case CONSTRUCT:
+				case DESCRIBE:
+					monitorRemoteRequest();
+					GraphQuery gQuery = conn.prepareGraphQuery(QueryLanguage.SPARQL, preparedQuery, baseURI);
+					gQuery.setDataset(queryInfo.getDataset());
+					applyBindings(gQuery, queryBindings);
+					applyMaxExecutionTimeUpperBound(gQuery);
+					configureInference(gQuery, queryInfo);
+					evaluate = gQuery.evaluate();
+					resultHolder.set(new GraphToBindingSetConversionIteration(((GraphQueryResult) evaluate)));
+					return;
+				case ASK:
+					monitorRemoteRequest();
+					boolean hasResults;
+					try (conn) {
+						BooleanQuery bQuery = conn.prepareBooleanQuery(QueryLanguage.SPARQL, preparedQuery, baseURI);
+						bQuery.setDataset(queryInfo.getDataset());
+						applyBindings(bQuery, queryBindings);
+						applyMaxExecutionTimeUpperBound(bQuery);
+						configureInference(bQuery, queryInfo);
+						hasResults = bQuery.evaluate();
+					}
+					resultHolder.set(booleanToBindingSetIteration(hasResults));
+					return;
+				default:
+					throw new UnsupportedOperationException("Operation not supported for query type " + queryType);
 				}
-				return;
-			case CONSTRUCT:
-				monitorRemoteRequest();
-				GraphQuery gQuery = conn.prepareGraphQuery(QueryLanguage.SPARQL, preparedQuery, baseURI);
-				applyBindings(gQuery, queryBindings);
-				applyMaxExecutionTimeUpperBound(gQuery);
-				configureInference(gQuery, queryInfo);
-				resultHolder.set(new GraphToBindingSetConversionIteration(gQuery.evaluate()));
-				return;
-			case ASK:
-				monitorRemoteRequest();
-				boolean hasResults = false;
-				try (RepositoryConnection _conn = conn) {
-					BooleanQuery bQuery = _conn.prepareBooleanQuery(QueryLanguage.SPARQL, preparedQuery, baseURI);
-					applyBindings(bQuery, queryBindings);
-					applyMaxExecutionTimeUpperBound(bQuery);
-					configureInference(bQuery, queryInfo);
-					hasResults = bQuery.evaluate();
+			} catch (Throwable t) {
+				if (evaluate != null) {
+					evaluate.close();
 				}
-				resultHolder.set(booleanToBindingSetIteration(hasResults));
-				return;
-			default:
-				throw new UnsupportedOperationException("Operation not supported for query type " + queryType);
+				throw t;
 			}
+
 		});
 	}
 
@@ -122,7 +142,7 @@ public abstract class TripleSourceBase implements TripleSource {
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> getStatements(
+	public CloseableIteration<BindingSet> getStatements(
 			String preparedQuery, BindingSet bindings, FilterValueExpr filterExpr, QueryInfo queryInfo)
 			throws RepositoryException, MalformedQueryException,
 			QueryEvaluationException {
@@ -135,28 +155,39 @@ public abstract class TripleSourceBase implements TripleSource {
 
 			// evaluate the query
 			monitorRemoteRequest();
-			CloseableIteration<BindingSet, QueryEvaluationException> res = query.evaluate();
-			resultHolder.set(res);
+			CloseableIteration<BindingSet> res = null;
+			try {
+				res = query.evaluate();
 
-			// apply filter and/or insert original bindings
-			if (filterExpr != null) {
-				if (bindings.size() > 0) {
-					res = new FilteringInsertBindingsIteration(filterExpr, bindings, res,
-							this.strategy);
-				} else {
-					res = new FilteringIteration(filterExpr, res, this.strategy);
+				resultHolder.set(res);
+
+				// apply filter and/or insert original bindings
+				if (filterExpr != null) {
+					if (!bindings.isEmpty()) {
+						res = new FilteringInsertBindingsIteration(filterExpr, bindings, res,
+								queryInfo.getStrategy());
+					} else {
+						res = new FilteringIteration(filterExpr, res, queryInfo.getStrategy());
+					}
+					if (!res.hasNext()) {
+						res.close();
+						conn.close();
+						resultHolder.set(new EmptyIteration<>());
+						return;
+					}
+				} else if (!bindings.isEmpty()) {
+					res = new InsertBindingsIteration(res, bindings);
 				}
-				if (!res.hasNext()) {
-					Iterations.closeCloseable(res);
-					conn.close();
-					resultHolder.set(new EmptyIteration<>());
-					return;
+
+				res = new ConsumingIteration(res, federationContext.getConfig().getConsumingIterationMax());
+
+				resultHolder.set(res);
+			} catch (Throwable t) {
+				if (res != null) {
+					res.close();
 				}
-			} else if (bindings.size() > 0) {
-				res = new InsertBindingsIteration(res, bindings);
+				throw t;
 			}
-
-			resultHolder.set(new ConsumingIteration(res));
 
 		});
 	}
@@ -178,6 +209,7 @@ public abstract class TripleSourceBase implements TripleSource {
 		String preparedAskQuery = QueryStringUtil.askQueryString(group, bindings, group.getQueryInfo().getDataset());
 		try (RepositoryConnection conn = endpoint.getConnection()) {
 			BooleanQuery query = conn.prepareBooleanQuery(QueryLanguage.SPARQL, preparedAskQuery);
+			query.setDataset(group.getQueryInfo().getDataset());
 			configureInference(query, group.getQueryInfo());
 			applyMaxExecutionTimeUpperBound(query);
 			return query.evaluate();
@@ -188,7 +220,7 @@ public abstract class TripleSourceBase implements TripleSource {
 		monitoringService.monitorRemoteRequest(endpoint);
 	}
 
-	private CloseableIteration<BindingSet, QueryEvaluationException> booleanToBindingSetIteration(boolean hasResult) {
+	private CloseableIteration<BindingSet> booleanToBindingSetIteration(boolean hasResult) {
 		if (hasResult) {
 			return new SingleBindingSetIteration(EmptyBindingSet.getInstance());
 		}
@@ -221,8 +253,8 @@ public abstract class TripleSourceBase implements TripleSource {
 		FedXUtil.applyMaxQueryExecutionTime(operation, federationContext);
 	}
 
-	private <T> CloseableIteration<T, QueryEvaluationException> closeConn(RepositoryConnection dependentConn,
-			CloseableIteration<T, QueryEvaluationException> inner) {
+	private <T> CloseableIteration<T> closeConn(RepositoryConnection dependentConn,
+			CloseableIteration<T> inner) {
 		return new CloseDependentConnectionIteration<>(inner, dependentConn);
 	}
 
@@ -233,15 +265,17 @@ public abstract class TripleSourceBase implements TripleSource {
 	 * @param operation the {@link ConnectionOperation}
 	 * @return the resulting iteration
 	 */
-	protected <T> CloseableIteration<T, QueryEvaluationException> withConnection(ConnectionOperation<T> operation) {
+	protected <T> CloseableIteration<T> withConnection(ConnectionOperation<T> operation) {
 
 		ResultHolder<T> resultHolder = new ResultHolder<>();
-		RepositoryConnection conn = endpoint.getConnection();
+		RepositoryConnection conn = null;
+		CloseableIteration<T> res = null;
 		try {
+			conn = endpoint.getConnection();
 
 			operation.perform(conn, resultHolder);
 
-			CloseableIteration<T, QueryEvaluationException> res = resultHolder.get();
+			res = resultHolder.get();
 
 			// do not wrap Empty and Pass-through Iterations
 			if (res instanceof EmptyIteration) {
@@ -252,9 +286,17 @@ public abstract class TripleSourceBase implements TripleSource {
 			return closeConn(conn, res);
 
 		} catch (Throwable t) {
-			// handle all other exception case
-			Iterations.closeCloseable(resultHolder.get());
-			conn.close();
+			try {
+				// handle all other exception case
+				var iteration = resultHolder.get();
+				if (iteration != null) {
+					iteration.close();
+				}
+			} finally {
+				if (conn != null) {
+					conn.close();
+				}
+			}
 			throw ExceptionUtil.traceExceptionSource(endpoint, t, "");
 		}
 	}
@@ -274,33 +316,31 @@ public abstract class TripleSourceBase implements TripleSource {
 	 *
 	 * </pre>
 	 *
-	 * @author Andreas Schwarte
-	 *
 	 * @param <T>
+	 * @author Andreas Schwarte
 	 * @see TripleSourceBase#withConnection(ConnectionOperation)
 	 */
-	protected static interface ConnectionOperation<T> {
-		public void perform(RepositoryConnection conn, ResultHolder<T> resultHolder);
+	protected interface ConnectionOperation<T> {
+		void perform(RepositoryConnection conn, ResultHolder<T> resultHolder);
 	}
 
 	/**
 	 * Holder for a result iteration to be used with {@link TripleSourceBase#withConnection(ConnectionOperation)}. Note
 	 * that the result holder should also be set with temporary results to properly allow error handling.
 	 *
-	 * @author Andreas Schwarte
-	 *
 	 * @param <T>
+	 * @author Andreas Schwarte
 	 */
-	protected static class ResultHolder<T> implements Supplier<CloseableIteration<T, QueryEvaluationException>> {
+	protected static class ResultHolder<T> implements Supplier<CloseableIteration<T>> {
 
-		protected CloseableIteration<T, QueryEvaluationException> result;
+		protected CloseableIteration<T> result;
 
-		public void set(CloseableIteration<T, QueryEvaluationException> result) {
+		public void set(CloseableIteration<T> result) {
 			this.result = result;
 		}
 
 		@Override
-		public CloseableIteration<T, QueryEvaluationException> get() {
+		public CloseableIteration<T> get() {
 			return result;
 		}
 

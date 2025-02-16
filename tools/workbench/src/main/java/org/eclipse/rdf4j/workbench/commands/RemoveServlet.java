@@ -1,14 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.workbench.commands;
 
 import java.io.IOException;
-import java.util.Arrays;
+import java.util.List;
 
 import javax.servlet.http.HttpServletResponse;
 
@@ -58,7 +61,7 @@ public class RemoveServlet extends TransformationServlet {
 			TupleResultBuilder builder = getTupleResultBuilder(req, resp, resp.getOutputStream());
 			builder.transform(xslPath, "remove.xsl");
 			builder.start("error-message", "subj", "pred", "obj", CONTEXT);
-			builder.link(Arrays.asList(INFO));
+			builder.link(List.of(INFO));
 			builder.result(exc.getMessage(), req.getParameter("subj"), req.getParameter("pred"), objectParameter,
 					req.getParameter(CONTEXT));
 			builder.end();
@@ -84,7 +87,7 @@ public class RemoveServlet extends TransformationServlet {
 			throws RepositoryException, QueryResultHandlerException {
 		builder.transform(xslPath, "remove.xsl");
 		builder.start();
-		builder.link(Arrays.asList(INFO));
+		builder.link(List.of(INFO));
 		builder.end();
 	}
 

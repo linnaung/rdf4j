@@ -1,16 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.parser.sparql;
 
-import java.util.Collection;
-import java.util.LinkedHashSet;
 import java.util.Map;
-import java.util.Set;
 
 import org.eclipse.rdf4j.common.annotation.InternalUseOnly;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -25,7 +25,6 @@ import org.eclipse.rdf4j.query.algebra.InsertData;
 import org.eclipse.rdf4j.query.algebra.Load;
 import org.eclipse.rdf4j.query.algebra.Modify;
 import org.eclipse.rdf4j.query.algebra.Move;
-import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.StatementPattern.Scope;
 import org.eclipse.rdf4j.query.algebra.TripleRef;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
@@ -59,11 +58,9 @@ import org.eclipse.rdf4j.query.parser.sparql.ast.VisitorException;
  * Extension of TupleExprBuilder that builds Update Expressions.
  *
  * @author Jeen Broekstra
- *
- * @deprecated since 3.0. This feature is for internal use only: its existence, signature or behavior may change without
- *             warning from one release to the next.
+ * @apiNote This feature is for internal use only: its existence, signature or behavior may change without warning from
+ *          one release to the next.
  */
-@Deprecated
 @InternalUseOnly
 public class UpdateExprBuilder extends TupleExprBuilder {
 
@@ -165,9 +162,7 @@ public class UpdateExprBuilder extends TupleExprBuilder {
 			}
 		}
 
-		Modify modify = new Modify(deleteExpr, null, where);
-
-		return modify;
+		return new Modify(deleteExpr, null, where);
 	}
 
 	@Override
@@ -207,7 +202,7 @@ public class UpdateExprBuilder extends TupleExprBuilder {
 
 	@Override
 	public Clear visit(ASTDrop node, Object data) throws VisitorException {
-		// implementing drop as a synonym of clear, in Sesame this is really the
+		// implementing drop as a synonym of clear, in RDF4J this is really the
 		// same thing, as empty
 		// graphs are not recorded.
 
@@ -316,14 +311,11 @@ public class UpdateExprBuilder extends TupleExprBuilder {
 			insert = (TupleExpr) insertNode.jjtAccept(this, data);
 		}
 
-		Modify modifyExpr = new Modify(delete, insert, where);
-
-		return modifyExpr;
+		return new Modify(delete, insert, where);
 	}
 
 	@Override
 	public TupleExpr visit(ASTDeleteClause node, Object data) throws VisitorException {
-		TupleExpr result = (TupleExpr) data;
 
 		// Collect construct triples
 		GraphPattern parentGP = graphPattern;
@@ -364,7 +356,6 @@ public class UpdateExprBuilder extends TupleExprBuilder {
 
 	@Override
 	public TupleExpr visit(ASTInsertClause node, Object data) throws VisitorException {
-		TupleExpr result = (TupleExpr) data;
 
 		// Collect insert clause triples
 		GraphPattern parentGP = graphPattern;
@@ -384,21 +375,6 @@ public class UpdateExprBuilder extends TupleExprBuilder {
 
 		return insertExpr;
 
-	}
-
-	private Set<Var> getProjectionVars(Collection<StatementPattern> statementPatterns) {
-		Set<Var> vars = new LinkedHashSet<>(statementPatterns.size() * 2);
-
-		for (StatementPattern sp : statementPatterns) {
-			vars.add(sp.getSubjectVar());
-			vars.add(sp.getPredicateVar());
-			vars.add(sp.getObjectVar());
-			if (sp.getContextVar() != null) {
-				vars.add(sp.getContextVar());
-			}
-		}
-
-		return vars;
 	}
 
 	@Override

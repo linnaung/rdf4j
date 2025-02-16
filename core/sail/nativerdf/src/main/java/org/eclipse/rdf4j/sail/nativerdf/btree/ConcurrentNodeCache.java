@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.btree;
 
@@ -15,6 +18,8 @@ import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.nativerdf.ConcurrentCache;
 
 class ConcurrentNodeCache extends ConcurrentCache<Integer, Node> {
+
+	private final static int CONCURRENCY = Runtime.getRuntime().availableProcessors();
 
 	private final Function<Integer, Node> reader;
 
@@ -35,10 +40,10 @@ class ConcurrentNodeCache extends ConcurrentCache<Integer, Node> {
 	}
 
 	public void flush() {
-		cache.forEachValue(Long.MAX_VALUE, writeNode);
+		cache.forEachValue(CONCURRENCY, writeNode);
 	}
 
-	public void put(Node node) throws IOException {
+	public void put(Node node) {
 		cache.put(node.getID(), node);
 	}
 

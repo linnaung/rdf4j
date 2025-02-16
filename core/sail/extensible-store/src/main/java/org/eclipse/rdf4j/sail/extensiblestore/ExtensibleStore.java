@@ -1,19 +1,25 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.extensiblestore;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.function.Supplier;
 
-import org.eclipse.rdf4j.IsolationLevel;
-import org.eclipse.rdf4j.IsolationLevels;
+import org.eclipse.rdf4j.collection.factory.api.CollectionFactory;
+import org.eclipse.rdf4j.collection.factory.mapdb.MapDb3CollectionFactory;
 import org.eclipse.rdf4j.common.annotation.Experimental;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategyFactory;
@@ -44,7 +50,6 @@ import org.slf4j.LoggerFactory;
  * interfaces and the like are likely to change in future releases.
  * </p>
  *
- *
  * @author Håvard Mikkelsen Ottestad
  */
 @Experimental
@@ -59,18 +64,18 @@ public abstract class ExtensibleStore<T extends DataStructureInterface, N extend
 
 	protected T dataStructure;
 
-	final boolean cacheEnabled;
+	private final Cache cache;
 
 	private EvaluationStrategyFactory evalStratFactory;
 	private SPARQLServiceResolver dependentServiceResolver;
 	private FederatedServiceResolver serviceResolver;
 
 	public ExtensibleStore() {
-		this(true);
+		this(Cache.EAGER);
 	}
 
-	public ExtensibleStore(boolean cacheEnabled) {
-		this.cacheEnabled = cacheEnabled;
+	public ExtensibleStore(Cache cache) {
+		this.cache = cache;
 	}
 
 	ExtensibleSailStore getSailStore() {
@@ -85,12 +90,21 @@ public abstract class ExtensibleStore<T extends DataStructureInterface, N extend
 
 		DataStructureInterface dataStructure = Objects.requireNonNull(this.dataStructure);
 
-		if (cacheEnabled) {
-			dataStructure = new ReadCache(dataStructure);
+		switch (cache) {
+		case EAGER:
+			dataStructure = new EagerReadCache(dataStructure);
+			break;
+		case LAZY:
+			dataStructure = new LazyReadCache(dataStructure);
+			break;
+		case NONE:
+			break;
+		default:
+			throw new IllegalStateException();
 		}
 
-		sailStore = new ExtensibleSailStore(dataStructure,
-				Objects.requireNonNull(namespaceStore), getEvaluationStatisticsType(), getExtensibleStatementHelper());
+		sailStore = new ExtensibleSailStore(dataStructure, Objects.requireNonNull(namespaceStore),
+				getEvaluationStatisticsType(), getExtensibleStatementHelper());
 
 		sailStore.init();
 		namespaceStore.init();
@@ -154,5 +168,16 @@ public abstract class ExtensibleStore<T extends DataStructureInterface, N extend
 
 	public ExtensibleStatementHelper getExtensibleStatementHelper() {
 		return ExtensibleStatementHelper.getDefaultImpl();
+	}
+
+	public enum Cache {
+		NONE,
+		LAZY,
+		EAGER
+	}
+
+	@Override
+	public Supplier<CollectionFactory> getCollectionFactory() {
+		return () -> new MapDb3CollectionFactory(getIterationCacheSyncThreshold());
 	}
 }

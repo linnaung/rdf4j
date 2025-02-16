@@ -1,9 +1,12 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.util;
@@ -16,7 +19,6 @@ import org.eclipse.rdf4j.sparqlbuilder.core.QueryElement;
 
 /**
  * Utility functions for the SparqlBuilder
- *
  */
 public class SparqlBuilderUtils {
 	private static final String PAD = " ";
@@ -67,9 +69,9 @@ public class SparqlBuilderUtils {
 	/**
 	 * For string literals that contain single- or double-quotes
 	 *
-	 * @see <a href="https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynLiterals"> RDF Literal Syntax</a>
 	 * @param contents
 	 * @return a "long quoted" string
+	 * @see <a href="https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#QSynLiterals"> RDF Literal Syntax</a>
 	 */
 	public static String getLongQuotedString(String contents) {
 		return getEnclosedString("'''", "'''", contents, false);
@@ -92,5 +94,30 @@ public class SparqlBuilderUtils {
 		es.append(close);
 
 		return es.toString();
+	}
+
+	/**
+	 * Escape the specified String value according to the SPARQL 1.1 Spec
+	 * https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#grammarEscapes
+	 * <p>
+	 * Note that there is no special handling for Codepoint escape sequences as described by
+	 * https://www.w3.org/TR/2013/REC-sparql11-query-20130321/#codepointEscape
+	 *
+	 * @param value The String to escape
+	 * @return the escaped String
+	 */
+	public static String getEscapedString(String value) {
+		if (value == null) {
+			return null;
+		}
+		return value
+				.replace("\\", "\\\\")
+				.replace("\n", "\\n")
+				.replace("\t", "\\t")
+				.replace("\b", "\\b")
+				.replace("\r", "\\r")
+				.replace("\f", "\\f")
+				.replace("\"", "\\\"")
+				.replace("'", "\\'");
 	}
 }

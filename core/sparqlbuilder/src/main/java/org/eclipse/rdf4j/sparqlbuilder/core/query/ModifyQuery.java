@@ -1,15 +1,21 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core.query;
 
+import static org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf.iri;
+
 import java.util.Optional;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.sparqlbuilder.core.QueryPattern;
 import org.eclipse.rdf4j.sparqlbuilder.core.SparqlBuilder;
 import org.eclipse.rdf4j.sparqlbuilder.core.TriplesTemplate;
@@ -40,7 +46,7 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	private Optional<GraphName> deleteGraph = Optional.empty();
 	private Optional<GraphName> insertGraph = Optional.empty();
 
-	private QueryPattern where = SparqlBuilder.where();
+	private final QueryPattern where = SparqlBuilder.where();
 
 	ModifyQuery() {
 	}
@@ -49,7 +55,6 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	 * Define the graph that will be modified or matched against in the absence of more explicit graph definitions
 	 *
 	 * @param iri the IRI identifying the desired graph
-	 *
 	 * @return this modify query instance
 	 */
 	public ModifyQuery with(Iri iri) {
@@ -59,12 +64,20 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	}
 
 	/**
+	 * Define the graph that will be modified or matched against in the absence of more explicit graph definitions
+	 *
+	 * @param iri the IRI identifying the desired graph
+	 * @return this modify query instance
+	 */
+	public ModifyQuery with(IRI iri) {
+		return with(iri(iri));
+	}
+
+	/**
 	 * Specify triples to delete (or leave empty for DELETE WHERE shortcut)
 	 *
 	 * @param triples the triples to delete
-	 *
 	 * @return this modify query instance
-	 *
 	 * @see <a href="https://www.w3.org/TR/sparql11-update/#deleteWhere"> SPARQL DELETE WHERE shortcut</a>
 	 */
 	public ModifyQuery delete(TriplePattern... triples) {
@@ -78,7 +91,6 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	 * Specify the graph to delete triples from
 	 *
 	 * @param graphName the identifier of the graph
-	 *
 	 * @return this modify query instance
 	 */
 	public ModifyQuery from(GraphName graphName) {
@@ -91,7 +103,6 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	 * Specify triples to insert
 	 *
 	 * @param triples the triples to insert
-	 *
 	 * @return this modify query instance
 	 */
 	public ModifyQuery insert(TriplePattern... triples) {
@@ -105,7 +116,6 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	 * Specify the graph to insert triples into
 	 *
 	 * @param graphName the identifier of the graph
-	 *
 	 * @return this modify query instance
 	 */
 	public ModifyQuery into(GraphName graphName) {
@@ -118,7 +128,6 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	 * Specify the graph used when evaluating the WHERE clause
 	 *
 	 * @param iri the IRI identifying the desired graph
-	 *
 	 * @return this modify query instance
 	 */
 	public ModifyQuery using(Iri iri) {
@@ -128,10 +137,19 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	}
 
 	/**
+	 * Specify the graph used when evaluating the WHERE clause
+	 *
+	 * @param iri the IRI identifying the desired graph
+	 * @return this modify query instance
+	 */
+	public ModifyQuery using(IRI iri) {
+		return using(iri(iri));
+	}
+
+	/**
 	 * Specify a named graph to use to when evaluating the WHERE clause
 	 *
 	 * @param iri the IRI identifying the desired graph
-	 *
 	 * @return this modify query instance
 	 */
 	public ModifyQuery usingNamed(Iri iri) {
@@ -141,10 +159,19 @@ public class ModifyQuery extends UpdateQuery<ModifyQuery> {
 	}
 
 	/**
+	 * Specify a named graph to use to when evaluating the WHERE clause
+	 *
+	 * @param iri the IRI identifying the desired graph
+	 * @return this modify query instance
+	 */
+	public ModifyQuery usingNamed(IRI iri) {
+		return usingNamed(iri(iri));
+	}
+
+	/**
 	 * Add graph patterns to this query's query pattern
 	 *
 	 * @param patterns the patterns to add
-	 *
 	 * @return this modify query instance
 	 */
 	public ModifyQuery where(GraphPattern... patterns) {

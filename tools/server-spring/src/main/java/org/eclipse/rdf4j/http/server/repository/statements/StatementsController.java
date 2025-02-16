@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.server.repository.statements;
 
@@ -82,10 +85,10 @@ import org.xml.sax.SAXParseException;
  */
 public class StatementsController extends AbstractController {
 
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	public StatementsController() throws ApplicationContextException {
-		setSupportedMethods(new String[] { METHOD_GET, METHOD_POST, METHOD_HEAD, "PUT", "DELETE" });
+		setSupportedMethods(METHOD_GET, METHOD_POST, METHOD_HEAD, "PUT", "DELETE");
 	}
 
 	@Override
@@ -145,11 +148,12 @@ public class StatementsController extends AbstractController {
 			} catch (IOException e) {
 				throw new ClientHTTPException(SC_BAD_REQUEST, "Error reading request message body", e);
 			}
-			if (sparqlUpdateString.isEmpty()) {
-				sparqlUpdateString = null;
-			}
 		} else {
 			sparqlUpdateString = request.getParameterValues(Protocol.UPDATE_PARAM_NAME)[0];
+		}
+
+		if (sparqlUpdateString.isEmpty()) {
+			throw new ClientHTTPException("Updates must be non-empty");
 		}
 
 		// default query language is SPARQL
@@ -377,9 +381,9 @@ public class StatementsController extends AbstractController {
 		final boolean preserveNodeIds = ProtocolUtil.parseBooleanParam(request, Protocol.PRESERVE_BNODE_ID_PARAM_NAME,
 				false);
 
-		if (baseURI == null) {
-			baseURI = vf.createIRI("foo:bar");
-			logger.info("no base URI specified, using dummy '{}'", baseURI);
+		String baseURIString = null;
+		if (baseURI != null) {
+			baseURIString = baseURI.toString();
 		}
 
 		InputStream in = request.getInputStream();
@@ -393,7 +397,7 @@ public class StatementsController extends AbstractController {
 			if (replaceCurrent) {
 				repositoryCon.clear(contexts);
 			}
-			repositoryCon.add(in, baseURI.toString(), rdfFormat, contexts);
+			repositoryCon.add(in, baseURIString, rdfFormat, contexts);
 
 			repositoryCon.commit();
 
