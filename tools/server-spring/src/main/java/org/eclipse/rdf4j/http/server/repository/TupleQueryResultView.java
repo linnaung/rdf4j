@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.server.repository;
 
@@ -39,7 +42,7 @@ import org.slf4j.LoggerFactory;
  */
 public class TupleQueryResultView extends QueryResultView {
 
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	protected static final String DEFAULT_JSONP_CALLBACK_PARAMETER = "callback";
 
@@ -73,39 +76,42 @@ public class TupleQueryResultView extends QueryResultView {
 		final Boolean headersOnly = (Boolean) model.get(HEADERS_ONLY);
 		if (headersOnly == null || !headersOnly.booleanValue()) {
 			try (OutputStream out = response.getOutputStream()) {
-				TupleQueryResultWriter qrWriter = qrWriterFactory.getWriter(out);
-				TupleQueryResult tupleQueryResult = (TupleQueryResult) model.get(QUERY_RESULT_KEY);
+				// ensure we handle exceptions _before_ closing the stream
+				try {
+					TupleQueryResultWriter qrWriter = qrWriterFactory.getWriter(out);
+					TupleQueryResult tupleQueryResult = (TupleQueryResult) model.get(QUERY_RESULT_KEY);
 
-				if (qrWriter.getSupportedSettings().contains(BasicQueryWriterSettings.JSONP_CALLBACK)) {
-					String parameter = request.getParameter(DEFAULT_JSONP_CALLBACK_PARAMETER);
+					if (qrWriter.getSupportedSettings().contains(BasicQueryWriterSettings.JSONP_CALLBACK)) {
+						String parameter = request.getParameter(DEFAULT_JSONP_CALLBACK_PARAMETER);
 
-					if (parameter != null) {
-						parameter = parameter.trim();
+						if (parameter != null) {
+							parameter = parameter.trim();
 
-						if (parameter.isEmpty()) {
-							parameter = BasicQueryWriterSettings.JSONP_CALLBACK.getDefaultValue();
+							if (parameter.isEmpty()) {
+								parameter = BasicQueryWriterSettings.JSONP_CALLBACK.getDefaultValue();
+							}
+
+							// check callback function name is a valid javascript function
+							// name
+							if (!JSONP_VALIDATOR.matcher(parameter).matches()) {
+								throw new IOException("Callback function name was invalid");
+							}
+
+							qrWriter.getWriterConfig().set(BasicQueryWriterSettings.JSONP_CALLBACK, parameter);
 						}
-
-						// check callback function name is a valid javascript function
-						// name
-						if (!JSONP_VALIDATOR.matcher(parameter).matches()) {
-							throw new IOException("Callback function name was invalid");
-						}
-
-						qrWriter.getWriterConfig().set(BasicQueryWriterSettings.JSONP_CALLBACK, parameter);
 					}
-				}
 
-				QueryResults.report(tupleQueryResult, qrWriter);
-			} catch (QueryInterruptedException e) {
-				logger.error("Query interrupted", e);
-				response.sendError(SC_SERVICE_UNAVAILABLE, "Query evaluation took too long");
-			} catch (QueryEvaluationException e) {
-				logger.error("Query evaluation error", e);
-				response.sendError(SC_INTERNAL_SERVER_ERROR, "Query evaluation error: " + e.getMessage());
-			} catch (TupleQueryResultHandlerException e) {
-				logger.error("Serialization error", e);
-				response.sendError(SC_INTERNAL_SERVER_ERROR, "Serialization error: " + e.getMessage());
+					QueryResults.report(tupleQueryResult, qrWriter);
+				} catch (QueryInterruptedException e) {
+					logger.error("Query interrupted", e);
+					response.sendError(SC_SERVICE_UNAVAILABLE, "Query evaluation took too long");
+				} catch (QueryEvaluationException e) {
+					logger.error("Query evaluation error", e);
+					response.sendError(SC_INTERNAL_SERVER_ERROR, "Query evaluation error: " + e.getMessage());
+				} catch (TupleQueryResultHandlerException e) {
+					logger.error("Serialization error", e);
+					response.sendError(SC_INTERNAL_SERVER_ERROR, "Serialization error: " + e.getMessage());
+				}
 			}
 		}
 		logEndOfRequest(request);

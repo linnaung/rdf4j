@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.parser.sparql;
 
@@ -27,21 +30,19 @@ import org.eclipse.rdf4j.query.parser.sparql.ast.VisitorException;
  * query model itself. The former takes precedence over the latter.
  *
  * @author Arjohn Kampman
- *
- * @deprecated since 3.0. This feature is for internal use only: its existence, signature or behavior may change without
- *             warning from one release to the next.
+ * @apiNote This feature is for internal use only: its existence, signature or behavior may change without warning from
+ *          one release to the next.
  */
-@Deprecated
 @InternalUseOnly
 public class BaseDeclProcessor {
 
 	/**
-	 * Resolves relative URIs in the supplied query model using either the specified <tt>externalBaseURI</tt> or, if
-	 * this parameter is <tt>null</tt>, the base URI specified in the query model itself.
+	 * Resolves relative URIs in the supplied query model using either the specified <var>externalBaseURI</var> or, if
+	 * this parameter is <var>null</var>, the base URI specified in the query model itself.
 	 *
 	 * @param qc              The query model to resolve relative URIs in.
-	 * @param externalBaseURI The external base URI to use for resolving relative URIs, or <tt>null</tt> if the base URI
-	 *                        that is specified in the query model should be used.
+	 * @param externalBaseURI The external base URI to use for resolving relative URIs, or <var>null</var> if the base
+	 *                        URI that is specified in the query model should be used.
 	 * @throws IllegalArgumentException If an external base URI is specified that is not an absolute URI.
 	 * @throws MalformedQueryException  If the base URI specified in the query model is not an absolute URI.
 	 */
@@ -102,7 +103,7 @@ public class BaseDeclProcessor {
 
 	private static class RelativeIRIResolver extends AbstractASTVisitor {
 
-		private ParsedIRI parsedBaseURI;
+		private final ParsedIRI parsedBaseURI;
 
 		public RelativeIRIResolver(ParsedIRI parsedBaseURI) {
 			this.parsedBaseURI = parsedBaseURI;

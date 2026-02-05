@@ -1,17 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
- ******************************************************************************/
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 
 package org.eclipse.rdf4j.model;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Abstract {@link BNode} test suite.
@@ -25,7 +28,6 @@ public abstract class BNodeTest {
 	 * Creates a test blank node instance.
 	 *
 	 * @param id the id of the blank node
-	 *
 	 * @return a new instance of the concrete blank node class under test
 	 */
 	protected abstract BNode bnode(String id);

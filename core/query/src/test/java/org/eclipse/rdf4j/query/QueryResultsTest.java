@@ -1,15 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -30,8 +34,8 @@ import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.eclipse.rdf4j.query.impl.ListBindingSet;
 import org.eclipse.rdf4j.query.impl.MutableTupleQueryResult;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Arjohn Kampman
@@ -44,14 +48,16 @@ public class QueryResultsTest {
 
 	private MutableTupleQueryResult tqr3;
 
-	/** a stub GraphQueryResult, containing a number of duplicate statements */
+	/**
+	 * a stub GraphQueryResult, containing a number of duplicate statements
+	 */
 	private GraphQueryResult gqr;
 
-	private static ValueFactory VF = SimpleValueFactory.getInstance();
+	private static final ValueFactory VF = SimpleValueFactory.getInstance();
 
-	private List<String> twoBindingNames = Arrays.asList("a", "b");
+	private final List<String> twoBindingNames = Arrays.asList("a", "b");
 
-	private List<String> threeBindingNames = Arrays.asList("a", "b", "c");
+	private final List<String> threeBindingNames = Arrays.asList("a", "b", "c");
 
 	private IRI foo;
 
@@ -65,17 +71,17 @@ public class QueryResultsTest {
 
 	private Literal lit2;
 
-	private IRI a = VF.createIRI("urn:a");
+	private final IRI a = VF.createIRI("urn:a");
 
-	private IRI b = VF.createIRI("urn:b");
+	private final IRI b = VF.createIRI("urn:b");
 
-	private IRI c = VF.createIRI("urn:c");
+	private final IRI c = VF.createIRI("urn:c");
 
-	private IRI p = VF.createIRI("urn:p");
+	private final IRI p = VF.createIRI("urn:p");
 
-	private IRI q = VF.createIRI("urn:q");
+	private final IRI q = VF.createIRI("urn:q");
 
-	@Before
+	@BeforeEach
 	public void setUp() {
 		tqr1 = new MutableTupleQueryResult(twoBindingNames);
 		tqr2 = new MutableTupleQueryResult(twoBindingNames);
@@ -144,7 +150,7 @@ public class QueryResultsTest {
 		assertTrue(QueryResults.equals(gqr, toCompare));
 		gqr = new StubGraphQueryResult();
 		toCompare = new StubGraphQueryResult();
-		toCompare.statements.add(VF.createStatement(VF.createURI("urn:test-gqr-equals"), RDF.TYPE, RDF.PROPERTY));
+		toCompare.statements.add(VF.createStatement(VF.createIRI("urn:test-gqr-equals"), RDF.TYPE, RDF.PROPERTY));
 
 		assertFalse(QueryResults.equals(gqr, toCompare));
 	}
@@ -183,10 +189,45 @@ public class QueryResultsTest {
 		}
 	}
 
-	private class StubGraphQueryResult extends AbstractCloseableIteration<Statement, QueryEvaluationException>
+	@Test
+	public void testBindingSetsCompatible() {
+		{
+			BindingSet a = new ListBindingSet(twoBindingNames, foo, lit1);
+			BindingSet b = new ListBindingSet(twoBindingNames, foo, lit2);
+
+			assertThat(QueryResults.bindingSetsCompatible(a, b)).isFalse();
+		}
+		{
+			BindingSet a = new ListBindingSet(twoBindingNames, foo, lit1);
+			BindingSet b = new ListBindingSet(twoBindingNames, foo, lit1);
+
+			assertThat(QueryResults.bindingSetsCompatible(a, b)).isTrue();
+		}
+		{
+			BindingSet a = new ListBindingSet(twoBindingNames, null, lit1);
+			BindingSet b = new ListBindingSet(twoBindingNames, null, lit2);
+
+			assertThat(QueryResults.bindingSetsCompatible(a, b)).isFalse();
+		}
+		{
+			BindingSet a = new ListBindingSet(twoBindingNames, null, lit1);
+			BindingSet b = new ListBindingSet(twoBindingNames, null, lit1);
+
+			assertThat(QueryResults.bindingSetsCompatible(a, b)).isTrue();
+		}
+		{
+			BindingSet a = new ListBindingSet(twoBindingNames, foo, lit1);
+			BindingSet b = new ListBindingSet(twoBindingNames, null, lit1);
+
+			assertThat(QueryResults.bindingSetsCompatible(a, b)).isTrue();
+			assertThat(QueryResults.bindingSetsCompatible(b, a)).isTrue();
+		}
+	}
+
+	private class StubGraphQueryResult extends AbstractCloseableIteration<Statement>
 			implements GraphQueryResult {
 
-		private List<Statement> statements = new ArrayList<>();
+		private final List<Statement> statements = new ArrayList<>();
 
 		public StubGraphQueryResult() {
 			statements.add(VF.createStatement(a, p, b));
@@ -217,6 +258,10 @@ public class QueryResultsTest {
 			return null;
 		}
 
+		@Override
+		protected void handleClose() {
+
+		}
 	}
 
 	@Test

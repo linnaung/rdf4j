@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.benchmark;
@@ -11,18 +14,15 @@ package org.eclipse.rdf4j.sail.shacl.benchmark;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-import java.util.stream.Stream;
 
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
-import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.repository.sail.SailRepositoryConnection;
-import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.eclipse.rdf4j.sail.shacl.GlobalValidationExecutionLogging;
 import org.eclipse.rdf4j.sail.shacl.ShaclSail;
 import org.eclipse.rdf4j.sail.shacl.ShaclSailConnection;
 import org.eclipse.rdf4j.sail.shacl.Utils;
@@ -46,21 +46,16 @@ import ch.qos.logback.classic.Logger;
  * @author Håvard Ottestad
  */
 @State(Scope.Benchmark)
-@Warmup(iterations = 20)
+@Warmup(iterations = 5)
 @BenchmarkMode({ Mode.AverageTime })
-@Fork(value = 1, jvmArgs = { "-Xms8G", "-Xmx8G", "-XX:+UseSerialGC" })
-@Measurement(iterations = 10)
+@Fork(value = 1, jvmArgs = { "-Xms8G", "-Xmx8G" })
+@Measurement(iterations = 5)
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class MinCountBenchmarkPrefilled {
-	{
-		GlobalValidationExecutionLogging.loggingEnabled = false;
-	}
 
 	private List<List<Statement>> allStatements;
 
 	private SailRepository shaclRepo;
-	private SailRepository memoryStoreRepo;
-	private SailRepository sparqlQueryMemoryStoreRepo;
 
 	@Setup(Level.Invocation)
 	public void setUp() throws Exception {
@@ -69,12 +64,6 @@ public class MinCountBenchmarkPrefilled {
 
 		if (shaclRepo != null) {
 			shaclRepo.shutDown();
-		}
-		if (memoryStoreRepo != null) {
-			memoryStoreRepo.shutDown();
-		}
-		if (sparqlQueryMemoryStoreRepo != null) {
-			sparqlQueryMemoryStoreRepo.shutDown();
 		}
 
 		SimpleValueFactory vf = SimpleValueFactory.getInstance();
@@ -93,28 +82,15 @@ public class MinCountBenchmarkPrefilled {
 			allStatements2.add(vf.createStatement(iri, RDFS.LABEL, vf.createLiteral("label" + i)));
 		}
 
-		ShaclSail shaclRepo = Utils.getInitializedShaclSail("shacl.ttl");
+		ShaclSail shaclRepo = Utils.getInitializedShaclSail("shacl.trig");
 		this.shaclRepo = new SailRepository(shaclRepo);
 
-		memoryStoreRepo = new SailRepository(new MemoryStore());
-		memoryStoreRepo.init();
-
-		sparqlQueryMemoryStoreRepo = new SailRepository(new MemoryStore());
-		sparqlQueryMemoryStoreRepo.init();
-
-		shaclRepo.disableValidation();
 		try (SailRepositoryConnection connection = this.shaclRepo.getConnection()) {
+			connection.begin(IsolationLevels.NONE, ShaclSail.TransactionSettings.ValidationApproach.Disabled);
 			connection.add(allStatements2);
-		}
-		shaclRepo.enableValidation();
-
-		try (SailRepositoryConnection connection = memoryStoreRepo.getConnection()) {
-			connection.add(allStatements2);
+			connection.commit();
 		}
 
-		try (SailRepositoryConnection connection = sparqlQueryMemoryStoreRepo.getConnection()) {
-			connection.add(allStatements2);
-		}
 		System.gc();
 		Thread.sleep(100);
 	}
@@ -123,12 +99,6 @@ public class MinCountBenchmarkPrefilled {
 	public void tearDown() {
 		if (shaclRepo != null) {
 			shaclRepo.shutDown();
-		}
-		if (memoryStoreRepo != null) {
-			memoryStoreRepo.shutDown();
-		}
-		if (sparqlQueryMemoryStoreRepo != null) {
-			sparqlQueryMemoryStoreRepo.shutDown();
 		}
 	}
 
@@ -144,47 +114,6 @@ public class MinCountBenchmarkPrefilled {
 			for (List<Statement> statements : allStatements) {
 				connection.begin();
 				connection.add(statements);
-				connection.commit();
-			}
-		}
-
-	}
-
-	@Benchmark
-	public void noShacl() {
-
-		try (SailRepositoryConnection connection = memoryStoreRepo.getConnection()) {
-			connection.begin();
-			connection.commit();
-		}
-		try (SailRepositoryConnection connection = memoryStoreRepo.getConnection()) {
-			for (List<Statement> statements : allStatements) {
-				connection.begin();
-				connection.add(statements);
-				connection.commit();
-			}
-		}
-
-	}
-
-	@Benchmark
-	public void sparqlInsteadOfShacl() {
-
-		try (SailRepositoryConnection connection = sparqlQueryMemoryStoreRepo.getConnection()) {
-			connection.begin();
-			connection.commit();
-		}
-		try (SailRepositoryConnection connection = sparqlQueryMemoryStoreRepo.getConnection()) {
-			for (List<Statement> statements : allStatements) {
-				connection.begin();
-				connection.add(statements);
-				try (Stream<BindingSet> stream = connection
-						.prepareTupleQuery("select * where {?a a <" + RDFS.RESOURCE + ">. FILTER(! EXISTS {?a <"
-								+ RDFS.LABEL + "> ?c})}")
-						.evaluate()
-						.stream()) {
-					stream.forEach(System.out::println);
-				}
 				connection.commit();
 			}
 		}

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.base;
 
@@ -26,13 +29,13 @@ public class RepositoryWrapper implements DelegatingRepository {
 	private volatile Repository delegate;
 
 	/**
-	 * Creates a new <tt>RepositoryWrapper</tt>.
+	 * Creates a new <var>RepositoryWrapper</var>.
 	 */
 	public RepositoryWrapper() {
 	}
 
 	/**
-	 * Creates a new <tt>RepositoryWrapper</tt> and calls {@link #setDelegate(Repository)} with the supplied delegate
+	 * Creates a new <var>RepositoryWrapper</var> and calls {@link #setDelegate(Repository)} with the supplied delegate
 	 * repository.
 	 */
 	public RepositoryWrapper(Repository delegate) {
@@ -57,11 +60,6 @@ public class RepositoryWrapper implements DelegatingRepository {
 	@Override
 	public File getDataDir() {
 		return getDelegate().getDataDir();
-	}
-
-	@Override
-	public void initialize() throws RepositoryException {
-		getDelegate().initialize();
 	}
 
 	@Override
@@ -92,5 +90,10 @@ public class RepositoryWrapper implements DelegatingRepository {
 	@Override
 	public boolean isInitialized() {
 		return getDelegate().isInitialized();
+	}
+
+	@Override
+	public void init() throws RepositoryException {
+		getDelegate().init();
 	}
 }

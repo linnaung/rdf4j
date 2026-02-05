@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.optimizer;
 
@@ -36,7 +39,6 @@ import org.eclipse.rdf4j.federated.structures.QueryInfo;
 import org.eclipse.rdf4j.federated.structures.SubQuery;
 import org.eclipse.rdf4j.federated.util.QueryStringUtil;
 import org.eclipse.rdf4j.query.BindingSet;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.impl.EmptyBindingSet;
 import org.slf4j.Logger;
@@ -111,7 +113,7 @@ public class SourceSelection {
 
 		// if remote checks are necessary, execute them using the concurrency
 		// infrastructure and block until everything is resolved
-		if (remoteCheckTasks.size() > 0) {
+		if (!remoteCheckTasks.isEmpty()) {
 			SourceSelectionExecutorWithLatch.run(this, remoteCheckTasks, cache);
 		}
 
@@ -220,6 +222,7 @@ public class SourceSelection {
 					throw new OptimizationException("Source selection has run into a timeout");
 				}
 			} catch (InterruptedException e) {
+				Thread.currentThread().interrupt();
 				log.debug("Error during source selection. Thread got interrupted.");
 				errors.add(e);
 			}
@@ -227,13 +230,14 @@ public class SourceSelection {
 			finished = true;
 
 			// check for errors:
-			if (errors.size() > 0) {
+			if (!errors.isEmpty()) {
 				StringBuilder sb = new StringBuilder();
-				sb.append(
-						errors.size() + " errors were reported while optimizing query " + getQueryInfo().getQueryID());
+				sb.append(errors.size())
+						.append(" errors were reported while optimizing query ")
+						.append(getQueryInfo().getQueryID());
 
 				for (Exception e : errors) {
-					sb.append("\n" + ExceptionUtil.getExceptionString("Error occured", e));
+					sb.append("\n").append(ExceptionUtil.getExceptionString("Error occured", e));
 				}
 
 				log.debug(sb.toString());
@@ -254,7 +258,7 @@ public class SourceSelection {
 		}
 
 		@Override
-		public void addResult(CloseableIteration<BindingSet, QueryEvaluationException> res) {
+		public void addResult(CloseableIteration<BindingSet> res) {
 			latch.countDown();
 		}
 
@@ -314,11 +318,11 @@ public class SourceSelection {
 		}
 
 		@Override
-		public CloseableIteration<BindingSet, QueryEvaluationException> performTask() throws Exception {
+		protected CloseableIteration<BindingSet> performTaskInternal() throws Exception {
 			try {
 				TripleSource t = endpoint.getTripleSource();
-				boolean hasResults = false;
-				hasResults = t.hasStatements(stmt, EmptyBindingSet.getInstance(), queryInfo, queryInfo.getDataset());
+				boolean hasResults = t.hasStatements(stmt, EmptyBindingSet.getInstance(), queryInfo,
+						queryInfo.getDataset());
 
 				SourceSelection sourceSelection = control.sourceSelection;
 				sourceSelection.cache.updateInformation(new SubQuery(stmt, queryInfo.getDataset()), endpoint,

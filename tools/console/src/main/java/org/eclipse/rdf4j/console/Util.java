@@ -1,15 +1,15 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console;
 
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.nio.file.InvalidPathException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Map;
@@ -65,27 +65,6 @@ public class Util {
 			}
 		}
 		return contexts;
-	}
-
-	/**
-	 * Get path from file or URI
-	 *
-	 * @param file file name
-	 * @return path or null
-	 */
-	@Deprecated
-	public static Path getPath(String file) {
-		Path path = null;
-		try {
-			path = Paths.get(file);
-		} catch (InvalidPathException ipe) {
-			try {
-				path = Paths.get(new URI(file));
-			} catch (URISyntaxException ex) {
-				//
-			}
-		}
-		return path;
 	}
 
 	/**

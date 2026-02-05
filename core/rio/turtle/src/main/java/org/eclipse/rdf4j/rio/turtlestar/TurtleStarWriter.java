@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.turtlestar;
 
@@ -18,7 +21,8 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.turtle.TurtleWriter;
 
 /**
- * An extension of {@link TurtleWriter} that writes RDF* documents in the Turtle* format by including the RDF* triples.
+ * An extension of {@link TurtleWriter} that writes RDF-star documents in the Turtle-star format by including the
+ * RDF-star triples.
  *
  * @author Pavel Mihaylov
  */
@@ -68,7 +72,7 @@ public class TurtleStarWriter extends TurtleWriter {
 
 	@Override
 	public boolean acceptsFileFormat(FileFormat format) {
-		// since Turtle* is a superset of regular Turtle, this Sink also accepts regular Turtle
+		// since Turtle-star is a superset of regular Turtle, this Sink also accepts regular Turtle
 		// serialization
 		return super.acceptsFileFormat(format) || RDFFormat.TURTLE.equals(format);
 	}

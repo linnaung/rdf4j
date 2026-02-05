@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.impl;
 
@@ -48,7 +51,7 @@ public abstract class AbstractParserUpdate extends AbstractUpdate {
 			return sparqlDefinedDataset;
 		}
 
-		final DatasetImpl mergedDataset = new DatasetImpl();
+		final SimpleDataset mergedDataset = new SimpleDataset();
 
 		final boolean hasWithClause = sparqlDefinedDataset.getDefaultInsertGraph() != null;
 		final Set<IRI> sparqlDefaultGraphs = sparqlDefinedDataset.getDefaultGraphs();
@@ -85,11 +88,11 @@ public abstract class AbstractParserUpdate extends AbstractUpdate {
 
 		// if there are default graphs in the SPARQL update but it's not a WITH
 		// clause, it's a USING clause
-		final boolean hasUsingClause = !hasWithClause && sparqlDefaultGraphs != null ? sparqlDefaultGraphs.size() > 0
+		final boolean hasUsingClause = !hasWithClause && sparqlDefaultGraphs != null ? !sparqlDefaultGraphs.isEmpty()
 				: false;
 
 		final Set<IRI> sparqlNamedGraphs = sparqlDefinedDataset.getNamedGraphs();
-		final boolean hasUsingNamedClause = sparqlNamedGraphs != null ? sparqlNamedGraphs.size() > 0 : false;
+		final boolean hasUsingNamedClause = sparqlNamedGraphs != null ? !sparqlNamedGraphs.isEmpty() : false;
 
 		if (hasUsingClause) {
 			// one or more USING-clauses in the update itself, we need to
@@ -120,5 +123,24 @@ public abstract class AbstractParserUpdate extends AbstractUpdate {
 		}
 
 		return mergedDataset;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+
+		AbstractParserUpdate that = (AbstractParserUpdate) o;
+
+		return parsedUpdate.equals(that.parsedUpdate);
+	}
+
+	@Override
+	public int hashCode() {
+		return parsedUpdate.hashCode();
 	}
 }

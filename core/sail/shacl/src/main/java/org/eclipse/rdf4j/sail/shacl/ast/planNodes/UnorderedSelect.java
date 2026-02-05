@@ -1,25 +1,31 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Arrays;
 import java.util.Objects;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
+import org.eclipse.rdf4j.common.iteration.FilterIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.sail.SailConnection;
-import org.eclipse.rdf4j.sail.SailException;
 import org.eclipse.rdf4j.sail.memory.MemoryStoreConnection;
+import org.eclipse.rdf4j.sail.shacl.ast.constraintcomponents.ConstraintComponent;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -35,47 +41,70 @@ public class UnorderedSelect implements PlanNode {
 	private final Resource subject;
 	private final IRI predicate;
 	private final Value object;
-	private final Function<Statement, ValidationTuple> mapper;
+	private final Resource[] dataGraph;
+	private final BiFunction<Statement, Resource[], ValidationTuple> mapper;
+	private final Function<Statement, Boolean> filter;
 
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
 	public UnorderedSelect(SailConnection connection, Resource subject, IRI predicate, Value object,
-			Function<Statement, ValidationTuple> mapper) {
+			Resource[] dataGraph, BiFunction<Statement, Resource[], ValidationTuple> mapper,
+			Function<Statement, Boolean> filter) {
 		this.connection = connection;
+		assert this.connection != null;
 		this.subject = subject;
 		this.predicate = predicate;
 		this.object = object;
+		this.dataGraph = dataGraph;
 		this.mapper = mapper;
+		this.filter = filter;
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final CloseableIteration<? extends Statement, SailException> statements = connection.getStatements(subject,
-					predicate, object, true);
+			CloseableIteration<? extends Statement> statements;
 
 			@Override
-			public void close() throws SailException {
-				statements.close();
+			protected void init() {
+				assert statements == null;
+				if (filter != null) {
+					statements = new FilterIteration<Statement>(
+							connection.getStatements(subject, predicate, object, true, dataGraph)) {
+						@Override
+						protected boolean accept(Statement st) {
+							return filter.apply(st);
+						}
+
+						@Override
+						protected void handleClose() {
+
+						}
+					};
+				} else {
+					statements = connection.getStatements(subject, predicate, object, true, dataGraph);
+				}
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			public void localClose() {
+				if (statements != null) {
+					statements.close();
+				}
+			}
+
+			@Override
+			protected boolean localHasNext() {
 				return statements.hasNext();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
-
-				return mapper.apply(statements.next());
+			protected ValidationTuple loggingNext() {
+				return mapper.apply(statements.next(), dataGraph);
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -93,13 +122,15 @@ public class UnorderedSelect implements PlanNode {
 		stringBuilder.append(getId() + " [label=\"" + StringEscapeUtils.escapeJava(this.toString()) + "\"];")
 				.append("\n");
 
-		if (connection instanceof MemoryStoreConnection) {
-			stringBuilder
-					.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> " + getId())
-					.append("\n");
-		} else {
-			stringBuilder.append(System.identityHashCode(connection) + " -> " + getId()).append("\n");
-		}
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
+//		if (connection instanceof MemoryStoreConnection) {
+//			stringBuilder
+//					.append(System.identityHashCode(((MemoryStoreConnection) connection).getSail()) + " -> " + getId())
+//					.append("\n");
+//		} else {
+		stringBuilder.append(System.identityHashCode(connection) + " -> " + getId()).append("\n");
+//		}
 
 	}
 
@@ -141,15 +172,159 @@ public class UnorderedSelect implements PlanNode {
 			return false;
 		}
 		UnorderedSelect that = (UnorderedSelect) o;
-		return connection.equals(that.connection) &&
-				Objects.equals(subject, that.subject) &&
-				Objects.equals(predicate, that.predicate) &&
-				Objects.equals(object, that.object) &&
-				mapper.equals(that.mapper);
+
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
+		if (connection instanceof MemoryStoreConnection && that.connection instanceof MemoryStoreConnection) {
+			return ((MemoryStoreConnection) connection).getSail()
+					.equals(((MemoryStoreConnection) that.connection).getSail()) &&
+					Objects.equals(subject, that.subject) &&
+					Objects.equals(predicate, that.predicate) &&
+					Objects.equals(object, that.object) &&
+					Arrays.equals(dataGraph, that.dataGraph) &&
+					mapper.equals(that.mapper) &&
+					Objects.equals(filter, that.filter);
+		} else {
+			return Objects.equals(connection, that.connection) &&
+					Objects.equals(subject, that.subject) &&
+					Objects.equals(predicate, that.predicate) &&
+					Objects.equals(object, that.object) &&
+					Arrays.equals(dataGraph, that.dataGraph) &&
+					mapper.equals(that.mapper) &&
+					Objects.equals(filter, that.filter);
+		}
+
 	}
 
 	@Override
 	public int hashCode() {
-		return Objects.hash(connection, subject, predicate, object, mapper);
+		// added/removed connections are always newly minted per plan node, so we instead need to compare the underlying
+		// sail
+		if (connection instanceof MemoryStoreConnection) {
+			return Objects.hash(((MemoryStoreConnection) connection).getSail(), subject, predicate, object, mapper,
+					Arrays.hashCode(dataGraph));
+		}
+
+		return Objects.hash(connection, subject, predicate, object, mapper, Arrays.hashCode(dataGraph));
+	}
+
+	public static class Mapper {
+		public static class SubjectScopedMapper implements BiFunction<Statement, Resource[], ValidationTuple> {
+
+			private final ConstraintComponent.Scope scope;
+
+			private SubjectScopedMapper(ConstraintComponent.Scope scope) {
+				this.scope = scope;
+			}
+
+			static SubjectScopedMapper nodeShapeInstance = new SubjectScopedMapper(ConstraintComponent.Scope.nodeShape);
+			static SubjectScopedMapper propertyShapeInstance = new SubjectScopedMapper(
+					ConstraintComponent.Scope.propertyShape);
+			static SubjectScopedMapper noneInstance = new SubjectScopedMapper(ConstraintComponent.Scope.none);
+
+			@Override
+			public ValidationTuple apply(Statement s, Resource[] dataGraph) {
+				return new ValidationTuple(s.getSubject(), scope, false, dataGraph);
+			}
+
+			@Override
+			public int hashCode() {
+				return 72706357 + scope.hashCode();
+			}
+
+			@Override
+			public boolean equals(Object obj) {
+				return obj == this;
+			}
+
+			public static SubjectScopedMapper getFunction(ConstraintComponent.Scope scope) {
+				switch (scope) {
+
+				case none:
+					return noneInstance;
+				case nodeShape:
+					return nodeShapeInstance;
+				case propertyShape:
+					return propertyShapeInstance;
+				}
+
+				throw new IllegalStateException("Unknown scope: " + scope);
+			}
+
+		}
+
+		public static class ObjectScopedMapper implements BiFunction<Statement, Resource[], ValidationTuple> {
+
+			private final ConstraintComponent.Scope scope;
+
+			private ObjectScopedMapper(ConstraintComponent.Scope scope) {
+				this.scope = scope;
+			}
+
+			static ObjectScopedMapper nodeShapeInstance = new ObjectScopedMapper(ConstraintComponent.Scope.nodeShape);
+			static ObjectScopedMapper propertyShapeInstance = new ObjectScopedMapper(
+					ConstraintComponent.Scope.propertyShape);
+			static ObjectScopedMapper noneInstance = new ObjectScopedMapper(ConstraintComponent.Scope.none);
+
+			@Override
+			public ValidationTuple apply(Statement s, Resource[] dataGraph) {
+				return new ValidationTuple(s.getObject(), scope, false, dataGraph);
+			}
+
+			@Override
+			public int hashCode() {
+				return 25482634 + scope.hashCode();
+			}
+
+			@Override
+			public boolean equals(Object obj) {
+				return obj == this;
+			}
+
+			public static ObjectScopedMapper getFunction(ConstraintComponent.Scope scope) {
+				switch (scope) {
+
+				case none:
+					return noneInstance;
+				case nodeShape:
+					return nodeShapeInstance;
+				case propertyShape:
+					return propertyShapeInstance;
+				}
+
+				throw new IllegalStateException("Unknown scope: " + scope);
+			}
+
+		}
+
+		public static class SubjectObjectPropertyShapeMapper
+				implements BiFunction<Statement, Resource[], ValidationTuple> {
+
+			private SubjectObjectPropertyShapeMapper() {
+			}
+
+			static SubjectObjectPropertyShapeMapper instance = new SubjectObjectPropertyShapeMapper();
+
+			@Override
+			public ValidationTuple apply(Statement s, Resource[] dataGraph) {
+				return new ValidationTuple(s.getSubject(), s.getObject(), ConstraintComponent.Scope.propertyShape,
+						true, dataGraph);
+			}
+
+			@Override
+			public int hashCode() {
+				return 35972357;
+			}
+
+			@Override
+			public boolean equals(Object obj) {
+				return obj == this;
+			}
+
+			public static SubjectObjectPropertyShapeMapper getFunction() {
+				return instance;
+			}
+
+		}
 	}
 }

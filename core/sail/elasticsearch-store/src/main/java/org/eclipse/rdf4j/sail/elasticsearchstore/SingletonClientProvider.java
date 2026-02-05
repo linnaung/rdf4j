@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearchstore;
 
@@ -19,14 +22,17 @@ import org.elasticsearch.transport.client.PreBuiltTransportClient;
 
 /**
  * @author Håvard Mikkelsen Ottestad
+ * @deprecated Deprecated in preparation for an Elasticsearch client upgrade; this API will change or be removed in a
+ *             future release.
  */
+@Deprecated(since = "5.3.0", forRemoval = true)
 public class SingletonClientProvider implements ClientProvider {
 
 	transient private Client client;
 	private transient boolean closed = false;
-	private String hostname;
-	private int port;
-	private String clusterName;
+	private final String hostname;
+	private final int port;
+	private final String clusterName;
 
 	public SingletonClientProvider(String hostname, int port, String clusterName) {
 		this.hostname = hostname;
@@ -65,7 +71,7 @@ public class SingletonClientProvider implements ClientProvider {
 	}
 
 	@Override
-	synchronized public void close() throws Exception {
+	synchronized public void close() {
 		if (!closed) {
 			closed = true;
 			if (client != null) {

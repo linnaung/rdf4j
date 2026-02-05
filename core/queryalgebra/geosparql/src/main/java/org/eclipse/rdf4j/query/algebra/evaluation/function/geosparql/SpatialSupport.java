@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.geosparql;
 
@@ -24,7 +27,7 @@ import org.locationtech.spatial4j.context.jts.JtsSpatialContext;
  * <li>a WktWriter that only supports points</li>.
  * </ul>
  */
-abstract class SpatialSupport {
+public abstract class SpatialSupport {
 
 	private static final SpatialContext spatialContext;
 
@@ -47,15 +50,15 @@ abstract class SpatialSupport {
 		wktWriter = support.createWktWriter();
 	}
 
-	static SpatialContext getSpatialContext() {
+	public static SpatialContext getSpatialContext() {
 		return spatialContext;
 	}
 
-	static SpatialAlgebra getSpatialAlgebra() {
+	public static SpatialAlgebra getSpatialAlgebra() {
 		return spatialAlgebra;
 	}
 
-	static WktWriter getWktWriter() {
+	public static WktWriter getWktWriter() {
 		return wktWriter;
 	}
 

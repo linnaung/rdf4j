@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.impl;
 
@@ -29,7 +32,7 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.util.PatternIterator;
 
 /**
- * Hash table based implementation of the <tt>{@link Model}</tt> interface.
+ * Hash table based implementation of the <var>{@link Model}</var> interface.
  * <p>
  * This implementation provides constant-time performance for filters using a single term, assuming the hash function
  * disperses the elements properly among the buckets. Each term is indexed using a {@link HashMap}. When multiple terms
@@ -41,7 +44,6 @@ import org.eclipse.rdf4j.model.util.PatternIterator;
  * synchronizing on some object that naturally encapsulates the model. If no such object exists, the set should be
  * "wrapped" using the * Models.synchronizedModel method.
  * </p>
- *
  *
  * @author James Leigh
  */
@@ -290,9 +292,9 @@ public class LinkedHashModel extends AbstractModel {
 
 	private class ModelIterator implements Iterator<ModelStatement> {
 
-		private Iterator<ModelStatement> iter;
+		private final Iterator<ModelStatement> iter;
 
-		private Set<ModelStatement> owner;
+		private final Set<ModelStatement> owner;
 
 		private ModelStatement last;
 
@@ -339,15 +341,15 @@ public class LinkedHashModel extends AbstractModel {
 
 		private static final long serialVersionUID = -1205676084606998540L;
 
-		Set<ModelStatement> subjects = new LinkedHashSet<>();
+		Set<ModelStatement> subjects = new LinkedHashSet<>(1);
 
-		Set<ModelStatement> predicates = new LinkedHashSet<>();
+		Set<ModelStatement> predicates = new LinkedHashSet<>(1);
 
-		Set<ModelStatement> objects = new LinkedHashSet<>();
+		Set<ModelStatement> objects = new LinkedHashSet<>(1);
 
-		Set<ModelStatement> contexts = new LinkedHashSet<>();
+		Set<ModelStatement> contexts = new LinkedHashSet<>(1);
 
-		private V value;
+		private final V value;
 
 		public ModelNode(V value) {
 			this.value = value;
@@ -358,7 +360,7 @@ public class LinkedHashModel extends AbstractModel {
 		}
 	}
 
-	public static class ModelStatement extends ContextStatement {
+	public static class ModelStatement extends GenericStatement<Resource, IRI, Value> {
 
 		private static final long serialVersionUID = 2200404772364346279L;
 		private Statement statement;
@@ -371,7 +373,7 @@ public class LinkedHashModel extends AbstractModel {
 
 		ModelNode<Resource> ctx;
 
-		public ModelStatement(ModelNode<Resource> subj, ModelNode<IRI> pred, ModelNode<Value> obj,
+		ModelStatement(ModelNode<Resource> subj, ModelNode<IRI> pred, ModelNode<Value> obj,
 				ModelNode<Resource> ctx) {
 			super(subj.getValue(), pred.getValue(), obj.getValue(), ctx.getValue());
 			this.subj = subj;
@@ -380,7 +382,7 @@ public class LinkedHashModel extends AbstractModel {
 			this.ctx = ctx;
 		}
 
-		public ModelStatement(ModelNode<Resource> subj, ModelNode<IRI> pred, ModelNode<Value> obj,
+		ModelStatement(ModelNode<Resource> subj, ModelNode<IRI> pred, ModelNode<Value> obj,
 				ModelNode<Resource> ctx, Statement statement) {
 			super(subj.getValue(), pred.getValue(), obj.getValue(), ctx.getValue());
 			this.subj = subj;
@@ -418,6 +420,13 @@ public class LinkedHashModel extends AbstractModel {
 			if (this == other) {
 				return true;
 			}
+			if (other == null) {
+				return false;
+			}
+			if (other == statement) {
+				return true;
+			}
+
 			if (!super.equals(other)) {
 				return false;
 			}
@@ -443,7 +452,7 @@ public class LinkedHashModel extends AbstractModel {
 			IRI pred = st.getPredicate();
 			Value obj = st.getObject();
 			Resource ctx = st.getContext();
-			s.writeObject(new ContextStatement(subj, pred, obj, ctx));
+			s.writeObject(new GenericStatement<>(subj, pred, obj, ctx));
 		}
 	}
 
@@ -475,28 +484,32 @@ public class LinkedHashModel extends AbstractModel {
 		Set<ModelStatement> p = null;
 		Set<ModelStatement> o = null;
 		if (subj != null) {
-			if (!values.containsKey(subj)) {
+			ModelNode modelNode = values.get(subj);
+			if (modelNode == null) {
 				return Collections.emptySet();
 			}
-			s = values.get(subj).subjects;
+			s = modelNode.subjects;
 		}
 		if (pred != null) {
-			if (!values.containsKey(pred)) {
+			ModelNode modelNode = values.get(pred);
+			if (modelNode == null) {
 				return Collections.emptySet();
 			}
-			p = values.get(pred).predicates;
+			p = modelNode.predicates;
 		}
 		if (obj != null) {
-			if (!values.containsKey(obj)) {
+			ModelNode modelNode = values.get(obj);
+			if (modelNode == null) {
 				return Collections.emptySet();
 			}
-			o = values.get(obj).objects;
+			o = modelNode.objects;
 		}
 		if (contexts.length == 1) {
-			if (!values.containsKey(contexts[0])) {
+			ModelNode modelNode = values.get(contexts[0]);
+			if (modelNode == null) {
 				return Collections.emptySet();
 			}
-			Set<ModelStatement> c = values.get(contexts[0]).contexts;
+			Set<ModelStatement> c = modelNode.contexts;
 			return smallest(statements, s, p, o, c);
 		} else {
 			return smallest(statements, s, p, o);

@@ -1,12 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.sail;
 
+import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.explanation.Explanation;
 import org.eclipse.rdf4j.query.impl.AbstractParserQuery;
@@ -37,10 +41,14 @@ public abstract class SailQuery extends AbstractParserQuery {
 			timeout = getMaxExecutionTime();
 		}
 
-		TupleExpr tupleExpr = getParsedQuery().getTupleExpr();
+		TupleExpr tupleExpr = getParsedQuery().getTupleExpr().clone();
+
+		if (!(tupleExpr instanceof QueryRoot)) {
+			// Add a dummy root node to the tuple expressions to allow optimizers to modify the actual root node
+			tupleExpr = new QueryRoot(tupleExpr);
+		}
 
 		SailConnection sailCon = getConnection().getSailConnection();
-
 		return sailCon.explain(level, tupleExpr, getActiveDataset(), getBindings(), getIncludeInferred(), timeout);
 
 	}

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.impl;
 
@@ -22,8 +25,9 @@ import junit.framework.TestSuite;
  * Unit tests for {@link Model} implementations to check conformance with Java Collection Framework.
  *
  * @author Jeen Broekstra
- *
  */
+// FIXME: This class is stuck on JUnit 3/4 for now, as there is no JUnit 5 alternative to guava-testlib
+// See https://github.com/junit-pioneer/junit-pioneer/issues/413 for an initiative
 public class ModelCollectionTest {
 	public static Test suite() {
 		return new ModelCollectionTest().allTests();

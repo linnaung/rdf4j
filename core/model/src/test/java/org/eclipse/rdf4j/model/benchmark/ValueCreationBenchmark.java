@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 package org.eclipse.rdf4j.model.benchmark;
 
 import java.math.BigDecimal;
@@ -44,12 +54,12 @@ public class ValueCreationBenchmark {
 	}
 
 	// private ValueFactory factory=SimpleValueFactory.getInstance();
-	private ValueFactory factory = new BenchmarkValueFactory();
+	private final ValueFactory factory = new BenchmarkValueFactory();
 
-	private IRI iri = factory.createIRI("http://example.com/name");;
+	private final IRI iri = factory.createIRI("http://example.com/name");
 
-	private XMLGregorianCalendar calendar = calendar("2020-10-22T15:53:12.345Z");
-	private Date date = new Date();
+	private final XMLGregorianCalendar calendar = calendar("2020-10-22T15:53:12.345Z");
+	private final Date date = new Date();
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 

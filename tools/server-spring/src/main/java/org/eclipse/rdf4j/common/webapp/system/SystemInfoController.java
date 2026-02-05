@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.common.webapp.system;
 
@@ -28,7 +31,7 @@ public class SystemInfoController implements Controller {
 
 	private AppConfiguration config;
 
-	private ServerInfo server;
+	private final ServerInfo server;
 
 	public SystemInfoController() {
 		server = new ServerInfo();
@@ -68,11 +71,11 @@ public class SystemInfoController implements Controller {
 
 	public static class ServerInfo {
 
-		private String os;
+		private final String os;
 
-		private String java;
+		private final String java;
 
-		private String user;
+		private final String user;
 
 		public ServerInfo() {
 			os = System.getProperty("os.name") + " " + System.getProperty("os.version") + " ("
@@ -97,11 +100,11 @@ public class SystemInfoController implements Controller {
 
 	public static class MemoryInfo {
 
-		private int maximum;
+		private final int maximum;
 
-		private int used;
+		private final int used;
 
-		private float percentageInUse;
+		private final float percentageInUse;
 
 		public MemoryInfo() {
 			Runtime runtime = Runtime.getRuntime();

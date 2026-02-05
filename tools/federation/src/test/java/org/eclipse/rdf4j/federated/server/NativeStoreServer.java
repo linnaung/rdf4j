@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.server;
 
@@ -25,7 +28,7 @@ import org.eclipse.rdf4j.sail.nativerdf.NativeStore;
 
 public class NativeStoreServer implements Server {
 
-	private List<Repository> repositories = new ArrayList<>();
+	private final List<Repository> repositories = new ArrayList<>();
 
 	private final File dataDir;
 
@@ -35,7 +38,7 @@ public class NativeStoreServer implements Server {
 	}
 
 	@Override
-	public void initialize(int nRepositories) throws Exception {
+	public void initialize(int nRepositories) {
 
 		for (int i = 1; i <= nRepositories; i++) {
 			NativeStore store = NativeStoreProvideTest.createNativeStore(new File(dataDir, "endpoint" + i));
@@ -48,7 +51,7 @@ public class NativeStoreServer implements Server {
 	}
 
 	@Override
-	public void shutdown() throws Exception {
+	public void shutdown() {
 
 	}
 

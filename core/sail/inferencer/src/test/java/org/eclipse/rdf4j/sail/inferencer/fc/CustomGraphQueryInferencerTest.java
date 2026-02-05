@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.inferencer.fc;
 
@@ -11,8 +14,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.io.IOException;
 import java.io.StringReader;
-import java.util.Arrays;
 import java.util.Collection;
+import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.common.io.ResourceUtil;
 import org.eclipse.rdf4j.common.iteration.Iterations;
@@ -31,18 +34,22 @@ import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.sail.NotifyingSail;
 import org.eclipse.rdf4j.sail.SailException;
-import org.junit.BeforeClass;
-import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.Parameterized;
-import org.junit.runners.Parameterized.Parameters;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
+import org.junit.jupiter.params.provider.MethodSource;
 
-@RunWith(Parameterized.class)
 public abstract class CustomGraphQueryInferencerTest {
 
-	@BeforeClass
-	public static void setUpClass() throws Exception {
+	@BeforeAll
+	public static void setUpClass() {
 		System.setProperty("org.eclipse.rdf4j.repository.debug", "true");
+	}
+
+	@AfterAll
+	public static void afterClass() {
+		System.setProperty("org.eclipse.rdf4j.repository.debug", "false");
 	}
 
 	protected static class Expectation {
@@ -64,31 +71,24 @@ public abstract class CustomGraphQueryInferencerTest {
 
 	private static final String PREDICATE = "predicate";
 
-	@Parameters(name = "{0}")
-	public static final Collection<Object[]> parameters() {
+	public static final Stream<Arguments> parameters() {
 		Expectation predExpect = new Expectation(8, 2, 0, 2, 0);
-		return Arrays.asList(new Object[][] { { PREDICATE, predExpect, QueryLanguage.SPARQL },
-				{ "resource", new Expectation(4, 2, 2, 0, 2), QueryLanguage.SPARQL },
-				{ "predicate-serql", predExpect, QueryLanguage.SERQL } });
+		return Stream.of(
+				Arguments.of(PREDICATE, predExpect, QueryLanguage.SPARQL),
+				Arguments.of("resource", new Expectation(4, 2, 2, 0, 2), QueryLanguage.SPARQL)
+		);
 	}
 
 	private String initial;
 
 	private String delete;
 
-	private String resourceFolder;
-
-	private Expectation testData;
-
-	private QueryLanguage language;
-
-	protected void runTest(final CustomGraphQueryInferencer inferencer) throws RepositoryException, RDFParseException,
+	protected void runTest(final CustomGraphQueryInferencer inferencer, String resourceFolder, Expectation testData)
+			throws RepositoryException, RDFParseException,
 			IOException, MalformedQueryException, UpdateExecutionException {
 		// Initialize
 		Repository sail = new SailRepository(inferencer);
-		sail.initialize();
-		RepositoryConnection connection = sail.getConnection();
-		try {
+		try (RepositoryConnection connection = sail.getConnection()) {
 			connection.begin();
 			connection.clear();
 			connection.add(new StringReader(initial), BASE, RDFFormat.TURTLE);
@@ -124,19 +124,12 @@ public abstract class CustomGraphQueryInferencerTest {
 			// in order to properly clear out any inferred statements.
 			connection.clear();
 			connection.commit();
-		} finally {
-			connection.close();
 		}
 		sail.shutDown();
 	}
 
-	public CustomGraphQueryInferencerTest(String resourceFolder, Expectation testData, QueryLanguage language) {
-		this.resourceFolder = resourceFolder;
-		this.testData = testData;
-		this.language = language;
-	}
-
-	protected CustomGraphQueryInferencer createRepository(boolean withMatchQuery)
+	protected CustomGraphQueryInferencer createRepository(boolean withMatchQuery, String resourceFolder,
+			QueryLanguage language)
 			throws IOException, MalformedQueryException, UnsupportedQueryLanguageException, RepositoryException,
 			SailException, RDFParseException {
 		String testFolder = TEST_DIR_PREFIX + resourceFolder;
@@ -157,17 +150,21 @@ public abstract class CustomGraphQueryInferencerTest {
 	 */
 	protected abstract NotifyingSail newSail();
 
-	@Test
-	public void testCustomQueryInference() throws RepositoryException, RDFParseException, MalformedQueryException,
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("parameters")
+	public void testCustomQueryInference(String resourceFolder, Expectation testData, QueryLanguage language)
+			throws RepositoryException, RDFParseException, MalformedQueryException,
 			UpdateExecutionException, IOException, UnsupportedQueryLanguageException, SailException {
-		runTest(createRepository(true));
+		runTest(createRepository(true, resourceFolder, language), resourceFolder, testData);
 	}
 
-	@Test
-	public void testCustomQueryInferenceImplicitMatcher()
+	@ParameterizedTest(name = "{0}")
+	@MethodSource("parameters")
+	public void testCustomQueryInferenceImplicitMatcher(String resourceFolder, Expectation testData,
+			QueryLanguage language)
 			throws RepositoryException, RDFParseException, MalformedQueryException, UpdateExecutionException,
 			IOException, UnsupportedQueryLanguageException, SailException {
-		runTest(createRepository(false));
+		runTest(createRepository(false, resourceFolder, language), resourceFolder, testData);
 	}
 
 }

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.server;
 
@@ -47,22 +50,22 @@ public class CustomAppConfiguration extends AppConfiguration {
 		}
 
 		@Override
-		public void init() throws IOException {
+		public void init() {
 
 		}
 
 		@Override
-		public void load() throws IOException {
+		public void load() {
 
 		}
 
 		@Override
-		public void save() throws IOException {
+		public void save() {
 
 		}
 
 		@Override
-		public void destroy() throws IOException {
+		public void destroy() {
 
 		}
 

@@ -1,15 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.geosparql;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
 
@@ -17,10 +20,9 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.BindingSet;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
- *
  * @author Bart Hanssens
  */
 public class SfWithinTest extends GeometricRelationFunctionTest {
@@ -34,16 +36,16 @@ public class SfWithinTest extends GeometricRelationFunctionTest {
 	public void testDenverSfWithinColorado() throws IOException {
 		BindingSet bs = GeoSPARQLTests.getBindingSet("sfwithin_denver.rq");
 
-		assertNotNull("Bindingset is null", bs);
+		assertNotNull(bs, "Bindingset is null");
 
 		Value value = bs.getBinding("within").getValue();
-		assertNotNull("Binded value is null", value);
+		assertNotNull(value, "Binded value is null");
 
-		assertTrue("Value is not a literal", value instanceof Literal);
+		assertTrue(value instanceof Literal, "Value is not a literal");
 		Literal l = (Literal) value;
-		assertTrue("Literal not of type double", l.getDatatype().equals(XSD.BOOLEAN));
+		assertTrue(l.getDatatype().equals(XSD.BOOLEAN), "Literal not of type double");
 
-		assertTrue("Denver not within Colorado", l.booleanValue());
+		assertTrue(l.booleanValue(), "Denver not within Colorado");
 	}
 
 	/**
@@ -55,16 +57,16 @@ public class SfWithinTest extends GeometricRelationFunctionTest {
 	public void testBrusselsSfWithinColorado() throws IOException {
 		BindingSet bs = GeoSPARQLTests.getBindingSet("sfwithin_brussels.rq");
 
-		assertNotNull("Bindingset is null", bs);
+		assertNotNull(bs, "Bindingset is null");
 
 		Value value = bs.getBinding("within").getValue();
-		assertNotNull("Binded value is null", value);
+		assertNotNull(value, "Binded value is null");
 
-		assertTrue("Value is not a literal", value instanceof Literal);
+		assertTrue(value instanceof Literal, "Value is not a literal");
 		Literal l = (Literal) value;
-		assertTrue("Literal not of type double", l.getDatatype().equals(XSD.BOOLEAN));
+		assertTrue(l.getDatatype().equals(XSD.BOOLEAN), "Literal not of type double");
 
-		assertFalse("Brussels within Colorado", l.booleanValue());
+		assertFalse(l.booleanValue(), "Brussels within Colorado");
 	}
 
 	@Override

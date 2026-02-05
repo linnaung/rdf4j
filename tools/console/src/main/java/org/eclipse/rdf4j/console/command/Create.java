@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
@@ -16,6 +19,7 @@ import java.io.InputStreamReader;
 import java.io.StringReader;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileSystem;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
@@ -24,19 +28,20 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.eclipse.rdf4j.common.io.IOUtil;
 import org.eclipse.rdf4j.console.ConsoleIO;
 import org.eclipse.rdf4j.console.ConsoleState;
-import org.eclipse.rdf4j.console.LockRemover;
 import org.eclipse.rdf4j.console.Util;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.repository.RepositoryReadOnlyException;
 import org.eclipse.rdf4j.repository.config.ConfigTemplate;
@@ -58,7 +63,7 @@ import org.jline.reader.UserInterruptException;
 public class Create extends ConsoleCommand {
 	private static final String TEMPLATES_SUBDIR = "templates";
 	private static final String FILE_EXT = ".ttl";
-	private File templatesDir;
+	private final File templatesDir;
 
 	@Override
 	public String getName() {
@@ -89,7 +94,7 @@ public class Create extends ConsoleCommand {
 	}
 
 	@Override
-	public void execute(String... tokens) throws IOException {
+	public void execute(String... tokens) {
 		if (tokens.length < 2) {
 			writeln(getHelpLong());
 		} else {
@@ -140,12 +145,12 @@ public class Create extends ConsoleCommand {
 	 */
 	private String getBuiltinTemplates() {
 		// assume the templates are all located in the same jar "directory" as the RepositoryConfig class
-		Class cl = RepositoryConfig.class;
+		Class<RepositoryConfig> cl = RepositoryConfig.class;
 
 		try {
 			URI dir = cl.getResource(cl.getSimpleName() + ".class").toURI();
 			if (dir.getScheme().equals("jar")) {
-				try (FileSystem fs = FileSystems.newFileSystem(dir, Collections.EMPTY_MAP, null)) {
+				try (FileSystem fs = FileSystems.newFileSystem(dir, Collections.emptyMap(), null)) {
 					// turn package structure into directory structure
 					String pkg = cl.getPackage().getName().replaceAll("\\.", "/");
 					return getOrderedTemplates(fs.getPath(pkg));
@@ -161,9 +166,8 @@ public class Create extends ConsoleCommand {
 	 * Create a new repository based on a template
 	 *
 	 * @param templateName name of the template
-	 * @throws IOException
 	 */
-	private void createRepository(final String templateName) throws IOException {
+	private void createRepository(final String templateName) {
 		try {
 			// FIXME: remove assumption of .ttl extension
 			final String templateFileName = templateName + FILE_EXT;
@@ -174,7 +178,7 @@ public class Create extends ConsoleCommand {
 			if (templateStream != null) {
 				String template;
 				try {
-					template = IOUtil.readString(new InputStreamReader(templateStream, "UTF-8"));
+					template = IOUtil.readString(new InputStreamReader(templateStream, StandardCharsets.UTF_8));
 				} finally {
 					templateStream.close();
 				}
@@ -185,15 +189,9 @@ public class Create extends ConsoleCommand {
 				boolean eof = inputParameters(valueMap, variableMap, configTemplate.getMultilineMap());
 				if (!eof) {
 					final String configString = configTemplate.render(valueMap);
-					final Model graph = new LinkedHashModel();
+					final Model graph = parseConfigIntoModel(configString);
 
-					final RDFParser rdfParser = Rio.createParser(RDFFormat.TURTLE, SimpleValueFactory.getInstance());
-					rdfParser.setRDFHandler(new StatementCollector(graph));
-					rdfParser.parse(new StringReader(configString), RepositoryConfigSchema.NAMESPACE);
-
-					final Resource repositoryNode = Models
-							.subject(graph.getStatements(null, RDF.TYPE, RepositoryConfigSchema.REPOSITORY))
-							.orElseThrow(() -> new RepositoryConfigException("missing repository node"));
+					final Resource repositoryNode = findRepositoryNode(graph);
 
 					final RepositoryConfig repConfig = RepositoryConfig.create(graph, repositoryNode);
 					repConfig.validate();
@@ -214,12 +212,8 @@ public class Create extends ConsoleCommand {
 							this.state.getManager().addRepositoryConfig(repConfig);
 							writeInfo("Repository created");
 						} catch (RepositoryReadOnlyException e) {
-							if (LockRemover.tryToRemoveLock(this.state.getManager().getSystemRepository(), consoleIO)) {
-								this.state.getManager().addRepositoryConfig(repConfig);
-								writeInfo("Repository created");
-							} else {
-								writeError("Failed to create repository", e);
-							}
+							this.state.getManager().addRepositoryConfig(repConfig);
+							writeInfo("Repository created");
 						}
 					} else {
 						writeln("Create aborted");
@@ -234,6 +228,25 @@ public class Create extends ConsoleCommand {
 		}
 	}
 
+	private Resource findRepositoryNode(final Model graph) {
+		Optional<Resource> modern = Models
+				.subject(graph.getStatements(null, RDF.TYPE, CONFIG.Rep.Repository));
+		Resource repositoryNode = modern
+				.orElseGet(() -> Models
+						.subject(graph.getStatements(null, RDF.TYPE, RepositoryConfigSchema.REPOSITORY))
+						.orElseThrow(() -> new RepositoryConfigException("missing repository node")));
+		return repositoryNode;
+	}
+
+	private Model parseConfigIntoModel(final String configString) throws IOException {
+		final Model graph = new LinkedHashModel();
+
+		final RDFParser rdfParser = Rio.createParser(RDFFormat.TURTLE, SimpleValueFactory.getInstance());
+		rdfParser.setRDFHandler(new StatementCollector(graph));
+		rdfParser.parse(new StringReader(configString), CONFIG.NAMESPACE);
+		return graph;
+	}
+
 	/**
 	 * Ask user to specify values for the template variables
 	 *
@@ -241,10 +254,9 @@ public class Create extends ConsoleCommand {
 	 * @param variableMap
 	 * @param multilineInput
 	 * @return
-	 * @throws IOException
 	 */
 	private boolean inputParameters(final Map<String, String> valueMap, final Map<String, List<String>> variableMap,
-			Map<String, String> multilineInput) throws IOException {
+			Map<String, String> multilineInput) {
 		if (!variableMap.isEmpty()) {
 			writeln("Please specify values for the following variables:");
 		}
@@ -254,23 +266,7 @@ public class Create extends ConsoleCommand {
 			final String var = entry.getKey();
 			final List<String> values = entry.getValue();
 
-			StringBuilder sb = new StringBuilder();
-			sb.append(var);
-
-			if (values.size() > 1) {
-				sb.append(" (");
-				for (int i = 0; i < values.size(); i++) {
-					if (i > 0) {
-						sb.append("|");
-					}
-					sb.append(values.get(i));
-				}
-				sb.append(")");
-			}
-			if (!values.isEmpty()) {
-				sb.append(" [" + values.get(0) + "]");
-			}
-			String prompt = sb.append(": ").toString();
+			String prompt = buildPromptString(values, var);
 			String value = multilineInput.containsKey(var) ? consoleIO.readMultiLineInput(prompt)
 					: consoleIO.readln(prompt);
 			eof = (value == null);
@@ -279,12 +275,31 @@ public class Create extends ConsoleCommand {
 			}
 
 			value = value.trim();
-			if (value.length() == 0) {
+			if (value.isEmpty()) {
 				value = null; // NOPMD
 			}
 			valueMap.put(var, value);
 		}
 		return eof;
+	}
+
+	private String buildPromptString(final List<String> values, String var) {
+		StringBuilder sb = new StringBuilder();
+		sb.append(var);
+		if (values.size() > 1) {
+			sb.append(" (");
+			for (int i = 0; i < values.size(); i++) {
+				if (i > 0) {
+					sb.append("|");
+				}
+				sb.append(values.get(i));
+			}
+			sb.append(")");
+		}
+		if (!values.isEmpty()) {
+			sb.append(" [" + values.get(0) + "]");
+		}
+		return sb.append(": ").toString();
 	}
 
 	/**

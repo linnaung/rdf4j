@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.util;
 
@@ -29,9 +32,9 @@ public class ConsoleRDFWriter extends AbstractRDFWriter {
 	private final int consoleWidth;
 	private final Map<String, String> namespaces = new HashMap<>();
 	private int columnWidth;
-	private String separatorLine = "";
-	private String header = "";
-	private RDFFormat rdfFormat = new RDFFormat("Console RDF", "application/x-dummy", StandardCharsets.UTF_8,
+	private final String separatorLine = "";
+	private final String header = "";
+	private final RDFFormat rdfFormat = new RDFFormat("Console RDF", "application/x-dummy", StandardCharsets.UTF_8,
 			"dummy", true, false, true);
 
 	/**

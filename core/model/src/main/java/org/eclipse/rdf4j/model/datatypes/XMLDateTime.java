@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.datatypes;
 
@@ -30,70 +33,114 @@ public class XMLDateTime implements Cloneable, Comparable<XMLDateTime> {
 	 * Variables *
 	 *-----------*/
 
-	/** The raw dateTime string that was used to initialize this object. */
-	private String dateTimeString;
+	/**
+	 * The raw dateTime string that was used to initialize this object.
+	 */
+	private final String dateTimeString;
 
-	/** Flag indicating whether the year is positive or negative. */
+	/**
+	 * Flag indicating whether the year is positive or negative.
+	 */
 	private boolean isNegativeYear;
 
-	/** year part of the dateTime object as String */
+	/**
+	 * year part of the dateTime object as String
+	 */
 	private String year;
 
-	/** month part of the dateTime object as String */
+	/**
+	 * month part of the dateTime object as String
+	 */
 	private String months;
 
-	/** day part of the dateTime object as String */
+	/**
+	 * day part of the dateTime object as String
+	 */
 	private String days;
 
-	/** hour part of the dateTime object as String */
+	/**
+	 * hour part of the dateTime object as String
+	 */
 	private String hours;
 
-	/** minutes part of the dateTime object as String */
+	/**
+	 * minutes part of the dateTime object as String
+	 */
 	private String minutes;
 
-	/** seconds part of the dateTime object as String */
+	/**
+	 * seconds part of the dateTime object as String
+	 */
 	private String seconds;
 
-	/** fractional seconds part of the dateTime object as String */
+	/**
+	 * fractional seconds part of the dateTime object as String
+	 */
 	private String fractionalSeconds;
 
-	/** Flag indicating whether the timezone, if any, is positive or negative. */
+	/**
+	 * Flag indicating whether the timezone, if any, is positive or negative.
+	 */
 	private boolean isNegativeTimezone;
 
-	/** hours part of the optional timezone as String */
+	/**
+	 * hours part of the optional timezone as String
+	 */
 	private String hoursTimezone;
 
-	/** minutes part of the optional timezone as String */
+	/**
+	 * minutes part of the optional timezone as String
+	 */
 	private String minutesTimezone;
 
-	/** year part of the dateTime object as int */
+	/**
+	 * year part of the dateTime object as int
+	 */
 	private int iYear;
 
-	/** month part of the dateTime object as int */
+	/**
+	 * month part of the dateTime object as int
+	 */
 	private int iMonths;
 
-	/** day part of the dateTime object as int */
+	/**
+	 * day part of the dateTime object as int
+	 */
 	private int iDays;
 
-	/** hour part of the dateTime object as int */
+	/**
+	 * hour part of the dateTime object as int
+	 */
 	private int iHours;
 
-	/** minute part of the dateTime object as int */
+	/**
+	 * minute part of the dateTime object as int
+	 */
 	private int iMinutes;
 
-	/** second part of the dateTime object as int */
+	/**
+	 * second part of the dateTime object as int
+	 */
 	private int iSeconds;
 
-	/** fractional seconds part of the dateTime object as int */
+	/**
+	 * fractional seconds part of the dateTime object as int
+	 */
 	private double iFractionalSeconds;
 
-	/** hours part of the optional timezone as int */
+	/**
+	 * hours part of the optional timezone as int
+	 */
 	private int iHoursTimezone;
 
-	/** minutes part of the optional timezone as int */
+	/**
+	 * minutes part of the optional timezone as int
+	 */
 	private int iMinutesTimezone;
 
-	/** Flag indicating whether the values have been normalized. */
+	/**
+	 * Flag indicating whether the values have been normalized.
+	 */
 	private boolean isNormalized = false;
 
 	/*--------------*
@@ -103,7 +150,7 @@ public class XMLDateTime implements Cloneable, Comparable<XMLDateTime> {
 	/**
 	 * Creates a new XMLDateTime object for the supplied xsd:dateTime string value.
 	 *
-	 * @param dateTimeString An xsd:dateTime lexical value, for example <tt>1999-05-31T13:20:00-05:00</tt>.
+	 * @param dateTimeString An xsd:dateTime lexical value, for example <var>1999-05-31T13:20:00-05:00</var>.
 	 * @throws IllegalArgumentException if the supplied lexical value does not constitute a valid xsd:dateTime.
 	 */
 	public XMLDateTime(String dateTimeString) {
@@ -377,7 +424,7 @@ public class XMLDateTime implements Cloneable, Comparable<XMLDateTime> {
 	}
 
 	/**
-	 * Converts an integer to a string, enforcing the resulting string to have at least <tt>minDigits</tt> digits by
+	 * Converts an integer to a string, enforcing the resulting string to have at least <var>minDigits</var> digits by
 	 * prepending zeros if it has less than that amount of digits.
 	 */
 	private String int2string(int iValue, int minDigits) {
@@ -400,7 +447,7 @@ public class XMLDateTime implements Cloneable, Comparable<XMLDateTime> {
 	/**
 	 * Returns the xsd:dateTime string-representation of this object.
 	 *
-	 * @return An xsd:dateTime value, e.g. <tt>1999-05-31T13:20:00-05:00</tt>.
+	 * @return An xsd:dateTime value, e.g. <var>1999-05-31T13:20:00-05:00</var>.
 	 */
 	@Override
 	public String toString() {
@@ -447,7 +494,7 @@ public class XMLDateTime implements Cloneable, Comparable<XMLDateTime> {
 	/**
 	 * Compares this DateTime object to another DateTime object.
 	 *
-	 * @throws ClassCastException If <tt>other</tt> is not a DateTime object.
+	 * @throws ClassCastException If <var>other</var> is not a DateTime object.
 	 */
 	@Override
 	public int compareTo(XMLDateTime otherDT) {

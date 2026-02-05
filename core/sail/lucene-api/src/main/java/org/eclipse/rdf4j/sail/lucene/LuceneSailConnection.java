@@ -1,17 +1,22 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.lucene;
 
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -26,29 +31,26 @@ import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.BindingSetAssignment;
-import org.eclipse.rdf4j.query.algebra.MultiProjection;
-import org.eclipse.rdf4j.query.algebra.Projection;
-import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.QueryContext;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.AbstractFederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.BindingAssigner;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.CompareOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.ConjunctiveConstraintSplitter;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.ConstantOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.DisjunctiveConstraintOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.FilterOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.IterativeEvaluationOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.OrderLimitOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryJoinOptimizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.QueryModelNormalizer;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.SameTermFilterOptimizer;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.TupleFunctionEvaluationStatistics;
 import org.eclipse.rdf4j.query.algebra.evaluation.impl.TupleFunctionEvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.iterator.QueryContextIteration;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.BindingAssignerOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.CompareOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ConjunctiveConstraintSplitterOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.ConstantOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.DisjunctiveConstraintOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.FilterOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.IterativeEvaluationOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.OrderLimitOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.QueryJoinOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.QueryModelNormalizerOptimizer;
+import org.eclipse.rdf4j.query.algebra.evaluation.optimizer.SameTermFilterOptimizer;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
 import org.eclipse.rdf4j.sail.SailConnectionListener;
 import org.eclipse.rdf4j.sail.SailException;
@@ -60,8 +62,6 @@ import org.eclipse.rdf4j.sail.lucene.LuceneSailBuffer.ClearContextOperation;
 import org.eclipse.rdf4j.sail.lucene.LuceneSailBuffer.Operation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import com.google.common.collect.Sets;
 
 /**
  * <h2><a name="whySailConnectionListener">Sail Connection Listener instead of implementing add/remove</a></h2> Using
@@ -87,10 +87,6 @@ import com.google.common.collect.Sets;
  */
 public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 
-	@SuppressWarnings("unchecked")
-	private static final Set<Class<? extends QueryModelNode>> PROJECTION_TYPES = Sets.newHashSet(Projection.class,
-			MultiProjection.class);
-
 	private final Logger logger = LoggerFactory.getLogger(LuceneSailConnection.class);
 
 	private final SearchIndex luceneIndex;
@@ -103,7 +99,7 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 	/**
 	 * the buffer that collects operations
 	 */
-	final private LuceneSailBuffer buffer = new LuceneSailBuffer();
+	final private LuceneSailBuffer buffer;
 
 	/**
 	 * The listener that listens to the underlying connection. It is disabled during clearContext operations.
@@ -112,7 +108,7 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 
 		@Override
 		public void statementAdded(Statement statement) {
-			// we only consider statements that contain literals
+			// we only consider statements that contain literals or type declaration
 			if (statement.getObject() instanceof Literal) {
 				statement = sail.mapStatement(statement);
 				if (statement == null) {
@@ -124,12 +120,14 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 				if (luceneIndex.accept(literal)) {
 					buffer.add(statement);
 				}
+			} else if (luceneIndex.isTypeStatement(statement)) {
+				buffer.addTypeStatement(statement, luceneIndex.isIndexedTypeStatement(statement));
 			}
 		}
 
 		@Override
 		public void statementRemoved(Statement statement) {
-			// we only consider statements that contain literals
+			// we only consider statements that contain literals or type declaration
 			if (statement.getObject() instanceof Literal) {
 				statement = sail.mapStatement(statement);
 				if (statement == null) {
@@ -141,6 +139,8 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 				if (luceneIndex.accept(literal)) {
 					buffer.remove(statement);
 				}
+			} else if (luceneIndex.isTypeStatement(statement)) {
+				buffer.removeTypeStatement(statement);
 			}
 		}
 	};
@@ -154,6 +154,7 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 		super(wrappedConnection);
 		this.luceneIndex = luceneIndex;
 		this.sail = sail;
+		this.buffer = new LuceneSailBuffer(luceneIndex.isTypeFilteringEnabled());
 
 		if (sail.getEvaluationMode() == TupleFunctionEvaluationMode.SERVICE) {
 			FederatedServiceResolver resolver = sail.getFederatedServiceResolver();
@@ -229,7 +230,7 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 				if (op instanceof LuceneSailBuffer.AddRemoveOperation) {
 					AddRemoveOperation addremove = (AddRemoveOperation) op;
 					// add/remove in one call
-					addRemoveStatements(addremove.getAdded(), addremove.getRemoved());
+					addRemoveStatements(addremove);
 				} else if (op instanceof LuceneSailBuffer.ClearContextOperation) {
 					// clear context
 					clearContexts(((ClearContextOperation) op).getContexts());
@@ -251,17 +252,131 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 		}
 	}
 
-	private void addRemoveStatements(Set<Statement> toAdd, Set<Statement> toRemove) throws IOException {
-		logger.debug("indexing {}/removing {} statements...", toAdd.size(), toRemove.size());
+	private void addRemoveStatements(AddRemoveOperation op) throws IOException, SailException {
 		luceneIndex.begin();
 		try {
+			completeAddRemoveOperationWithType(op);
+
+			Set<Statement> toAdd = op.getAdded();
+			Set<Statement> toRemove = op.getRemoved();
+
+			logger.debug("indexing {}/removing {} statements...", toAdd.size(), toRemove.size());
+
 			luceneIndex.addRemoveStatements(toAdd, toRemove);
 			luceneIndex.commit();
-		} catch (IOException e) {
+		} catch (IOException | SailException e) {
 			logger.error("Rolling back", e);
 			luceneIndex.rollback();
 			throw e;
 		}
+	}
+
+	private void completeAddRemoveOperationWithType(AddRemoveOperation op) throws SailException {
+		// check if required
+		if (!luceneIndex.isTypeFilteringEnabled()) {
+			return;
+		}
+
+		TypeBacktraceMode backtraceMode = sail.getIndexBacktraceMode();
+
+		Set<Statement> toAdd = op.getAdded();
+		Set<Statement> toRemove = op.getRemoved();
+
+		Map<Resource, Boolean> typeAdd = op.getTypeAdded();
+		Set<Resource> typeRemove = op.getTypeRemoved();
+
+		Map<Resource, Boolean> typeValue = new HashMap<>(typeAdd);
+
+		Map<IRI, Set<IRI>> mapping = luceneIndex.getIndexedTypeMapping();
+
+		// check for all the add candidates the type of the subject
+		for (Iterator<Statement> it = toAdd.iterator(); it.hasNext();) {
+			Statement stmt = it.next();
+
+			// check previously mapped value
+			Boolean addValue = typeValue.get(stmt.getSubject());
+
+			if (addValue == null) {
+				// search for it inside the update statement
+				addValue = typeAdd.get(stmt.getSubject());
+
+				if (addValue != null) {
+					// store it for future use
+					typeValue.put(stmt.getSubject(), addValue);
+				} else {
+					// not inside the update statement, searching with the connection
+					for (IRI predicate : mapping.keySet()) {
+						Set<IRI> objects = mapping.get(predicate);
+						try (CloseableIteration<? extends Statement> statements = getStatements(
+								stmt.getSubject(),
+								predicate,
+								null,
+								false,
+								stmt.getContext()
+						)) {
+							if (statements.hasNext()) {
+								Value object = statements.next().getObject();
+								addValue = object.isIRI() && objects.contains((IRI) object);
+
+								typeValue.put(stmt.getSubject(), addValue);
+								break;
+							}
+						}
+					}
+				}
+			}
+
+			// if the value is null, the type triple isn't in the sail, so we can't index it
+			if (addValue == null || !addValue) {
+				it.remove();
+			}
+		}
+
+		// backtrace previous insert of property and add them to the index
+		if (backtraceMode.shouldBackTraceInsert()) {
+			for (Map.Entry<Resource, Boolean> e : typeAdd.entrySet()) {
+				if (e.getValue()) {
+					Resource subject = e.getKey();
+					try (CloseableIteration<? extends Statement> statements = getStatements(
+							subject, null, null, false
+					)) {
+						while (statements.hasNext()) {
+							Statement statement = statements.next();
+							statement = sail.mapStatement(statement);
+
+							if (statement == null) {
+								continue;
+							}
+
+							// add this statement to the Lucene index
+							toAdd.add(statement);
+						}
+					}
+				}
+			}
+		}
+
+		// backtrace previous insert of property and delete them from the index
+		if (backtraceMode.shouldBackTraceDelete()) {
+			for (Resource subject : typeRemove) {
+				try (CloseableIteration<? extends Statement> statements = getStatements(
+						subject, null, null, false
+				)) {
+					while (statements.hasNext()) {
+						Statement statement = statements.next();
+						statement = sail.mapStatement(statement);
+
+						if (statement == null) {
+							continue;
+						}
+
+						// add this statement to the Lucene index
+						toRemove.add(statement);
+					}
+				}
+			}
+		}
+
 	}
 
 	private void clearContexts(Resource... contexts) throws IOException {
@@ -280,12 +395,12 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 	// //////////////////////////////// Methods related to querying
 
 	@Override
-	public synchronized CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluate(TupleExpr tupleExpr,
+	public synchronized CloseableIteration<? extends BindingSet> evaluate(TupleExpr tupleExpr,
 			Dataset dataset, BindingSet bindings, boolean includeInferred) throws SailException {
 		QueryContext qctx = new QueryContext();
 		SearchIndexQueryContextInitializer.init(qctx, luceneIndex);
 
-		final CloseableIteration<? extends BindingSet, QueryEvaluationException> iter;
+		final CloseableIteration<? extends BindingSet> iter;
 		qctx.begin();
 		try {
 			iter = evaluateInternal(tupleExpr, dataset, bindings, includeInferred);
@@ -298,7 +413,7 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 		return new QueryContextIteration(iter, qctx);
 	}
 
-	private CloseableIteration<? extends BindingSet, QueryEvaluationException> evaluateInternal(TupleExpr tupleExpr,
+	private CloseableIteration<? extends BindingSet> evaluateInternal(TupleExpr tupleExpr,
 			Dataset dataset, BindingSet bindings, boolean includeInferred) throws SailException {
 		// Don't modify the original tuple expression
 		tupleExpr = tupleExpr.clone();
@@ -311,7 +426,7 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 
 		// Inline any externally set bindings, lucene statement patterns can also
 		// use externally bound variables
-		new BindingAssigner().optimize(tupleExpr, dataset, bindings);
+		new BindingAssignerOptimizer().optimize(tupleExpr, dataset, bindings);
 
 		List<SearchQueryEvaluator> queries = new ArrayList<>();
 
@@ -326,19 +441,21 @@ public class LuceneSailConnection extends NotifyingSailConnectionWrapper {
 
 		if (sail.getEvaluationMode() == TupleFunctionEvaluationMode.TRIPLE_SOURCE) {
 			ValueFactory vf = sail.getValueFactory();
+			SailTripleSource tripleSource = new SailTripleSource(this, includeInferred, vf);
 			EvaluationStrategy strategy = new TupleFunctionEvaluationStrategy(
-					new SailTripleSource(this, includeInferred, vf), dataset, sail.getFederatedServiceResolver(),
+					tripleSource, dataset, sail.getFederatedServiceResolver(),
 					sail.getTupleFunctionRegistry());
 
 			// do standard optimizations
-			new BindingAssigner().optimize(tupleExpr, dataset, bindings);
+			new BindingAssignerOptimizer().optimize(tupleExpr, dataset, bindings);
 			new ConstantOptimizer(strategy).optimize(tupleExpr, dataset, bindings);
 			new CompareOptimizer().optimize(tupleExpr, dataset, bindings);
-			new ConjunctiveConstraintSplitter().optimize(tupleExpr, dataset, bindings);
+			new ConjunctiveConstraintSplitterOptimizer().optimize(tupleExpr, dataset, bindings);
 			new DisjunctiveConstraintOptimizer().optimize(tupleExpr, dataset, bindings);
 			new SameTermFilterOptimizer().optimize(tupleExpr, dataset, bindings);
-			new QueryModelNormalizer().optimize(tupleExpr, dataset, bindings);
-			new QueryJoinOptimizer(new TupleFunctionEvaluationStatistics()).optimize(tupleExpr, dataset, bindings);
+			new QueryModelNormalizerOptimizer().optimize(tupleExpr, dataset, bindings);
+			new QueryJoinOptimizer(new TupleFunctionEvaluationStatistics(), tripleSource).optimize(tupleExpr, dataset,
+					bindings);
 			// new SubSelectJoinOptimizer().optimize(tupleExpr, dataset,
 			// bindings);
 			new IterativeEvaluationOptimizer().optimize(tupleExpr, dataset, bindings);

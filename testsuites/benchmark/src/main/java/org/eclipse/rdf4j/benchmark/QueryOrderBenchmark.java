@@ -1,9 +1,21 @@
+/*******************************************************************************
+ * Copyright (c) 2016 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 package org.eclipse.rdf4j.benchmark;
 
 import java.io.File;
+import java.util.Random;
 import java.util.concurrent.TimeUnit;
 
-import org.eclipse.rdf4j.common.io.FileUtil;
+import org.apache.commons.io.FileUtils;
+import org.assertj.core.util.Files;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.ValueFactory;
@@ -13,9 +25,6 @@ import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.sail.nativerdf.NativeStore;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -35,8 +44,8 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 /**
  * Designed to test the performance of ORDER BY queries.
  *
- * @see <a href="https://github.com/eclipse/rdf4j/issues/971">https://github.com/eclipse/rdf4j/issues/971</a>
  * @author James Leigh
+ * @see <a href="https://github.com/eclipse/rdf4j/issues/971">https://github.com/eclipse/rdf4j/issues/971</a>
  */
 @Fork(1)
 @State(Scope.Thread)
@@ -46,7 +55,9 @@ import org.openjdk.jmh.runner.options.OptionsBuilder;
 @OutputTimeUnit(TimeUnit.MILLISECONDS)
 public class QueryOrderBenchmark {
 
-	private File tempDir;
+	private File dataDir;
+
+	private final Random random = new Random(43252333);
 
 	private Repository repository;
 
@@ -62,12 +73,9 @@ public class QueryOrderBenchmark {
 	public int syncThreshold = 10;
 
 	@Setup
-	@Before
-	public void setup() throws Exception {
-		tempDir = File.createTempFile("nativestore", "");
-		tempDir.delete();
-		tempDir.mkdirs();
-		NativeStore sail = new NativeStore(tempDir, "spoc,posc");
+	public void setup() {
+		dataDir = Files.newTemporaryFolder();
+		NativeStore sail = new NativeStore(dataDir, "spoc,posc");
 		sail.setIterationCacheSyncThreshold(syncThreshold);
 		repository = new SailRepository(sail);
 		initialize();
@@ -75,14 +83,13 @@ public class QueryOrderBenchmark {
 	}
 
 	private void initialize() {
-		repository.initialize();
 		try (RepositoryConnection conn = repository.getConnection()) {
 			ValueFactory vf = conn.getValueFactory();
 			for (int i = 0; i < countk; i++) {
 				conn.begin();
 				for (int j = 0; j < 1000; j++) {
-					IRI subj = vf.createIRI("urn:test:" + Double.toHexString(Math.random()));
-					Literal val = vf.createLiteral(Double.toHexString(Math.random()));
+					IRI subj = vf.createIRI("urn:test:" + Double.toHexString(random.nextDouble()));
+					Literal val = vf.createLiteral(Double.toHexString(random.nextDouble()));
 					conn.add(subj, RDF.VALUE, val);
 				}
 				conn.commit();
@@ -91,16 +98,14 @@ public class QueryOrderBenchmark {
 	}
 
 	@TearDown
-	@After
 	public void tearDown() throws Exception {
 		conn.close();
 		repository.shutDown();
-		FileUtil.deleteDir(tempDir);
+		FileUtils.deleteDirectory(dataDir);
 	}
 
-	@Test
 	@Benchmark
-	public void selectAll() throws Exception {
+	public void selectAll() {
 		StringBuilder rq = new StringBuilder("SELECT * { ?s ?p ?o } ORDER BY ?o");
 		if (limit > 0) {
 			rq = rq.append(" LIMIT ").append(limit);
@@ -124,9 +129,8 @@ public class QueryOrderBenchmark {
 		}
 	}
 
-	@Test
 	@Benchmark
-	public void selectDistinct() throws Exception {
+	public void selectDistinct() {
 		StringBuilder rq = new StringBuilder("SELECT DISTINCT ?s ?o { ?s ?p ?o } ORDER BY ?o");
 		if (limit > 0) {
 			rq = rq.append(" LIMIT ").append(limit);

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
@@ -91,11 +94,11 @@ public abstract class AbstractRDFWriter implements RDFWriter, Sink {
 
 		statementConsumer = this::consumeStatement;
 		if (getWriterConfig().get(BasicWriterSettings.CONVERT_RDF_STAR_TO_REIFICATION)) {
-			// All writers can convert RDF* to reification on request
+			// All writers can convert RDF-star to reification on request
 			statementConsumer = this::handleStatementConvertRDFStar;
 		} else if (!getRDFFormat().supportsRDFStar() && getWriterConfig().get(BasicWriterSettings.ENCODE_RDF_STAR)) {
-			// By default non-RDF* writers encode RDF* to special RDF IRIs
-			// (all parsers, including RDF* will convert back the encoded IRIs)
+			// By default non-RDF-star writers encode RDF-star to special RDF IRIs
+			// (all parsers, including RDF-star will convert back the encoded IRIs)
 			statementConsumer = this::handleStatementEncodeRDFStar;
 		}
 	}
@@ -108,9 +111,9 @@ public abstract class AbstractRDFWriter implements RDFWriter, Sink {
 
 	/**
 	 * Consume a statement.
-	 *
+	 * <p>
 	 * Extending classes must override this method instead of overriding {@link #handleStatement(Statement)} in order to
-	 * benefit from automatic handling of RDF* conversion or encoding.
+	 * benefit from automatic handling of RDF-star conversion or encoding.
 	 *
 	 * @param st the statement to consume.
 	 */

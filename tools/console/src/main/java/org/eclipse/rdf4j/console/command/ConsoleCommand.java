@@ -1,13 +1,15 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
-import java.io.IOException;
 import java.util.Map;
 
 import org.eclipse.rdf4j.console.Command;
@@ -120,7 +122,7 @@ public abstract class ConsoleCommand implements Command, Help {
 	}
 
 	@Override
-	public void execute(String... parameters) throws IOException {
+	public void execute(String... parameters) {
 		throw new UnsupportedOperationException("Not supported yet.");
 	}
 
@@ -188,11 +190,6 @@ public abstract class ConsoleCommand implements Command, Help {
 	 * @return true
 	 */
 	protected boolean askProceed(String str, boolean defVal) {
-		try {
-			return consoleIO.askProceed(str, defVal);
-		} catch (IOException ex) {
-			writeError("Error reading answer", ex);
-		}
-		return defVal;
+		return consoleIO.askProceed(str, defVal);
 	}
 }

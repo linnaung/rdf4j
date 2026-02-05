@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.algebra;
 
@@ -12,6 +15,7 @@ import java.util.HashSet;
 import org.eclipse.rdf4j.query.algebra.AbstractQueryModelNode;
 import org.eclipse.rdf4j.query.algebra.Compare;
 import org.eclipse.rdf4j.query.algebra.Compare.CompareOp;
+import org.eclipse.rdf4j.query.algebra.QueryModelNode;
 import org.eclipse.rdf4j.query.algebra.QueryModelVisitor;
 import org.eclipse.rdf4j.query.algebra.ValueExpr;
 
@@ -43,8 +47,16 @@ public class FilterExpr extends AbstractQueryModelNode implements FilterValueExp
 	@Override
 	public <X extends Exception> void visitChildren(QueryModelVisitor<X> visitor)
 			throws X {
-		super.visitChildren(visitor);
 		expr.visit(visitor);
+	}
+
+	@Override
+	public void replaceChildNode(QueryModelNode current, QueryModelNode replacement) {
+		if (expr == current) {
+			expr = (ValueExpr) replacement;
+		} else {
+			throw new IllegalArgumentException("Node is not a child node: " + current);
+		}
 	}
 
 	public ValueExpr getExpression() {

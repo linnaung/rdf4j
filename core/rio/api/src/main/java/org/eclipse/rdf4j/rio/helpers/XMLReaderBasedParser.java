@@ -1,9 +1,17 @@
+/*******************************************************************************
+ * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
-import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
-import java.util.HashSet;
 import java.util.Set;
 
 import org.eclipse.rdf4j.common.xml.XMLReaderFactory;
@@ -21,12 +29,13 @@ import org.xml.sax.XMLReader;
  */
 public abstract class XMLReaderBasedParser extends AbstractRDFParser {
 
-	private final static Set<RioSetting<Boolean>> compulsoryXmlFeatureSettings = new HashSet<>(
-			Arrays.asList(XMLParserSettings.SECURE_PROCESSING, XMLParserSettings.DISALLOW_DOCTYPE_DECL,
-					XMLParserSettings.EXTERNAL_GENERAL_ENTITIES, XMLParserSettings.EXTERNAL_PARAMETER_ENTITIES));
-
-	private final static Set<RioSetting<Boolean>> optionalXmlFeatureSettings = new HashSet<>(
-			Arrays.asList(XMLParserSettings.LOAD_EXTERNAL_DTD));
+	private final static Set<RioSetting<Boolean>> compulsoryXmlFeatureSettings = Set.of(
+			XMLParserSettings.SECURE_PROCESSING,
+			XMLParserSettings.DISALLOW_DOCTYPE_DECL,
+			XMLParserSettings.EXTERNAL_GENERAL_ENTITIES,
+			XMLParserSettings.EXTERNAL_PARAMETER_ENTITIES,
+			XMLParserSettings.LOAD_EXTERNAL_DTD
+	);
 
 	protected XMLReaderBasedParser(ValueFactory f) {
 		super(f);
@@ -81,7 +90,7 @@ public abstract class XMLReaderBasedParser extends AbstractRDFParser {
 	 *         {@link XMLReader#setFeature(String, boolean)}.
 	 */
 	public Collection<RioSetting<Boolean>> getOptionalXmlFeatureSettings() {
-		return Collections.unmodifiableSet(optionalXmlFeatureSettings);
+		return Collections.<RioSetting<Boolean>>emptyList();
 	}
 
 	/**

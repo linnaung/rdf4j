@@ -1,19 +1,25 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Objects;
 import java.util.Set;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.sail.SailException;
+import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
 
 public class NotValuesIn implements PlanNode {
 
@@ -22,36 +28,47 @@ public class NotValuesIn implements PlanNode {
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
-	public NotValuesIn(PlanNode parent, PlanNode notIn) {
-		parent = PlanNodeHelper.handleSorting(this, parent);
-
-		this.parent = parent;
+	public NotValuesIn(PlanNode parent, PlanNode notIn, ConnectionsGroup connectionsGroup) {
+		this.parent = PlanNodeHelper.handleSorting(this, parent, connectionsGroup);
 		this.notIn = notIn;
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
+
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final CloseableIteration<? extends ValidationTuple, SailException> parentIterator = parent.iterator();
-
-			final Set<ValidationTuple> notInValueSet = new HashSet<>();
-
-			{
-				try (CloseableIteration<? extends ValidationTuple, SailException> iterator = notIn.iterator()) {
-					while (iterator.hasNext()) {
-						notInValueSet.add(iterator.next());
-					}
-				}
-			}
-
+			private CloseableIteration<? extends ValidationTuple> parentIterator;
+			Set<Value> notInValueSet;
 			ValidationTuple next;
 
-			void calculateNext() {
+			@Override
+			protected void init() {
+				assert notInValueSet == null;
 
+				parentIterator = parent.iterator();
+
+				if (!parentIterator.hasNext()) {
+					notInValueSet = Set.of();
+				} else {
+					notInValueSet = new HashSet<>();
+
+					try (CloseableIteration<? extends ValidationTuple> iterator = notIn.iterator()) {
+						while (iterator.hasNext()) {
+							notInValueSet.add(iterator.next().getValue());
+						}
+					}
+					if (notInValueSet.isEmpty()) {
+						notInValueSet = Collections.emptySet();
+					}
+				}
+
+			}
+
+			void calculateNext() {
 				while (next == null && parentIterator.hasNext()) {
 					ValidationTuple temp = parentIterator.next();
-					if (!notInValueSet.contains(temp)) {
+					if (!notInValueSet.contains(temp.getValue())) {
 						next = temp;
 					}
 
@@ -60,7 +77,7 @@ public class NotValuesIn implements PlanNode {
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
+			protected ValidationTuple loggingNext() {
 				calculateNext();
 				ValidationTuple temp = next;
 				next = null;
@@ -68,22 +85,19 @@ public class NotValuesIn implements PlanNode {
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
+			protected boolean localHasNext() {
 				calculateNext();
 
 				return next != null;
 			}
 
 			@Override
-			public void close() throws SailException {
-
-				parentIterator.close();
+			public void localClose() {
+				if (parentIterator != null) {
+					parentIterator.close();
+				}
 			}
 
-			@Override
-			public void remove() throws SailException {
-
-			}
 		};
 	}
 
@@ -103,6 +117,12 @@ public class NotValuesIn implements PlanNode {
 				.append(StringEscapeUtils.escapeJava(this.toString()))
 				.append("\"];")
 				.append("\n");
+
+		stringBuilder.append(parent.getId() + " -> " + getId()).append("\n");
+		stringBuilder.append(notIn.getId() + " -> " + getId()).append("\n");
+		parent.getPlanAsGraphvizDot(stringBuilder);
+		notIn.getPlanAsGraphvizDot(stringBuilder);
+
 	}
 
 	@Override
@@ -112,10 +132,7 @@ public class NotValuesIn implements PlanNode {
 
 	@Override
 	public String toString() {
-		return "NotValuesIn{" +
-				"parent=" + parent +
-				", notIn=" + notIn +
-				'}';
+		return "NotValuesIn";
 	}
 
 	@Override
@@ -127,11 +144,28 @@ public class NotValuesIn implements PlanNode {
 
 	@Override
 	public boolean producesSorted() {
-		return true;
+		return parent.producesSorted();
 	}
 
 	@Override
 	public boolean requiresSorted() {
-		return true;
+		return false;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		NotValuesIn that = (NotValuesIn) o;
+		return parent.equals(that.parent) && notIn.equals(that.notIn);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(parent, notIn);
 	}
 }

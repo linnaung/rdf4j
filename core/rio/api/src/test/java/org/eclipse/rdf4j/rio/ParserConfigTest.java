@@ -1,25 +1,26 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.util.Collections;
 import java.util.HashSet;
 
-import org.eclipse.rdf4j.rio.RDFParser.DatatypeHandling;
 import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
-import org.eclipse.rdf4j.rio.helpers.NTriplesParserSettings;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test for ParserConfig to verify that the core operations succeed and are consistent.
@@ -62,41 +63,11 @@ public class ParserConfigTest {
 	}
 
 	/**
-	 * Test that the explicit constructor sets all of the basic settings using the default values.
-	 */
-	@Test
-	public final void testParserConfigSameAsDefaults() {
-		ParserConfig testConfig = new ParserConfig(true, true, false, DatatypeHandling.VERIFY);
-
-		// check that the basic settings are explicitly set
-		assertTrue(testConfig.isSet(BasicParserSettings.PRESERVE_BNODE_IDS));
-
-		// check that the basic settings all return their expected default values
-		assertFalse(testConfig.get(BasicParserSettings.PRESERVE_BNODE_IDS));
-		assertFalse(testConfig.isPreserveBNodeIDs());
-	}
-
-	/**
-	 * Test that the explicit constructor sets all of the basic settings using non-default values.
-	 */
-	@Test
-	public final void testParserConfigNonDefaults() {
-		ParserConfig testConfig = new ParserConfig(false, false, true, DatatypeHandling.IGNORE);
-
-		// check that the basic settings are explicitly set
-		assertTrue(testConfig.isSet(BasicParserSettings.PRESERVE_BNODE_IDS));
-
-		// check that the basic settings all return their set values
-		assertTrue(testConfig.get(BasicParserSettings.PRESERVE_BNODE_IDS));
-		assertTrue(testConfig.isPreserveBNodeIDs());
-	}
-
-	/**
 	 * Test method for
 	 * {@link org.eclipse.rdf4j.rio.ParserConfig#ParserConfig(boolean, boolean, boolean, org.eclipse.rdf4j.rio.RDFParser.DatatypeHandling)}
 	 * .
 	 */
-	@Ignore("TODO: Implement me")
+	@Disabled("TODO: Implement me")
 	@Test
 	public final void testParserConfigBooleanBooleanBooleanDatatypeHandling() {
 		fail("Not yet implemented");
@@ -198,34 +169,6 @@ public class ParserConfigTest {
 	}
 
 	/**
-	 * Test method for {@link org.eclipse.rdf4j.rio.ParserConfig#verifyData()}.
-	 */
-	@Test
-	public final void testVerifyData() {
-		ParserConfig testConfig = new ParserConfig();
-
-		assertTrue(testConfig.verifyData());
-
-		testConfig.set(BasicParserSettings.VERIFY_RELATIVE_URIS, false);
-
-		assertFalse(testConfig.verifyData());
-	}
-
-	/**
-	 * Test method for {@link org.eclipse.rdf4j.rio.ParserConfig#stopAtFirstError()}. Test specifically for SES-1947
-	 */
-	@Test
-	public final void testStopAtFirstError() {
-		ParserConfig testConfig = new ParserConfig();
-
-		assertTrue(testConfig.stopAtFirstError());
-
-		testConfig.addNonFatalError(NTriplesParserSettings.FAIL_ON_NTRIPLES_INVALID_LINES);
-
-		assertFalse(testConfig.stopAtFirstError());
-	}
-
-	/**
 	 * Test method for {@link org.eclipse.rdf4j.rio.ParserConfig#isPreserveBNodeIDs()}.
 	 */
 	@Test
@@ -237,20 +180,6 @@ public class ParserConfigTest {
 		testConfig.set(BasicParserSettings.PRESERVE_BNODE_IDS, true);
 
 		assertTrue(testConfig.isPreserveBNodeIDs());
-	}
-
-	/**
-	 * Test method for {@link org.eclipse.rdf4j.rio.ParserConfig#datatypeHandling()}.
-	 */
-	@Test
-	public final void testDatatypeHandling() {
-		ParserConfig testConfig = new ParserConfig();
-
-		try {
-			testConfig.datatypeHandling();
-			fail("Did not receive expected exception");
-		} catch (Exception e) {
-		}
 	}
 
 	/**

@@ -1,17 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.turtle;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 import java.io.StringReader;
 import java.io.StringWriter;
@@ -37,10 +40,9 @@ import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
 import org.eclipse.rdf4j.rio.helpers.ParseErrorCollector;
 import org.eclipse.rdf4j.rio.helpers.ParseErrorLogger;
 import org.eclipse.rdf4j.rio.helpers.StatementCollector;
-import org.junit.Before;
-import org.junit.Rule;
-import org.junit.Test;
-import org.junit.rules.Timeout;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.Timeout;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,10 +51,8 @@ import org.slf4j.LoggerFactory;
  *
  * @author Peter Ansell
  */
+@Timeout(1000)
 public class CustomTurtleParserTest {
-
-	@Rule
-	public Timeout timeout = Timeout.millis(1000000);
 
 	private ValueFactory vf;
 
@@ -67,10 +67,9 @@ public class CustomTurtleParserTest {
 	private final Logger logger = LoggerFactory.getLogger(getClass());
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		vf = SimpleValueFactory.getInstance();
 		settingsNoVerifyLangTag = new ParserConfig();
 		settingsNoVerifyLangTag.set(BasicParserSettings.VERIFY_LANGUAGE_TAGS, false);
@@ -161,7 +160,7 @@ public class CustomTurtleParserTest {
 	}
 
 	@Test
-	public void testLiteralWithNewlines() throws Exception {
+	public void testLiteralWithNewlines() {
 		String namespace = "http://www.foo.com/bar#";
 		String okLiteralString = "Literal \n without \n new line at the beginning. \n ";
 		String errLiteralString = "\n Literal \n with \n new line at the beginning. \n ";
@@ -179,12 +178,12 @@ public class CustomTurtleParserTest {
 
 		String str = out.toString();
 
-		assertTrue("okLiteralString not found", str.contains(okLiteralString));
-		assertTrue("errLiteralString not found", str.contains(errLiteralString));
+		assertTrue(str.contains(okLiteralString), "okLiteralString not found");
+		assertTrue(str.contains(errLiteralString), "errLiteralString not found");
 	}
 
 	@Test
-	public void testSupportedSettings() throws Exception {
+	public void testSupportedSettings() {
 		assertThat(parser.getSupportedSettings()).hasSize(15);
 	}
 

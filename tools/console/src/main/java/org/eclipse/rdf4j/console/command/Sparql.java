@@ -1,16 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
 import java.util.Collection;
 
 import org.eclipse.rdf4j.model.Namespace;
-import org.eclipse.rdf4j.query.parser.sparql.SPARQLUtil;
+import org.eclipse.rdf4j.query.parser.sparql.SPARQLQueries;
 
 /**
  * SPARQL query command
@@ -64,7 +67,7 @@ public class Sparql extends QueryEvaluator {
 
 		for (Namespace namespace : namespaces) {
 			str.append(PREFIX).append(" ").append(namespace.getPrefix()).append(": ");
-			str.append("<").append(SPARQLUtil.encodeString(namespace.getName())).append("> ");
+			str.append("<").append(SPARQLQueries.escape(namespace.getName())).append("> ");
 		}
 		result.insert(0, str);
 	}

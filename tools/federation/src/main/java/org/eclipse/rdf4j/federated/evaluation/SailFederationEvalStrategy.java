@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation;
 
@@ -24,19 +27,21 @@ import org.eclipse.rdf4j.federated.evaluation.iterator.BoundJoinConversionIterat
 import org.eclipse.rdf4j.federated.evaluation.iterator.FilteringIteration;
 import org.eclipse.rdf4j.federated.evaluation.iterator.GroupedCheckConversionIteration;
 import org.eclipse.rdf4j.federated.evaluation.join.ControlledWorkerJoin;
+import org.eclipse.rdf4j.federated.evaluation.join.ControlledWorkerLeftJoin;
 import org.eclipse.rdf4j.federated.structures.QueryInfo;
 import org.eclipse.rdf4j.federated.util.QueryAlgebraUtil;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.MalformedQueryException;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
+import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.StatementPattern;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.repository.RepositoryException;
 
 /**
- * Implementation of a federation evaluation strategy which provides some special optimizations for Native (local)
- * Sesame repositories. The most important optimization is to use prepared Queries that are already created in the
- * internal representation used by Sesame. This is necessary to avoid String parsing overhead.
+ * Implementation of a federation evaluation strategy which provides some special optimizations for Native (local) RDF4J
+ * repositories. The most important optimization is to use prepared Queries that are already created in the internal
+ * representation used by RDF4J. This is necessary to avoid String parsing overhead.
  *
  * Joins are executed using {@link ControlledWorkerJoin}
  *
@@ -50,7 +55,7 @@ public class SailFederationEvalStrategy extends FederationEvalStrategy {
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluateBoundJoinStatementPattern(
+	public CloseableIteration<BindingSet> evaluateBoundJoinStatementPattern(
 			StatementTupleExpr stmt, List<BindingSet> bindings)
 			throws QueryEvaluationException {
 
@@ -68,7 +73,7 @@ public class SailFederationEvalStrategy extends FederationEvalStrategy {
 		TupleExpr preparedQuery = QueryAlgebraUtil.selectQueryBoundUnion((StatementPattern) stmt, bindings, filterExpr,
 				isEvaluated);
 
-		CloseableIteration<BindingSet, QueryEvaluationException> result = evaluateAtStatementSources(preparedQuery,
+		CloseableIteration<BindingSet> result = evaluateAtStatementSources(preparedQuery,
 				stmt.getStatementSources(), stmt.getQueryInfo());
 
 		// apply filter and/or convert to original bindings
@@ -86,7 +91,7 @@ public class SailFederationEvalStrategy extends FederationEvalStrategy {
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluateGroupedCheck(
+	public CloseableIteration<BindingSet> evaluateGroupedCheck(
 			CheckStatementPattern stmt, List<BindingSet> bindings)
 			throws QueryEvaluationException {
 
@@ -96,16 +101,16 @@ public class SailFederationEvalStrategy extends FederationEvalStrategy {
 
 		TupleExpr preparedQuery = QueryAlgebraUtil.selectQueryStringBoundCheck(stmt.getStatementPattern(), bindings);
 
-		CloseableIteration<BindingSet, QueryEvaluationException> result = evaluateAtStatementSources(preparedQuery,
+		CloseableIteration<BindingSet> result = evaluateAtStatementSources(preparedQuery,
 				stmt.getStatementSources(), stmt.getQueryInfo());
 
 		return new GroupedCheckConversionIteration(result, bindings);
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> executeJoin(
+	public CloseableIteration<BindingSet> executeJoin(
 			ControlledWorkerScheduler<BindingSet> joinScheduler,
-			CloseableIteration<BindingSet, QueryEvaluationException> leftIter,
+			CloseableIteration<BindingSet> leftIter,
 			TupleExpr rightArg, Set<String> joinVars, BindingSet bindings, QueryInfo queryInfo)
 			throws QueryEvaluationException {
 
@@ -117,7 +122,17 @@ public class SailFederationEvalStrategy extends FederationEvalStrategy {
 	}
 
 	@Override
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluateExclusiveGroup(
+	protected CloseableIteration<BindingSet> executeLeftJoin(ControlledWorkerScheduler<BindingSet> joinScheduler,
+			CloseableIteration<BindingSet> leftIter, LeftJoin leftJoin, BindingSet bindings, QueryInfo queryInfo)
+			throws QueryEvaluationException {
+		ControlledWorkerLeftJoin join = new ControlledWorkerLeftJoin(joinScheduler, this,
+				leftIter, leftJoin, bindings, queryInfo);
+		executor.execute(join);
+		return join;
+	}
+
+	@Override
+	public CloseableIteration<BindingSet> evaluateExclusiveGroup(
 			ExclusiveGroup group, BindingSet bindings)
 			throws RepositoryException, MalformedQueryException,
 			QueryEvaluationException {
@@ -129,7 +144,7 @@ public class SailFederationEvalStrategy extends FederationEvalStrategy {
 		return tripleSource.getStatements(preparedQuery, bindings,
 				(isEvaluated.get() ? null : group.getFilterExpr()), group.getQueryInfo());
 
-		// other option (which might be faster for sesame native stores): join over the statements
+		// other option (which might be faster for RDF4J native stores): join over the statements
 		// TODO implement this and evaluate if it is faster ..
 
 	}

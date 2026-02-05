@@ -1,14 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.server.repository.contexts;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,7 +44,7 @@ import org.springframework.web.servlet.mvc.AbstractController;
 public class ContextsController extends AbstractController {
 
 	public ContextsController() throws ApplicationContextException {
-		setSupportedMethods(new String[] { METHOD_GET, METHOD_HEAD });
+		setSupportedMethods(METHOD_GET, METHOD_HEAD);
 	}
 
 	@Override
@@ -53,11 +55,11 @@ public class ContextsController extends AbstractController {
 				TupleQueryResultWriterRegistry.getInstance());
 
 		if (METHOD_GET.equals(request.getMethod())) {
-			List<String> columnNames = Arrays.asList("contextID");
+			List<String> columnNames = List.of("contextID");
 			List<BindingSet> contexts = new ArrayList<>();
 			RepositoryConnection repositoryCon = RepositoryInterceptor.getRepositoryConnection(request);
 			try {
-				try (CloseableIteration<? extends Resource, RepositoryException> contextIter = repositoryCon
+				try (CloseableIteration<? extends Resource> contextIter = repositoryCon
 						.getContextIDs()) {
 					while (contextIter.hasNext()) {
 						BindingSet bindingSet = new ListBindingSet(columnNames, contextIter.next());

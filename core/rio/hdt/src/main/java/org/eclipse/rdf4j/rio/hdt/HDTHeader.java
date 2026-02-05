@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.hdt;
 
@@ -16,12 +19,12 @@ import org.eclipse.rdf4j.common.io.UncloseableInputStream;
 
 /**
  * HDT Header Part.
- *
+ * <p>
  * This part starts with <code>$HDT</code>, followed by a byte indicating the type of the part, the NULL-terminated
  * string for the format, and optionally one or more <code>key=value;</code> properties.
- *
+ * <p>
  * Then a <code>NULL</code> byte, followed by the 16-bit CRC (<code>$HDT</code> and <code>NULL</code> included).
- *
+ * <p>
  * Structure:
  *
  * <pre>
@@ -34,13 +37,13 @@ import org.eclipse.rdf4j.common.io.UncloseableInputStream;
  */
 class HDTHeader extends HDTPart {
 
-	protected final static byte[] HEADER_FORMAT = "ntriples".getBytes(StandardCharsets.US_ASCII);
-	protected final static String HEADER_LENGTH = "length";
+	final static byte[] HEADER_FORMAT = "ntriples".getBytes(StandardCharsets.US_ASCII);
+	final static String HEADER_LENGTH = "length";
 
 	private byte[] headerData;
 
 	@Override
-	protected void parse(InputStream is) throws IOException {
+	void parse(InputStream is) throws IOException {
 		// don't close CheckedInputStream, as it will close the underlying inputstream
 		try (UncloseableInputStream uis = new UncloseableInputStream(is);
 				CheckedInputStream cis = new CheckedInputStream(uis, new CRC16())) {
@@ -60,7 +63,7 @@ class HDTHeader extends HDTPart {
 	 *
 	 * @return byte array
 	 */
-	protected byte[] getHeaderData() {
+	byte[] getHeaderData() {
 		return headerData;
 	}
 
@@ -72,7 +75,7 @@ class HDTHeader extends HDTPart {
 	 * @throws IOException
 	 */
 	private byte[] parseHeaderData(InputStream is, int len) throws IOException {
-		byte b[] = new byte[len];
+		byte[] b = new byte[len];
 		is.read(b);
 		return b;
 	}

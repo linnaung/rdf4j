@@ -6,13 +6,10 @@ PREFIX sh: <http://www.w3.org/ns/shacl#>
 PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
 
 INSERT DATA {
-
 ex:validPerson1
-        ex:age 234 ;
-        a ex:Person .
+        ex:age "456"  .
 
 ex:validPerson2
-        ex:age 234 ;
-        a ex:Person .
+        ex:age "456"  .
 
 }

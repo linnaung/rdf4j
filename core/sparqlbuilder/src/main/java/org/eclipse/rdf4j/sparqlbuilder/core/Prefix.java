@@ -1,14 +1,19 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.sparqlbuilder.rdf.Iri;
+import org.eclipse.rdf4j.sparqlbuilder.rdf.Rdf;
 
 /**
  * A SPARQL Prefix declaration
@@ -17,12 +22,24 @@ import org.eclipse.rdf4j.sparqlbuilder.rdf.Iri;
  */
 public class Prefix implements QueryElement {
 	private static final String PREFIX = "PREFIX";
-	private String label;
-	private Iri iri;
+	private final String label;
+	private final Iri iri;
 
 	Prefix(String alias, Iri iri) {
 		this.label = alias;
 		this.iri = iri;
+	}
+
+	Prefix(String alias, IRI iri) {
+		this(alias, Rdf.iri(iri));
+	}
+
+	Iri getIri() {
+		return iri;
+	}
+
+	String getLabel() {
+		return label;
 	}
 
 	/**

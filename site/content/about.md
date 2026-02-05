@@ -5,7 +5,7 @@ description: "description"
 toc: true
 ---
 
-Eclipse RDF4J is an open source modular Java framework for working with [RDF](https://www.w3.org/TR/rdf11-primer/) data. This includes parsing, storing, inferencing and querying of/over such data. It offers an easy-to-use API that can be connected to all leading RDF storage solutions. It allows you to connect with [SPARQL](https://www.w3.org/TR/sparql11-overview/) endpoints and create applications that leverage the power of [Linked Data](http://linkeddata.org/) and [Semantic Web](http://www.w3.org/2001/sw/).
+Eclipse RDF4J&trade; is an open source modular Java framework for working with [RDF](https://www.w3.org/TR/rdf11-primer/) data. This includes parsing, storing, inferencing and querying of/over such data. It offers an easy-to-use API that can be connected to all leading RDF storage solutions. It allows you to connect with [SPARQL](https://www.w3.org/TR/sparql11-overview/) endpoints and create applications that leverage the power of [Linked Data](http://linkeddata.org/) and [Semantic Web](http://www.w3.org/2001/sw/).
 
 RDF4J offers two out-of-the-box RDF databases (the in-memory store and the native store), and in addition many third party storage solutions are available. The framework offers a large scala of tools to developers to leverage the power of RDF and related standards. RDF4J fully supports the SPARQL 1.1 query and update language for expressive querying and offers transparent access to remote RDF repositories using the exact same API as for local access. Finally, RDF4J supports all mainstream RDF file formats, including RDF/XML, Turtle, N-Triples,  N-Quads, JSON-LD, TriG and TriX.
 
@@ -30,6 +30,10 @@ The RDF4J **ElasticsearchStore** is an experimental RDF database that uses Elast
 This is useful if you are already using Elasticsearch for other things in your project and you want to add some small scale graph data.
 A good usecase is if you need reference data or an ontology for your application. The built-in read cache makes it a good choice for data that updates infrequently,
 though for most usecases the NativeStore will be considerably faster.
+
+{{< alert title="Licensing note" color="warning" >}}
+Elasticsearch itself is distributed under the Elastic License (with SSPL as an alternative). If you intend to use the optional Elasticsearch-backed features in RDF4J, please make sure to evaluate whether the licensing terms of Elasticsearch align with the needs of your project before adopting it.
+{{< /alert >}}
 
 On top of these core databases, RDF4J offers a number of functional extensions. These extensions add functionality such as improved full-text search, RDFS inferencing, rule-based reasoning and validation using SHACL/SPIN, and geospatial querying support. For more information see the [RDF4J documentation](/documentation).
 
@@ -59,13 +63,17 @@ Ontotext are a long-term contributor to the RDF4J project.
 
 [Blazegraph](http://www.blazegraph.com/) (formerly known as Bigdata) is an enterprise graph database by Systap, LLC that provides a horizontally scaling storage and retrieval solution for very large volumes of RDF.
 
+#### Oracle RDF Graph Adapter for RDF4J
+
+[Oracle RDF Graph Adapter for Eclipse RDF4J](https://docs.oracle.com/en/database/oracle/oracle-database/21/rdfrm/rdf-semantic-graph-support-eclipse-rdf4j.html) utilizes the popular Eclipse RDF4J framework to provide Java developers support to use the RDF Semantic Graph feature of Oracle Database.
+
 #### MarkLogic RDF4J API
 
 The [MarkLogic RDF4J API](https://github.com/marklogic/marklogic-rdf4j) is a full-featured, easy-to-use interface, that provides access to the MarkLogic triplestore via the RDF4J APIs. It offers several additional features such as permissions, and combination queries. More details can be found in the [MarkLogic Developer documentation](https://docs.marklogic.com/guide/semantics/clientAPIs#id_23335).
 
 #### Strabon
 
-[Strabon](http://www.strabon.di.uoa.gr/) is a spatiotemporal RDF store based on RDF4J. You can use it to store linked geospatial data that changes over time and pose queries using two popular extensions of SPARQL. Strabon supports spatial datatypes enabling the serialization of geometric objects in OGC standards WKT and GML. It also offers spatial and temporal selections, spatial and temporal joins, a rich set of spatial functions similar to those offered by geospatial relational database systems and support for multiple Coordinate Reference Systems. Strabon can be used to model temporal domains and concepts such as events, facts that change over time etc. through its support for valid time of triples, and a rich set of temporal functions.
+[Strabon](http://strabon.di.uoa.gr/) is a spatiotemporal RDF store based on RDF4J. You can use it to store linked geospatial data that changes over time and pose queries using two popular extensions of SPARQL. Strabon supports spatial datatypes enabling the serialization of geometric objects in OGC standards WKT and GML. It also offers spatial and temporal selections, spatial and temporal joins, a rich set of spatial functions similar to those offered by geospatial relational database systems and support for multiple Coordinate Reference Systems. Strabon can be used to model temporal domains and concepts such as events, facts that change over time etc. through its support for valid time of triples, and a rich set of temporal functions.
 
 #### Openlink Virtuoso RDF4J Provider
 
@@ -103,3 +111,5 @@ The metaphactory platform is developed by [metaphacts GmbH](https://www.metaphac
   an RDF service backend for Knowledge Management, used by thesaurus management platform [VocBench](http://vocbench.uniroma2.it/).
 - [Sesame Tools](https://github.com/joshsh/sesametools)<br>
   a collection of utility classes for use with Sesame/RDF4J.
+- [Jelly](https://w3id.org/jelly/jelly-jvm)<br>
+  a high-performance binary RDF serialization format with an implementation for RDF4J. Can be used as a JAR plugin.

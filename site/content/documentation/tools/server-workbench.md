@@ -12,16 +12,17 @@ In this chapter, we explain how you can install RDF4J Server (the actual databas
 
 RDF4J Server and RDF4J Workbench requires the following software:
 
-- Java 8 Runtime Environment (either [OpenJDK](https://openjdk.java.net/) or [Oracle Java](https://www.oracle.com/technetwork/java/javase/downloads/jdk8-downloads-2133151.html))
+- Java 11 or newer
 - A Java Servlet Container that supports Java Servlet API 3.1 and Java Server Pages (JSP) 2.2, or newer.
 
-We recommend using a recent, stable version of [Apache Tomcat](https://tomcat.apache.org/) ([version 9.0](https://tomcat.apache.org/download-90.cgi) at the time of writing).
+We recommend using a recent, stable version of [Apache Tomcat](https://tomcat.apache.org/) (version 9.0) or [Jetty](https://jetty.org) (version 9.4)
 
 ## Deploying Server and Workbench
 
 RDF4J Server is a database management application: it provides HTTP access to RDF4J repositories, exposing them as SPARQL endpoints. RDF4J Server is meant to be accessed by other applications. Apart from some functionality to view the server’s log messages, it doesn’t provide any user oriented functionality. Instead, the user oriented functionality is part of RDF4J Workbench. The Workbench provides a web interface for querying, updating and exploring the repositories of an RDF4J Server.
 
 If you have not done so already, you will first need to [download the RDF4J SDK](/download). Both RDF4J Server and RDF4J Workbench can be found in the `war` directory of the SDK. The war-files in this directory need to be deployed in a Java Servlet Container. The deployment process is container-specific, please consult the documentation for your container on how to deploy a web application. For Apache Tomcat, we recommend using the [Tomcat Manager](https://tomcat.apache.org/tomcat-9.0-doc/manager-howto.html) to make deployment easier.
+For Jetty, it's just a matter of copying the war-files to `$JETTY_BASE\webapps`
 
 After you have deployed the RDF4J Workbench webapp, you should be able to access it, by default, at path `http://localhost:8080/rdf4j-workbench`. You can point your browser at this location to verify that the deployment succeeded.
 
@@ -345,9 +346,9 @@ By using the “Results per page” setting and the “Previous …” and “Ne
 
 ### Querying a Repository
 
-Clicking on “Query” on the sidebar menu brings you to Workbench’s querying interface. Here, you may enter queries in the SPARQL or SeRQL query languages, save them for future access, and execute them against your repository.
+Clicking on “Query” on the sidebar menu brings you to Workbench’s querying interface. Here, you may enter queries in the SPARQL language, save them for future access, and execute them against your repository.
 
-If you have executed queries previously, the query text area will show the most recently executed query. If not, it will be pre-populated with a prefix header (SPARQL) or footer (SeRQL) containing all the defined namespaces for the repository. The “Clear” button below the text area gives you the option to restore this pre-populated state for the currently selected query language.
+If you have executed queries previously, the query text area will show the most recently executed query. If not, it will be pre-populated with a prefix header containing all the defined namespaces for the repository. The “Clear” button below the text area gives you the option to restore this pre-populated state for the currently selected query language.
 
 The two other action buttons are “Save Query” and “Execute”:
 
@@ -369,7 +370,7 @@ The query name is displayed as a clickable link that will execute the query, fol
 
 The query metadata fields, aside from query name and user, are:
 
-- Query Language: either SPARQL or SeRQL
+- Query Language: SPARQL
 - Include Inferred Statements: whether to use any inferencing defined on the repository to expand the result set
 - Rows per page: How many results to display per page at first
 - Shared: whether this query is visible to users other than the one that saved it, restricted to always be true for the “anonymous” user
@@ -440,7 +441,7 @@ For a list of supported features and more info on how to use SHACL - see [Progra
 
 ## Federation
 
-NOTE: new in RDF4J 3.1
+NOTE: since RDF4J 3.1
 
 RDF4J integrates federation support using the [FedX engine](/documentation/programming/federation/).
 

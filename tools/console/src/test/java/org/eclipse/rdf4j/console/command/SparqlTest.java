@@ -1,14 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -17,14 +21,15 @@ import static org.mockito.Mockito.when;
 import java.io.File;
 import java.io.FileReader;
 import java.io.IOException;
+import java.io.Reader;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.repository.manager.LocalRepositoryManager;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Test SPARQL command
@@ -36,9 +41,9 @@ public class SparqlTest extends AbstractCommandTest {
 
 	private Sparql cmd;
 
-	@Before
+	@BeforeEach
 	public void setUp() throws IOException, RDF4JException {
-		manager = new LocalRepositoryManager(LOCATION.getRoot());
+		manager = new LocalRepositoryManager(locationFile);
 
 		addRepositories("sparql", MEMORY_MEMBER);
 		TupleAndGraphQueryEvaluator tqe = new TupleAndGraphQueryEvaluator(mockConsoleIO, mockConsoleState,
@@ -50,20 +55,20 @@ public class SparqlTest extends AbstractCommandTest {
 	}
 
 	@Test
-	public final void testSelectError() throws IOException {
+	public final void testSelectError() {
 		cmd.executeQuery("select ?s ?p ?o where { ?s ?p ?o }", "select");
 		verify(mockConsoleIO, never()).writeError(anyString());
 	}
 
 	@Test
-	public final void testSelectMissingBindings() throws IOException {
+	public final void testSelectMissingBindings() {
 		cmd.executeQuery("select ?s ?p ?o where { ?s a foaf:Organization }", "select");
 		verify(mockConsoleIO, never()).writeError(anyString());
 	}
 
 	@Test
 	public final void testInputFile() throws IOException {
-		File f = LOCATION.newFile("select.qr");
+		File f = new File(locationFile, "select.qr");
 		copyFromResource("sparql/select.qr", f);
 
 		cmd.executeQuery("sparql INFILE=\"" + f.getAbsolutePath() + "\"", "sparql");
@@ -74,7 +79,7 @@ public class SparqlTest extends AbstractCommandTest {
 	public final void testInputFileWorkdir() throws IOException {
 		setWorkingDir(cmd);
 
-		File f = LOCATION.newFile("select.qr");
+		File f = new File(locationFile, "select.qr");
 		copyFromResource("sparql/select.qr", f);
 
 		cmd.executeQuery("sparql INFILE=\"select.qr\"", "sparql");
@@ -83,38 +88,44 @@ public class SparqlTest extends AbstractCommandTest {
 
 	@Test
 	public final void testOutputFileConstruct() throws IOException {
-		File f = LOCATION.newFile("out.ttl");
+		File f = new File(locationFile, "out.ttl");
 
 		cmd.executeQuery("sparql OUTFILE=\"" + f.getAbsolutePath() + "\" construct { ?s ?p ?o } where { ?s ?p ?o }",
 				"sparql");
 		verify(mockConsoleIO, never()).writeError(anyString());
 
-		assertTrue("File does not exist", f.exists());
-		assertTrue("Empty file", f.length() > 0);
-
-		Model m = Rio.parse(new FileReader(f), "", RDFFormat.TURTLE);
-		assertTrue("Empty model", m.size() > 0);
+		assertTrue(f.exists(), "File does not exist");
+		assertTrue(f.length() > 0, "Empty file");
+		Model m;
+		try (Reader reader = new FileReader(f)) {
+			m = Rio.parse(reader, "", RDFFormat.TURTLE);
+		}
+		assertNotNull(m);
+		assertTrue(!m.isEmpty(), "Empty model");
 	}
 
 	@Test
 	public final void testOutputFileConstructWorkdir() throws IOException {
 		setWorkingDir(cmd);
 
-		File f = LOCATION.newFile("out.ttl");
+		File f = new File(locationFile, "out.ttl");
 
 		cmd.executeQuery("sparql OUTFILE=\"out.ttl\" construct { ?s ?p ?o } where { ?s ?p ?o }", "sparql");
 		verify(mockConsoleIO, never()).writeError(anyString());
 
-		assertTrue("File does not exist", f.exists());
-		assertTrue("Empty file", f.length() > 0);
-
-		Model m = Rio.parse(new FileReader(f), "", RDFFormat.TURTLE);
-		assertTrue("Empty model", m.size() > 0);
+		assertTrue(f.exists(), "File does not exist");
+		assertTrue(f.length() > 0, "Empty file");
+		Model m;
+		try (Reader reader = new FileReader(f)) {
+			m = Rio.parse(reader, "", RDFFormat.TURTLE);
+		}
+		assertNotNull(m);
+		assertTrue(!m.isEmpty(), "Empty model");
 	}
 
 	@Test
-	public final void testOutputFileWrongFormat() throws IOException {
-		File f = LOCATION.newFile("out.ttl");
+	public final void testOutputFileWrongFormat() {
+		File f = new File(locationFile, "out.ttl");
 
 		// SELECT should use sparql result format, not a triple file format
 		cmd.executeQuery("sparql OUTFILE=\"" + f.getAbsolutePath() + "\" select ?s ?p ?o where { ?s ?p ?o }",
@@ -125,10 +136,10 @@ public class SparqlTest extends AbstractCommandTest {
 
 	@Test
 	public final void testInputOutputFile() throws IOException {
-		File fin = LOCATION.newFile("select.qr");
+		File fin = new File(locationFile, "select.qr");
 		copyFromResource("sparql/select.qr", fin);
 
-		File fout = LOCATION.newFile("out.srj");
+		File fout = new File(locationFile, "out.srj");
 
 		cmd.executeQuery("sparql infile=\"" + fin.getAbsolutePath() + "\"" +
 				" outfile=\"" + fout.getAbsolutePath() + "\"", "sparql");
@@ -136,16 +147,16 @@ public class SparqlTest extends AbstractCommandTest {
 		verify(mockConsoleIO, never()).writeError(anyString());
 		assertFalse(mockConsoleIO.wasErrorWritten());
 
-		assertTrue("File does not exist", fout.exists());
-		assertTrue("Empty file", fout.length() > 0);
+		assertTrue(fout.exists(), "File does not exist");
+		assertTrue(fout.length() > 0, "Empty file");
 	}
 
 	@Test
 	public final void testInputOutputFilePrefix() throws IOException {
-		File fin = LOCATION.newFile("select-prefix.qr");
+		File fin = new File(locationFile, "select-prefix.qr");
 		copyFromResource("sparql/select-prefix.qr", fin);
 
-		File fout = LOCATION.newFile("out.srj");
+		File fout = new File(locationFile, "out.srj");
 
 		cmd.executeQuery("sparql infile=\"" + fin.getAbsolutePath() + "\"" +
 				" outfile=\"" + fout.getAbsolutePath() + "\"", "sparql");
@@ -153,7 +164,7 @@ public class SparqlTest extends AbstractCommandTest {
 		verify(mockConsoleIO, never()).writeError(anyString());
 		assertFalse(mockConsoleIO.wasErrorWritten());
 
-		assertTrue("File does not exist", fout.exists());
-		assertTrue("Empty file", fout.length() > 0);
+		assertTrue(fout.exists(), "File does not exist");
+		assertTrue(fout.length() > 0, "Empty file");
 	}
 }

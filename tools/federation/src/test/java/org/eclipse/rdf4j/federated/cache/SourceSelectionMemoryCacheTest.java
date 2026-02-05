@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.cache;
 
@@ -31,7 +34,7 @@ public class SourceSelectionMemoryCacheTest extends SPARQLBaseTest {
 	}
 
 	@Test
-	public void test_neverCacheUnbound() throws Exception {
+	public void test_neverCacheUnbound() {
 
 		// just execute for one kind of test environment
 		assumeSparqlEndpoint();
@@ -50,7 +53,7 @@ public class SourceSelectionMemoryCacheTest extends SPARQLBaseTest {
 	}
 
 	@Test
-	public void test_inferGeneralized() throws Exception {
+	public void test_inferGeneralized() {
 
 		// just execute for one kind of test environment
 		assumeSparqlEndpoint();
@@ -72,7 +75,7 @@ public class SourceSelectionMemoryCacheTest extends SPARQLBaseTest {
 	}
 
 	@Test
-	public void test_inferGeneralized2() throws Exception {
+	public void test_inferGeneralized2() {
 
 		// just execute for one kind of test environment
 		assumeSparqlEndpoint();
@@ -96,7 +99,7 @@ public class SourceSelectionMemoryCacheTest extends SPARQLBaseTest {
 	}
 
 	@Test
-	public void test_inferGeneralized3() throws Exception {
+	public void test_inferGeneralized3() {
 
 		// just execute for one kind of test environment
 		assumeSparqlEndpoint();
@@ -145,6 +148,19 @@ public class SourceSelectionMemoryCacheTest extends SPARQLBaseTest {
 		// source selection is cached, only from fetching data
 		Assertions.assertEquals(1, requestsForEndpoint(endpoints.get(0)));
 		Assertions.assertEquals(0, requestsForEndpoint(endpoints.get(1)));
+
+		// invalidate source selection cache
+		federationContext().getSourceSelectionCache().invalidate();
+
+		// re-run requests
+		monitoring().resetMonitoringInformation();
+		try (TupleQueryResult tqr = federationContext().getQueryManager().prepareTupleQuery(query).evaluate()) {
+			Assertions.assertEquals(2, Iterations.asList(tqr).size());
+		}
+
+		// source selection is non longer cached,
+		Assertions.assertEquals(2, requestsForEndpoint(endpoints.get(0)));
+		Assertions.assertEquals(1, requestsForEndpoint(endpoints.get(1)));
 	}
 
 	@Test

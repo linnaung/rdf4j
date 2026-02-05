@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio.sparqljson;
 
@@ -31,12 +34,13 @@ import org.eclipse.rdf4j.query.QueryResultHandlerException;
 import org.eclipse.rdf4j.query.TupleQueryResultHandlerException;
 import org.eclipse.rdf4j.query.resultio.AbstractQueryResultWriter;
 import org.eclipse.rdf4j.query.resultio.BasicQueryWriterSettings;
-import org.eclipse.rdf4j.query.resultio.QueryResultWriter;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.helpers.BasicWriterSettings;
 
 import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.JsonFactoryBuilder;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.core.StreamWriteFeature;
 import com.fasterxml.jackson.core.util.DefaultIndenter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter;
 import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.Indenter;
@@ -46,20 +50,18 @@ import com.fasterxml.jackson.core.util.DefaultPrettyPrinter.Indenter;
  *
  * @author Peter Ansell
  */
-abstract class AbstractSPARQLJSONWriter extends AbstractQueryResultWriter implements QueryResultWriter, CharSink {
+abstract class AbstractSPARQLJSONWriter extends AbstractQueryResultWriter implements CharSink {
 
-	private static final JsonFactory JSON_FACTORY = new JsonFactory();
-
-	static {
-		// Disable features that may work for most JSON where the field names are
-		// in limited supply,
-		// but does not work for RDF/JSON where a wide range of URIs are used for
-		// subjects and
-		// predicates
-		JSON_FACTORY.disable(JsonFactory.Feature.INTERN_FIELD_NAMES);
-		JSON_FACTORY.disable(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES);
-		JSON_FACTORY.disable(JsonGenerator.Feature.AUTO_CLOSE_TARGET);
-	}
+	private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder()
+			// Disable features that may work for most JSON where the field names are
+			// in limited supply,
+			// but does not work for RDF/JSON where a wide range of URIs are used for
+			// subjects and
+			// predicates
+			.disable(JsonFactory.Feature.INTERN_FIELD_NAMES)
+			.disable(JsonFactory.Feature.CANONICALIZE_FIELD_NAMES)
+			.disable(StreamWriteFeature.AUTO_CLOSE_TARGET)
+			.build();
 
 	protected boolean firstTupleWritten = false;
 

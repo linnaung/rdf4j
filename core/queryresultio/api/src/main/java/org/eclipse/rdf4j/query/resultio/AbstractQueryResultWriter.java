@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio;
 
@@ -53,7 +56,8 @@ public abstract class AbstractQueryResultWriter implements QueryResultWriter, Si
 
 	@Override
 	public void startQueryResult(List<String> bindingNames) throws TupleQueryResultHandlerException {
-		// Formats without native RDF* support obey the ENCODE_RDF_STAR setting and may encode RDF* triples to IRIs
+		// Formats without native RDF-star support obey the ENCODE_RDF_STAR setting and may encode RDF-star triples to
+		// IRIs
 		encodeRDFStar = this instanceof TupleQueryResultWriter
 				&& !((TupleQueryResultWriter) this).getTupleQueryResultFormat().supportsRDFStar()
 				&& getWriterConfig().get(BasicWriterSettings.ENCODE_RDF_STAR);
@@ -70,11 +74,10 @@ public abstract class AbstractQueryResultWriter implements QueryResultWriter, Si
 
 	/**
 	 * Extending classes must implement this method instead of overriding {@link #handleSolution(BindingSet)} in order
-	 * to benefit from automatic handling of RDF* encoding.
+	 * to benefit from automatic handling of RDF-star encoding.
 	 *
 	 * @param bindings the solution to handle
 	 * @throws TupleQueryResultHandlerException
-	 *
 	 * @implNote this temporary implementation throws an {@link UnsupportedOperationException} and is only provided for
 	 *           backward compatility.
 	 * @since 3.2.0

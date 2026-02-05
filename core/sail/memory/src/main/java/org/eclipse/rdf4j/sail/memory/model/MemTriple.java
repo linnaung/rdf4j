@@ -1,16 +1,16 @@
-/******************************************************************************* 
+/*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.memory.model;
 
-import org.eclipse.rdf4j.model.IRI;
-import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Triple;
-import org.eclipse.rdf4j.model.Value;
 
 import com.google.common.base.Objects;
 
@@ -19,7 +19,7 @@ import com.google.common.base.Objects;
  *
  * @author Jeen Broekstra
  */
-public class MemTriple implements Triple, MemResource {
+public class MemTriple extends MemResource implements Triple {
 
 	private static final long serialVersionUID = -9085188980084028689L;
 
@@ -30,14 +30,9 @@ public class MemTriple implements Triple, MemResource {
 	private final MemValue object;
 
 	/**
-	 * The list of statements for which this MemTriple is the subject.
-	 */
-	transient private volatile MemStatementList subjectStatements = null;
-
-	/**
 	 * The list of statements for which this MemTriple is the object.
 	 */
-	transient private volatile MemStatementList objectStatements = null;
+	transient private final MemStatementList objectStatements = new MemStatementList();
 
 	public MemTriple(Object creator, MemResource subject, MemIRI predicate, MemValue object) {
 		this.creator = creator;
@@ -48,17 +43,13 @@ public class MemTriple implements Triple, MemResource {
 
 	@Override
 	public String stringValue() {
-		StringBuilder sb = new StringBuilder(256);
-
-		sb.append("<<");
-		sb.append(getSubject());
-		sb.append(" ");
-		sb.append(getPredicate());
-		sb.append(" ");
-		sb.append(getObject());
-		sb.append(">>");
-
-		return sb.toString();
+		return "<<" +
+				getSubject() +
+				" " +
+				getPredicate() +
+				" " +
+				getObject() +
+				">>";
 	}
 
 	@Override
@@ -79,9 +70,6 @@ public class MemTriple implements Triple, MemResource {
 
 	@Override
 	public MemStatementList getObjectStatementList() {
-		if (objectStatements == null) {
-			return EMPTY_LIST;
-		}
 		return objectStatements;
 	}
 
@@ -91,73 +79,13 @@ public class MemTriple implements Triple, MemResource {
 	}
 
 	@Override
-	public void addObjectStatement(MemStatement st) {
-		if (objectStatements == null) {
-			objectStatements = new MemStatementList(4);
-		}
+	public void addObjectStatement(MemStatement st) throws InterruptedException {
 		objectStatements.add(st);
 	}
 
 	@Override
-	public void removeObjectStatement(MemStatement st) {
-		objectStatements.remove(st);
-
-		if (objectStatements.isEmpty()) {
-			objectStatements = null;
-		}
-
-	}
-
-	@Override
-	public void cleanSnapshotsFromObjectStatements(int currentSnapshot) {
-		if (objectStatements != null) {
-			objectStatements.cleanSnapshots(currentSnapshot);
-
-			if (objectStatements.isEmpty()) {
-				objectStatements = null;
-			}
-		}
-	}
-
-	@Override
-	public MemStatementList getSubjectStatementList() {
-		if (subjectStatements == null) {
-			return EMPTY_LIST;
-		}
-		return subjectStatements;
-	}
-
-	@Override
-	public int getSubjectStatementCount() {
-		return getSubjectStatementList().size();
-	}
-
-	@Override
-	public void addSubjectStatement(MemStatement st) {
-		if (subjectStatements == null) {
-			subjectStatements = new MemStatementList(4);
-		}
-		subjectStatements.add(st);
-	}
-
-	@Override
-	public void removeSubjectStatement(MemStatement st) {
-		subjectStatements.remove(st);
-
-		if (subjectStatements.isEmpty()) {
-			subjectStatements = null;
-		}
-	}
-
-	@Override
-	public void cleanSnapshotsFromSubjectStatements(int currentSnapshot) {
-		if (subjectStatements != null) {
-			subjectStatements.cleanSnapshots(currentSnapshot);
-
-			if (subjectStatements.isEmpty()) {
-				subjectStatements = null;
-			}
-		}
+	public void cleanSnapshotsFromObjectStatements(int currentSnapshot) throws InterruptedException {
+		objectStatements.cleanSnapshots(currentSnapshot);
 	}
 
 	@Override
@@ -172,12 +100,7 @@ public class MemTriple implements Triple, MemResource {
 
 	@Override
 	public void addContextStatement(MemStatement st) {
-		throw new UnsupportedOperationException("RDF* triples can not be used as context identifier");
-	}
-
-	@Override
-	public void removeContextStatement(MemStatement st) {
-		// no-op
+		throw new UnsupportedOperationException("RDF-star triples can not be used as context identifier");
 	}
 
 	@Override
@@ -186,17 +109,17 @@ public class MemTriple implements Triple, MemResource {
 	}
 
 	@Override
-	public Resource getSubject() {
+	public MemResource getSubject() {
 		return subject;
 	}
 
 	@Override
-	public IRI getPredicate() {
+	public MemIRI getPredicate() {
 		return predicate;
 	}
 
 	@Override
-	public Value getObject() {
+	public MemValue getObject() {
 		return object;
 	}
 
@@ -220,4 +143,23 @@ public class MemTriple implements Triple, MemResource {
 		return false;
 	}
 
+	@Override
+	public boolean hasPredicateStatements() {
+		return false;
+	}
+
+	@Override
+	public boolean hasObjectStatements() {
+		return !objectStatements.isEmpty();
+	}
+
+	@Override
+	public boolean hasContextStatements() {
+		return false;
+	}
+
+	public boolean matchesSPO(MemResource subject, MemIRI predicate, MemValue object) {
+		return (object == null || object == this.object) && (subject == null || subject == this.subject) &&
+				(predicate == null || predicate == this.predicate);
+	}
 }

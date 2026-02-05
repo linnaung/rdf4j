@@ -1,9 +1,12 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core.query;
@@ -31,7 +34,6 @@ abstract class GraphManagementQuery<T extends GraphManagementQuery<T>> implement
 	 * Specify if the <code>SILENT</code> option should be on for this query
 	 *
 	 * @param isSilent if this should be a SILENT operation or not
-	 *
 	 * @return this query instance
 	 */
 	@SuppressWarnings("unchecked")

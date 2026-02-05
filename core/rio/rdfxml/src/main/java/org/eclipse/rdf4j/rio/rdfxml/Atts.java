@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.rdfxml;
 
@@ -23,21 +26,21 @@ class Atts {
 	/**
 	 * List containing Att objects.
 	 */
-	private List<Att> attributes;
+	private final List<Att> attributes;
 
 	/*--------------*
 	 * Constructors *
 	 *--------------*/
 
 	/**
-	 * Creates a new <tt>Atts</tt> object.
+	 * Creates a new <var>Atts</var> object.
 	 */
 	public Atts() {
 		this(4);
 	}
 
 	/**
-	 * Creates a new <tt>Atts</tt> object.
+	 * Creates a new <var>Atts</var> object.
 	 *
 	 * @param size The initial size of the array for storing attributes.
 	 */
@@ -69,7 +72,7 @@ class Atts {
 	 * Gets the attribute with the specified QName.
 	 *
 	 * @param qName The QName of an attribute.
-	 * @return The attribute with the specified QName, or <tt>null</tt> if no such attribute could be found.
+	 * @return The attribute with the specified QName, or <var>null</var> if no such attribute could be found.
 	 */
 	public Att getAtt(String qName) {
 		for (int i = 0; i < attributes.size(); i++) {
@@ -88,8 +91,8 @@ class Atts {
 	 *
 	 * @param namespace The namespace of an attribute.
 	 * @param localName The local name of an attribute.
-	 * @return The attribute with the specified namespace and local name, or <tt>null</tt> if no such attribute could be
-	 *         found.
+	 * @return The attribute with the specified namespace and local name, or <var>null</var> if no such attribute could
+	 *         be found.
 	 */
 	public Att getAtt(String namespace, String localName) {
 		for (int i = 0; i < attributes.size(); i++) {
@@ -107,7 +110,7 @@ class Atts {
 	 * Removes the attribute with the specified QName and returns it.
 	 *
 	 * @param qName The QName of an attribute.
-	 * @return The removed attribute, or <tt>null</tt> if no attribute with the specified QName could be found.
+	 * @return The removed attribute, or <var>null</var> if no attribute with the specified QName could be found.
 	 */
 	public Att removeAtt(String qName) {
 		for (int i = 0; i < attributes.size(); i++) {
@@ -127,8 +130,8 @@ class Atts {
 	 *
 	 * @param namespace The namespace of an attribute.
 	 * @param localName The local name of an attribute.
-	 * @return The removed attribute, or <tt>null</tt> if no attribute with the specified namespace and local name could
-	 *         be found.
+	 * @return The removed attribute, or <var>null</var> if no attribute with the specified namespace and local name
+	 *         could be found.
 	 */
 	public Att removeAtt(String namespace, String localName) {
 		for (int i = 0; i < attributes.size(); i++) {

@@ -1,15 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.console.command;
 
+import java.io.BufferedOutputStream;
 import java.io.IOException;
-import java.io.Writer;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
@@ -124,8 +126,8 @@ public class Export extends ConsoleCommand {
 		}
 
 		try (RepositoryConnection conn = repository.getConnection();
-				Writer w = Files.newBufferedWriter(path, StandardCharsets.UTF_8, StandardOpenOption.CREATE,
-						StandardOpenOption.TRUNCATE_EXISTING)) {
+				BufferedOutputStream w = new BufferedOutputStream(Files.newOutputStream(path, StandardOpenOption.CREATE,
+						StandardOpenOption.TRUNCATE_EXISTING))) {
 
 			RDFFormat fmt = Rio.getWriterFormatForFileName(fileName)
 					.orElseThrow(() -> new UnsupportedRDFormatException("No RDF parser for " + fileName));
@@ -135,6 +137,8 @@ public class Export extends ConsoleCommand {
 			writeln("Exporting data...");
 
 			conn.export(writer, contexts);
+
+			w.flush();
 
 			long diff = (System.nanoTime() - startTime) / 1_000_000;
 			writeln("Data has been written to file (" + diff + " ms)");

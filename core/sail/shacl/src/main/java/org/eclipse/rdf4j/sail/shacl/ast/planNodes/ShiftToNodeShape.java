@@ -1,66 +1,92 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Objects;
+
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.sail.SailException;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Håvard Ottestad
  */
 public class ShiftToNodeShape implements PlanNode {
+	static private final Logger logger = LoggerFactory.getLogger(ShiftToNodeShape.class);
 
 	private StackTraceElement[] stackTrace;
 	PlanNode parent;
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
 
-	boolean keepPath = false;
-
-	public ShiftToNodeShape(PlanNode parent) {
-		parent = PlanNodeHelper.handleSorting(this, parent);
-		this.parent = parent;
-		// this.stackTrace = Thread.currentThread().getStackTrace();
+	public ShiftToNodeShape(PlanNode parent, ConnectionsGroup connectionsGroup) {
+		this.parent = PlanNodeHelper.handleSorting(this, parent, connectionsGroup);
+//		this.stackTrace = Thread.currentThread().getStackTrace();
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
-			final CloseableIteration<? extends ValidationTuple, SailException> parentIterator = parent.iterator();
+			private CloseableIteration<? extends ValidationTuple> parentIterator;
+			Iterator<ValidationTuple> iterator = Collections.emptyIterator();
 
 			@Override
-			public void close() throws SailException {
-				parentIterator.close();
+			protected void init() {
+				parentIterator = parent.iterator();
+			}
+
+			public void calculateNext() {
+				if (!iterator.hasNext()) {
+					if (parentIterator.hasNext()) {
+						try {
+							List<ValidationTuple> validationTuples = parentIterator.next().shiftToNodeShape();
+							iterator = validationTuples.iterator();
+						} catch (AssertionError e) {
+							throw e;
+						}
+
+					}
+					assert iterator.hasNext() || !parentIterator.hasNext();
+				}
+
 			}
 
 			@Override
-			boolean localHasNext() throws SailException {
-				return parentIterator.hasNext();
+			public void localClose() {
+				if (parentIterator != null) {
+					parentIterator.close();
+				}
+				iterator = Collections.emptyIterator();
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
-
-				ValidationTuple next = parentIterator.next();
-				ValidationTuple validationTuple = new ValidationTuple(next);
-
-				validationTuple.shiftToNodeShape();
-
-				return validationTuple;
+			protected boolean localHasNext() {
+				calculateNext();
+				return iterator.hasNext();
 			}
 
 			@Override
-			public void remove() throws SailException {
+			protected ValidationTuple loggingNext() {
+				calculateNext();
 
+				return iterator.next();
 			}
+
 		};
 
 	}
@@ -84,7 +110,7 @@ public class ShiftToNodeShape implements PlanNode {
 
 	@Override
 	public String toString() {
-		return "TrimToTarget";
+		return "ShiftToNodeShape";
 	}
 
 	@Override
@@ -106,5 +132,22 @@ public class ShiftToNodeShape implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+		ShiftToNodeShape that = (ShiftToNodeShape) o;
+		return parent.equals(that.parent);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(parent);
 	}
 }

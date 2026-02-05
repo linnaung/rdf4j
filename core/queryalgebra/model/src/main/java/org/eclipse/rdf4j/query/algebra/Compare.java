@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra;
 
@@ -17,25 +20,37 @@ public class Compare extends BinaryValueOperator {
 	 *---------------*/
 
 	public enum CompareOp {
-		/** equal to */
+		/**
+		 * equal to
+		 */
 		EQ("="),
 
-		/** not equal to */
+		/**
+		 * not equal to
+		 */
 		NE("!="),
 
-		/** lower than */
+		/**
+		 * lower than
+		 */
 		LT("<"),
 
-		/** lower than or equal to */
+		/**
+		 * lower than or equal to
+		 */
 		LE("<="),
 
-		/** greater than or equal to */
+		/**
+		 * greater than or equal to
+		 */
 		GE(">="),
 
-		/** greater than */
+		/**
+		 * greater than
+		 */
 		GT(">");
 
-		private String symbol;
+		private final String symbol;
 
 		CompareOp(String symbol) {
 			this.symbol = symbol;

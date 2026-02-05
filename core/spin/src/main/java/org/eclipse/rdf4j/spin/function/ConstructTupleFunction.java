@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.spin.function;
 
@@ -11,7 +14,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.NoSuchElementException;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.iteration.AbstractCloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.Resource;
@@ -50,7 +53,7 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Tupl
 	}
 
 	@Override
-	public CloseableIteration<? extends List<? extends Value>, QueryEvaluationException> evaluate(
+	public CloseableIteration<? extends List<? extends Value>> evaluate(
 			ValueFactory valueFactory, Value... args) throws QueryEvaluationException {
 		QueryPreparer qp = getCurrentQueryPreparer();
 		if (args.length == 0 || !(args[0] instanceof Resource)) {
@@ -72,7 +75,7 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Tupl
 		}
 	}
 
-	static class GraphQueryResultIteration extends AbstractCloseableIteration<List<Value>, QueryEvaluationException> {
+	static class GraphQueryResultIteration extends AbstractCloseableIteration<List<Value>> {
 
 		private final GraphQueryResult queryResult;
 
@@ -126,11 +129,7 @@ public class ConstructTupleFunction extends AbstractSpinFunction implements Tupl
 
 		@Override
 		public void handleClose() throws QueryEvaluationException {
-			try {
-				super.handleClose();
-			} finally {
-				queryResult.close();
-			}
+			queryResult.close();
 		}
 	}
 }

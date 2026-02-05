@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
@@ -23,15 +26,16 @@ import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Triple;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 
 /**
  * A {@link ValueFactory} that will delegate everything to another {@link ValueFactory} and create statements whose
- * subject and object will be converted from RDF* triples encoded as special IRIs back to RDF* values.
+ * subject and object will be converted from RDF-star triples encoded as special IRIs back to RDF-star values.
  * <p>
  * All other values in the subject and object position will be used as is.
  */
 class RDFStarDecodingValueFactory implements ValueFactory {
-	private ValueFactory delegate;
+	private final ValueFactory delegate;
 
 	RDFStarDecodingValueFactory(ValueFactory delegate) {
 		this.delegate = delegate;
@@ -70,6 +74,16 @@ class RDFStarDecodingValueFactory implements ValueFactory {
 	@Override
 	public Literal createLiteral(String label, IRI datatype) {
 		return delegate.createLiteral(label, datatype);
+	}
+
+	@Override
+	public Literal createLiteral(String label, CoreDatatype datatype) {
+		return delegate.createLiteral(label, datatype);
+	}
+
+	@Override
+	public Literal createLiteral(String label, IRI datatype, CoreDatatype coreDatatype) {
+		return delegate.createLiteral(label, datatype, coreDatatype);
 	}
 
 	@Override

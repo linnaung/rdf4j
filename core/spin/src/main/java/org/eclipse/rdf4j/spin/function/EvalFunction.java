@@ -1,15 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.spin.function;
 
 import java.util.Set;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
@@ -22,7 +25,6 @@ import org.eclipse.rdf4j.model.vocabulary.SPIN;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.BooleanQuery;
 import org.eclipse.rdf4j.query.Query;
-import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.TupleQuery;
 import org.eclipse.rdf4j.query.TupleQueryResult;
 import org.eclipse.rdf4j.query.algebra.Extension;
@@ -117,7 +119,7 @@ public class EvalFunction extends AbstractSpinFunction implements Function {
 	}
 
 	private boolean isQuery(Resource r, TripleSource store) throws RDF4JException {
-		try (CloseableIteration<? extends IRI, QueryEvaluationException> typeIter = TripleSources.getObjectURIs(r,
+		try (CloseableIteration<? extends IRI> typeIter = TripleSources.getObjectURIs(r,
 				RDF.TYPE,
 				store)) {
 			while (typeIter.hasNext()) {

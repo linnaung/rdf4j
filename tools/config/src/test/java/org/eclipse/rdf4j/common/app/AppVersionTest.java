@@ -1,17 +1,20 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.common.app;
 
-import static org.junit.Assert.assertEquals;
-import static org.junit.Assert.assertNull;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 
 import org.eclipse.rdf4j.RDF4J;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author jeen
@@ -19,7 +22,7 @@ import org.junit.Test;
 public class AppVersionTest {
 
 	@Test
-	public void testCreateFromString() throws Exception {
+	public void testCreateFromString() {
 		AppVersion v = AppVersion.parse("1.0.3");
 
 		assertEquals(1, v.getMajor());
@@ -29,7 +32,7 @@ public class AppVersionTest {
 	}
 
 	@Test
-	public void testCreateFromStringSnapshot() throws Exception {
+	public void testCreateFromStringSnapshot() {
 		AppVersion v;
 		v = AppVersion.parse("2.8.0-beta3-SNAPSHOT");
 		assertEquals(2, v.getMajor());
@@ -40,7 +43,7 @@ public class AppVersionTest {
 	}
 
 	@Test
-	public void testCreateFromStringMilestone() throws Exception {
+	public void testCreateFromStringMilestone() {
 		AppVersion v;
 		v = AppVersion.parse("1.0M1");
 		assertEquals(1, v.getMajor());
@@ -51,7 +54,7 @@ public class AppVersionTest {
 	}
 
 	@Test
-	public void testCreateFromStringBeta() throws Exception {
+	public void testCreateFromStringBeta() {
 		AppVersion v;
 		v = AppVersion.parse("1.0.0-beta3");
 		assertEquals(1, v.getMajor());
@@ -61,7 +64,7 @@ public class AppVersionTest {
 	}
 
 	@Test
-	public void testCreateFromStringModifier() throws Exception {
+	public void testCreateFromStringModifier() {
 		AppVersion v;
 		v = AppVersion.parse("1.0.0-M1");
 		assertEquals(1, v.getMajor());
@@ -71,7 +74,7 @@ public class AppVersionTest {
 	}
 
 	@Test
-	public void testCreateFromStringModifierMilestone() throws Exception {
+	public void testCreateFromStringModifierMilestone() {
 		AppVersion v;
 		v = AppVersion.parse("1.0.0-GAMMA");
 		assertEquals(1, v.getMajor());
@@ -81,14 +84,14 @@ public class AppVersionTest {
 	}
 
 	@Test
-	public void testCurrentVersion() throws Exception {
+	public void testCurrentVersion() {
 		AppVersion v;
 		v = AppVersion.parse(RDF4J.getVersion());
 		assertEquals(RDF4J.getVersion(), v.toString());
 	}
 
 	@Test
-	public void testCompare1() throws Exception {
+	public void testCompare1() {
 		AppVersion v1 = AppVersion.parse("1.0M1");
 		AppVersion v2 = AppVersion.parse("1.0");
 
@@ -96,7 +99,7 @@ public class AppVersionTest {
 	}
 
 	@Test
-	public void testCompare2() throws Exception {
+	public void testCompare2() {
 		AppVersion v1 = AppVersion.parse("1.0M1-SNAPSHOT");
 		AppVersion v2 = AppVersion.parse("1.0M1");
 

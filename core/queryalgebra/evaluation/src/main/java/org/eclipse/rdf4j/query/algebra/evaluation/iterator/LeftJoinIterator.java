@@ -1,61 +1,78 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.iterator;
 
 import java.util.NoSuchElementException;
-import java.util.Set;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.common.iteration.EmptyIteration;
 import org.eclipse.rdf4j.common.iteration.LookAheadIteration;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.QueryEvaluationException;
 import org.eclipse.rdf4j.query.algebra.LeftJoin;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
-import org.eclipse.rdf4j.query.algebra.evaluation.QueryBindingSet;
-import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
+import org.eclipse.rdf4j.query.algebra.evaluation.QueryEvaluationStep;
 
-public class LeftJoinIterator extends LookAheadIteration<BindingSet, QueryEvaluationException> {
-
+public class LeftJoinIterator extends LookAheadIteration<BindingSet> {
 	/*-----------*
 	 * Variables *
 	 *-----------*/
 
-	private final EvaluationStrategy strategy;
+	private final CloseableIteration<BindingSet> leftIter;
+	private final QueryEvaluationStep rightEvaluationStep;
 
-	private final LeftJoin join;
-
-	/**
-	 * The set of binding names that are "in scope" for the filter. The filter must not include bindings that are (only)
-	 * included because of the depth-first evaluation strategy in the evaluation of the constraint.
-	 */
-	private final Set<String> scopeBindingNames;
-
-	private final CloseableIteration<BindingSet, QueryEvaluationException> leftIter;
-
-	private volatile CloseableIteration<BindingSet, QueryEvaluationException> rightIter;
+	private CloseableIteration<BindingSet> rightIter;
 
 	/*--------------*
 	 * Constructors *
 	 *--------------*/
 
-	public LeftJoinIterator(EvaluationStrategy strategy, LeftJoin join, BindingSet bindings)
-			throws QueryEvaluationException {
-		this.strategy = strategy;
-		this.join = join;
-		this.scopeBindingNames = join.getBindingNames();
-
+	public LeftJoinIterator(
+			EvaluationStrategy strategy,
+			LeftJoin join,
+			BindingSet bindings,
+			QueryEvaluationStep rightEvaluationStep) throws QueryEvaluationException {
 		leftIter = strategy.evaluate(join.getLeftArg(), bindings);
 
-		// Initialize with empty iteration so that var is never null
-		rightIter = new EmptyIteration<>();
+		rightIter = null;
 
 		join.setAlgorithm(this);
+
+		this.rightEvaluationStep = rightEvaluationStep;
+	}
+
+	public LeftJoinIterator(
+			QueryEvaluationStep left,
+			BindingSet bindings,
+			QueryEvaluationStep rightEvaluationStep) throws QueryEvaluationException {
+		this(left.evaluate(bindings), rightEvaluationStep);
+	}
+
+	public LeftJoinIterator(CloseableIteration<BindingSet> leftIter, QueryEvaluationStep rightEvaluationStep) {
+		this.leftIter = leftIter;
+		this.rightIter = null;
+		this.rightEvaluationStep = rightEvaluationStep;
+	}
+
+	public static CloseableIteration<BindingSet> getInstance(
+			QueryEvaluationStep left,
+			BindingSet bindings,
+			QueryEvaluationStep rightEvaluationStep) {
+
+		CloseableIteration<BindingSet> leftIter = left.evaluate(bindings);
+
+		if (leftIter == QueryEvaluationStep.EMPTY_ITERATION) {
+			return leftIter;
+		} else {
+			return new LeftJoinIterator(leftIter, rightEvaluationStep);
+		}
 	}
 
 	/*---------*
@@ -64,41 +81,39 @@ public class LeftJoinIterator extends LookAheadIteration<BindingSet, QueryEvalua
 
 	@Override
 	protected BindingSet getNextElement() throws QueryEvaluationException {
+
 		try {
-			CloseableIteration<BindingSet, QueryEvaluationException> nextRightIter = rightIter;
-			while (nextRightIter.hasNext() || leftIter.hasNext()) {
+			CloseableIteration<BindingSet> nextRightIter = rightIter;
+			while (nextRightIter == null || nextRightIter.hasNext() || leftIter.hasNext()) {
 				BindingSet leftBindings = null;
 
-				if (!nextRightIter.hasNext()) {
+				if (nextRightIter == null) {
+					if (leftIter.hasNext()) {
+						// Use left arg's bindings in case join fails
+						leftBindings = leftIter.next();
+						nextRightIter = rightIter = rightEvaluationStep.evaluate(leftBindings);
+					} else {
+						return null;
+					}
+				} else if (!nextRightIter.hasNext()) {
 					// Use left arg's bindings in case join fails
 					leftBindings = leftIter.next();
 
 					nextRightIter.close();
-					nextRightIter = rightIter = strategy.evaluate(join.getRightArg(), leftBindings);
+					nextRightIter = rightIter = rightEvaluationStep.evaluate(leftBindings);
 				}
 
-				while (nextRightIter.hasNext()) {
-					BindingSet rightBindings = nextRightIter.next();
+				if (nextRightIter == QueryEvaluationStep.EMPTY_ITERATION) {
+					rightIter = null;
+					return leftBindings;
+				}
 
-					try {
-						if (join.getCondition() == null) {
-							return rightBindings;
-						} else {
-							// Limit the bindings to the ones that are in scope for
-							// this filter
-							QueryBindingSet scopeBindings = new QueryBindingSet(rightBindings);
-							scopeBindings.retainAll(scopeBindingNames);
-
-							if (strategy.isTrue(join.getCondition(), scopeBindings)) {
-								return rightBindings;
-							}
-						}
-					} catch (ValueExprEvaluationException e) {
-						// Ignore, condition not evaluated successfully
-					}
+				if (nextRightIter.hasNext()) {
+					return nextRightIter.next();
 				}
 
 				if (leftBindings != null) {
+					rightIter = null;
 					// Join failed, return left arg's bindings
 					return leftBindings;
 				}
@@ -114,11 +129,9 @@ public class LeftJoinIterator extends LookAheadIteration<BindingSet, QueryEvalua
 	@Override
 	protected void handleClose() throws QueryEvaluationException {
 		try {
-			super.handleClose();
+			leftIter.close();
 		} finally {
-			try {
-				leftIter.close();
-			} finally {
+			if (rightIter != null) {
 				rightIter.close();
 			}
 		}

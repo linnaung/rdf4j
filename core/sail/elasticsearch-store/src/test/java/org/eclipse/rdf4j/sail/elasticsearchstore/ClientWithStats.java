@@ -1,21 +1,23 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.elasticsearchstore;
 
 import java.util.Map;
 
-import org.elasticsearch.action.Action;
 import org.elasticsearch.action.ActionFuture;
 import org.elasticsearch.action.ActionListener;
 import org.elasticsearch.action.ActionRequest;
-import org.elasticsearch.action.ActionRequestBuilder;
 import org.elasticsearch.action.ActionResponse;
+import org.elasticsearch.action.ActionType;
 import org.elasticsearch.action.bulk.BulkRequest;
 import org.elasticsearch.action.bulk.BulkRequestBuilder;
 import org.elasticsearch.action.bulk.BulkResponse;
@@ -267,30 +269,6 @@ public class ClientWithStats implements Client {
 	}
 
 	@Override
-	@Deprecated
-	public ActionFuture<TermVectorsResponse> termVector(TermVectorsRequest request) {
-		return wrapped.termVector(request);
-	}
-
-	@Override
-	@Deprecated
-	public void termVector(TermVectorsRequest request, ActionListener<TermVectorsResponse> listener) {
-		wrapped.termVector(request, listener);
-	}
-
-	@Override
-	@Deprecated
-	public TermVectorsRequestBuilder prepareTermVector() {
-		return wrapped.prepareTermVector();
-	}
-
-	@Override
-	@Deprecated
-	public TermVectorsRequestBuilder prepareTermVector(String index, String type, String id) {
-		return wrapped.prepareTermVector(index, type, id);
-	}
-
-	@Override
 	public ActionFuture<MultiTermVectorsResponse> multiTermVectors(MultiTermVectorsRequest request) {
 		return wrapped.multiTermVectors(request);
 	}
@@ -366,21 +344,15 @@ public class ClientWithStats implements Client {
 	}
 
 	@Override
-	public <Request extends ActionRequest, Response extends ActionResponse, RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> ActionFuture<Response> execute(
-			Action<Request, Response, RequestBuilder> action, Request request) {
+	public <Request extends ActionRequest, Response extends ActionResponse> ActionFuture<Response> execute(
+			ActionType<Response> action, Request request) {
 		return wrapped.execute(action, request);
 	}
 
 	@Override
-	public <Request extends ActionRequest, Response extends ActionResponse, RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> void execute(
-			Action<Request, Response, RequestBuilder> action, Request request, ActionListener<Response> listener) {
+	public <Request extends ActionRequest, Response extends ActionResponse> void execute(ActionType<Response> action,
+			Request request, ActionListener<Response> listener) {
 		wrapped.execute(action, request, listener);
-	}
-
-	@Override
-	public <Request extends ActionRequest, Response extends ActionResponse, RequestBuilder extends ActionRequestBuilder<Request, Response, RequestBuilder>> RequestBuilder prepareExecute(
-			Action<Request, Response, RequestBuilder> action) {
-		return wrapped.prepareExecute(action);
 	}
 
 	@Override

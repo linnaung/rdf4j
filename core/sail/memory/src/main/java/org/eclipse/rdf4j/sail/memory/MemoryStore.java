@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.memory;
 
@@ -12,14 +15,14 @@ import java.io.IOException;
 import java.util.Timer;
 import java.util.TimerTask;
 
-import org.eclipse.rdf4j.IsolationLevels;
 import org.eclipse.rdf4j.common.concurrent.locks.Lock;
+import org.eclipse.rdf4j.common.transaction.IsolationLevels;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategy;
 import org.eclipse.rdf4j.query.algebra.evaluation.EvaluationStrategyFactory;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolver;
 import org.eclipse.rdf4j.query.algebra.evaluation.federation.FederatedServiceResolverClient;
-import org.eclipse.rdf4j.query.algebra.evaluation.impl.StrictEvaluationStrategyFactory;
+import org.eclipse.rdf4j.query.algebra.evaluation.impl.DefaultEvaluationStrategyFactory;
 import org.eclipse.rdf4j.repository.sparql.federation.SPARQLServiceResolver;
 import org.eclipse.rdf4j.sail.NotifyingSailConnection;
 import org.eclipse.rdf4j.sail.SailChangedEvent;
@@ -29,6 +32,7 @@ import org.eclipse.rdf4j.sail.base.SailSink;
 import org.eclipse.rdf4j.sail.base.SailStore;
 import org.eclipse.rdf4j.sail.helpers.AbstractNotifyingSail;
 import org.eclipse.rdf4j.sail.helpers.DirectoryLockManager;
+import org.eclipse.rdf4j.sail.memory.model.MemValueFactory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -36,8 +40,9 @@ import org.slf4j.LoggerFactory;
  * An implementation of the Sail interface that stores its data in main memory and that can use a file for persistent
  * storage. This Sail implementation supports single, isolated transactions. This means that changes to the data are not
  * visible until a transaction is committed and that concurrent transactions are not possible. When another transaction
- * is active, calls to <tt>startTransaction()</tt> will block until the active transaction is committed or rolled back.
- *
+ * is active, calls to <var>startTransaction()</var> will block until the active transaction is committed or rolled
+ * back.
+ * <p>
  * The MemoryStore is designed for datasets with fewer than 100,000 triples. The MemoryStore uses hash tables, and when
  * these hash tables fill up it copies the values to larger hash tables. This can cause strain on the garbage collector
  * due to lots of memory being allocated and freed.
@@ -117,10 +122,14 @@ public class MemoryStore extends AbstractNotifyingSail implements FederatedServi
 
 	private EvaluationStrategyFactory evalStratFactory;
 
-	/** independent life cycle */
+	/**
+	 * independent life cycle
+	 */
 	private FederatedServiceResolver serviceResolver;
 
-	/** dependent life cycle */
+	/**
+	 * dependent life cycle
+	 */
 	private SPARQLServiceResolver dependentServiceResolver;
 
 	/*--------------*
@@ -169,10 +178,10 @@ public class MemoryStore extends AbstractNotifyingSail implements FederatedServi
 	 * Setting this variable to 0 will force a file sync immediately after each commit. A negative value will deactivate
 	 * file synchronization until the Sail is shut down. A positive value will postpone the synchronization for at least
 	 * that amount of milliseconds. If in the meantime a new transaction is started, the file synchronization will be
-	 * rescheduled to wait for another <tt>syncDelay</tt> ms. This way, bursts of transaction events can be combined in
-	 * one file sync.
+	 * rescheduled to wait for another <var>syncDelay</var> ms. This way, bursts of transaction events can be combined
+	 * in one file sync.
 	 * <p>
-	 * The default value for this parameter is <tt>0</tt> (immediate synchronization).
+	 * The default value for this parameter is <var>0</var> (immediate synchronization).
 	 *
 	 * @param syncDelay The sync delay in milliseconds.
 	 */
@@ -199,7 +208,7 @@ public class MemoryStore extends AbstractNotifyingSail implements FederatedServi
 	 */
 	public synchronized EvaluationStrategyFactory getEvaluationStrategyFactory() {
 		if (evalStratFactory == null) {
-			evalStratFactory = new StrictEvaluationStrategyFactory(getFederatedServiceResolver());
+			evalStratFactory = new DefaultEvaluationStrategyFactory(getFederatedServiceResolver());
 		}
 		evalStratFactory.setQuerySolutionCacheThreshold(getIterationCacheSyncThreshold());
 		evalStratFactory.setTrackResultSize(isTrackResultSize());
@@ -278,7 +287,7 @@ public class MemoryStore extends AbstractNotifyingSail implements FederatedServi
 					SailSink explicit = store.getExplicitSailSource().sink(IsolationLevels.NONE);
 					SailSink inferred = store.getInferredSailSource().sink(IsolationLevels.NONE);
 					try {
-						new FileIO(store.getValueFactory()).read(dataFile, explicit, inferred);
+						new FileIO((MemValueFactory) store.getValueFactory()).read(dataFile, explicit, inferred);
 						logger.debug("Data file read successfully");
 					} catch (IOException e) {
 						logger.error("Failed to read data file", e);
@@ -309,7 +318,8 @@ public class MemoryStore extends AbstractNotifyingSail implements FederatedServi
 					logger.debug("Initializing data file...");
 					try (SailDataset explicit = store.getExplicitSailSource().dataset(IsolationLevels.SNAPSHOT);
 							SailDataset inferred = store.getInferredSailSource().dataset(IsolationLevels.SNAPSHOT)) {
-						new FileIO(store.getValueFactory()).write(explicit, inferred, syncFile, dataFile);
+						new FileIO((MemValueFactory) store.getValueFactory()).write(explicit, inferred, syncFile,
+								dataFile);
 					}
 					logger.debug("Data file initialized");
 				} catch (IOException | SailException e) {
@@ -444,7 +454,8 @@ public class MemoryStore extends AbstractNotifyingSail implements FederatedServi
 					IsolationLevels level = IsolationLevels.SNAPSHOT;
 					try (SailDataset explicit = store.getExplicitSailSource().dataset(level);
 							SailDataset inferred = store.getInferredSailSource().dataset(level)) {
-						new FileIO(store.getValueFactory()).write(explicit, inferred, syncFile, dataFile);
+						new FileIO((MemValueFactory) store.getValueFactory()).write(explicit, inferred, syncFile,
+								dataFile);
 					}
 					contentsChanged = false;
 					logger.debug("Data synced to file");

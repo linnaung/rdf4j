@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.algebra;
 
@@ -36,7 +39,7 @@ public interface ExclusiveTupleExprRenderer extends ExclusiveTupleExpr {
 	 * @param bindings the optional input bindings
 	 * @return the query string part
 	 */
-	public String toQueryString(Set<String> varNames, BindingSet bindings);
+	String toQueryString(Set<String> varNames, BindingSet bindings);
 
 	/**
 	 * Returns a SPARQL algebra representation of this expression that can be inserted into a SELECT {@link TupleExpr}
@@ -49,5 +52,5 @@ public interface ExclusiveTupleExprRenderer extends ExclusiveTupleExpr {
 	 * @param bindings the input bindings that need to be inserted
 	 * @return the algebra expression
 	 */
-	public TupleExpr toQueryAlgebra(Set<String> varNames, BindingSet bindings);
+	TupleExpr toQueryAlgebra(Set<String> varNames, BindingSet bindings);
 }

@@ -1,14 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.impl;
 
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.common.iteration.Iteration;
 import org.eclipse.rdf4j.common.iteration.TimeLimitIteration;
 import org.eclipse.rdf4j.query.BindingSet;
 import org.eclipse.rdf4j.query.Dataset;
@@ -33,8 +35,8 @@ public abstract class AbstractParserQuery extends AbstractQuery {
 		return parsedQuery;
 	}
 
-	protected CloseableIteration<? extends BindingSet, QueryEvaluationException> enforceMaxQueryTime(
-			CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter) {
+	protected CloseableIteration<? extends BindingSet> enforceMaxQueryTime(
+			CloseableIteration<? extends BindingSet> bindingsIter) {
 		if (getMaxExecutionTime() > 0) {
 			bindingsIter = new QueryInterruptIteration(bindingsIter, 1000L * getMaxExecutionTime());
 		}
@@ -47,7 +49,7 @@ public abstract class AbstractParserQuery extends AbstractQuery {
 	 * {@link #setDataset(Dataset)} or the dataset that has been specified in the query, where the former takes
 	 * precedence over the latter.
 	 *
-	 * @return The active dataset, or <tt>null</tt> if there is no dataset.
+	 * @return The active dataset, or <var>null</var> if there is no dataset.
 	 */
 	public Dataset getActiveDataset() {
 		if (dataset != null) {
@@ -63,9 +65,9 @@ public abstract class AbstractParserQuery extends AbstractQuery {
 		return parsedQuery.toString();
 	}
 
-	protected class QueryInterruptIteration extends TimeLimitIteration<BindingSet, QueryEvaluationException> {
+	private static class QueryInterruptIteration extends TimeLimitIteration<BindingSet> {
 
-		public QueryInterruptIteration(Iteration<? extends BindingSet, ? extends QueryEvaluationException> iter,
+		public QueryInterruptIteration(CloseableIteration<? extends BindingSet> iter,
 				long timeLimit) {
 			super(iter, timeLimit);
 		}
@@ -74,5 +76,24 @@ public abstract class AbstractParserQuery extends AbstractQuery {
 		protected void throwInterruptedException() throws QueryEvaluationException {
 			throw new QueryInterruptedException("Query evaluation took too long");
 		}
+	}
+
+	@Override
+	public boolean equals(Object o) {
+		if (this == o) {
+			return true;
+		}
+		if (o == null || getClass() != o.getClass()) {
+			return false;
+		}
+
+		AbstractParserQuery that = (AbstractParserQuery) o;
+
+		return parsedQuery.equals(that.parsedQuery);
+	}
+
+	@Override
+	public int hashCode() {
+		return parsedQuery.hashCode();
 	}
 }

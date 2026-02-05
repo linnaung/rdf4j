@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio.binary;
 
@@ -17,7 +20,6 @@ import static org.eclipse.rdf4j.query.resultio.binary.BinaryQueryResultConstants
 import static org.eclipse.rdf4j.query.resultio.binary.BinaryQueryResultConstants.MALFORMED_QUERY_ERROR;
 import static org.eclipse.rdf4j.query.resultio.binary.BinaryQueryResultConstants.NAMESPACE_RECORD_MARKER;
 import static org.eclipse.rdf4j.query.resultio.binary.BinaryQueryResultConstants.NULL_RECORD_MARKER;
-import static org.eclipse.rdf4j.query.resultio.binary.BinaryQueryResultConstants.PLAIN_LITERAL_RECORD_MARKER;
 import static org.eclipse.rdf4j.query.resultio.binary.BinaryQueryResultConstants.QNAME_RECORD_MARKER;
 import static org.eclipse.rdf4j.query.resultio.binary.BinaryQueryResultConstants.QUERY_EVALUATION_ERROR;
 import static org.eclipse.rdf4j.query.resultio.binary.BinaryQueryResultConstants.REPEAT_RECORD_MARKER;
@@ -68,15 +70,15 @@ public class BinaryQueryResultWriter extends AbstractQueryResultWriter implement
 	/**
 	 * The output stream to write the results table to.
 	 */
-	private DataOutputStream out;
+	private final DataOutputStream out;
 
-	private CharsetEncoder charsetEncoder = StandardCharsets.UTF_8.newEncoder();
+	private final CharsetEncoder charsetEncoder = StandardCharsets.UTF_8.newEncoder();
 
 	/**
 	 * Map containing the namespace IDs (Integer objects) that have been defined in the document, stored using the
 	 * concerning namespace (Strings).
 	 */
-	private Map<String, Integer> namespaceTable = new HashMap<>(32);
+	private final Map<String, Integer> namespaceTable = new HashMap<>(32);
 
 	private int nextNamespaceID;
 
@@ -172,7 +174,7 @@ public class BinaryQueryResultWriter extends AbstractQueryResultWriter implement
 		}
 
 		try {
-			if (bindingSet.size() == 0) {
+			if (bindingSet.isEmpty()) {
 				writeEmptyRow();
 			} else {
 				for (String bindingName : bindingNames) {
@@ -250,7 +252,7 @@ public class BinaryQueryResultWriter extends AbstractQueryResultWriter implement
 		String label = literal.getLabel();
 		IRI datatype = literal.getDatatype();
 
-		int marker = PLAIN_LITERAL_RECORD_MARKER;
+		int marker;
 
 		if (Literals.isLanguageLiteral(literal)) {
 			marker = LANG_LITERAL_RECORD_MARKER;

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.languages;
 
@@ -21,8 +24,8 @@ import org.eclipse.rdf4j.rio.LanguageHandler;
  * This language handler normalises language tags to lower-case if
  * {@link #normalizeLanguage(String, String, ValueFactory)} is used.
  *
- * @see <a href="http://www.ietf.org/rfc/rfc3066.txt">RFC 3066</a>
  * @author Peter Ansell
+ * @see <a href="http://www.ietf.org/rfc/rfc3066.txt">RFC 3066</a>
  */
 public class RFC3066LanguageHandler implements LanguageHandler {
 

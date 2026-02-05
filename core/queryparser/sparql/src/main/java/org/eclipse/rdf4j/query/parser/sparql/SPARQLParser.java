@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.parser.sparql;
 
@@ -15,15 +18,19 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 
+import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
+import org.eclipse.rdf4j.model.util.Namespaces;
 import org.eclipse.rdf4j.query.Dataset;
 import org.eclipse.rdf4j.query.IncompatibleOperationException;
 import org.eclipse.rdf4j.query.MalformedQueryException;
 import org.eclipse.rdf4j.query.QueryLanguage;
 import org.eclipse.rdf4j.query.algebra.DeleteData;
 import org.eclipse.rdf4j.query.algebra.InsertData;
+import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.TupleExpr;
 import org.eclipse.rdf4j.query.algebra.UpdateExpr;
 import org.eclipse.rdf4j.query.parser.ParsedBooleanQuery;
@@ -56,6 +63,28 @@ import org.eclipse.rdf4j.rio.helpers.BasicParserSettings;
 
 @SuppressWarnings("deprecation")
 public class SPARQLParser implements QueryParser {
+	private final Map<String, String> customPrefixes;
+
+	/**
+	 * Create a new SPARQLParser.
+	 *
+	 * @param customPrefixes the default namespaces to apply to this parser. null for no prefixes
+	 */
+	public SPARQLParser(Set<Namespace> customPrefixes) {
+		Objects.requireNonNull(customPrefixes, "customPrefixes can't be null!");
+		if (customPrefixes.isEmpty()) {
+			this.customPrefixes = Collections.emptyMap();
+		} else {
+			this.customPrefixes = Namespaces.asMap(customPrefixes);
+		}
+	}
+
+	/**
+	 * Create a new SPARQLParser without any default prefixes.
+	 */
+	public SPARQLParser() {
+		this(Collections.emptySet());
+	}
 
 	@Override
 	public ParsedUpdate parseUpdate(String updateStr, String baseURI) throws MalformedQueryException {
@@ -107,7 +136,7 @@ public class SPARQLParser implements QueryParser {
 					sharedPrefixDeclarations = prefixDeclList;
 				}
 
-				PrefixDeclProcessor.process(uc);
+				PrefixDeclProcessor.process(uc, customPrefixes);
 				Set<String> usedBNodeIds = BlankNodeVarProcessor.process(uc);
 
 				if (uc.getUpdate() instanceof ASTInsertData || uc.getUpdate() instanceof ASTInsertData) {
@@ -166,7 +195,7 @@ public class SPARQLParser implements QueryParser {
 			ASTQueryContainer qc = SyntaxTreeBuilder.parseQuery(queryStr);
 			StringEscapesProcessor.process(qc);
 			BaseDeclProcessor.process(qc, baseURI);
-			Map<String, String> prefixes = PrefixDeclProcessor.process(qc);
+			Map<String, String> prefixes = PrefixDeclProcessor.process(qc, customPrefixes);
 			WildcardProjectionProcessor.process(qc);
 			BlankNodeVarProcessor.process(qc);
 
@@ -175,6 +204,11 @@ public class SPARQLParser implements QueryParser {
 				// handle query operation
 
 				TupleExpr tupleExpr = buildQueryModel(qc);
+
+				// Ensure we always return a rooted query.
+				if (!(tupleExpr instanceof QueryRoot)) {
+					tupleExpr = new QueryRoot(tupleExpr);
+				}
 
 				ParsedQuery query;
 
@@ -221,11 +255,11 @@ public class SPARQLParser implements QueryParser {
 		BufferedReader in = new BufferedReader(new InputStreamReader(System.in));
 
 		StringBuilder buf = new StringBuilder();
-		String line = null;
+		String line;
 
 		int emptyLineCount = 0;
 		while ((line = in.readLine()) != null) {
-			if (line.length() > 0) {
+			if (!line.isEmpty()) {
 				emptyLineCount = 0;
 				buf.append(' ').append(line).append('\n');
 			} else {
@@ -235,7 +269,7 @@ public class SPARQLParser implements QueryParser {
 			if (emptyLineCount == 2) {
 				emptyLineCount = 0;
 				String queryStr = buf.toString().trim();
-				if (queryStr.length() > 0) {
+				if (!queryStr.isEmpty()) {
 					try {
 						long start = System.currentTimeMillis();
 						ParsedOperation parsedQuery = QueryParserUtil.parseOperation(QueryLanguage.SPARQL, queryStr,

@@ -1,16 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.workbench.util;
 
 import static java.lang.Integer.parseInt;
 
-import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.http.Cookie;
@@ -40,8 +43,7 @@ public class CookieHandler {
 		this.servlet = servlet;
 	}
 
-	public void updateCookies(final WorkbenchRequest req, final HttpServletResponse resp)
-			throws UnsupportedEncodingException {
+	public void updateCookies(final WorkbenchRequest req, final HttpServletResponse resp) {
 		for (String name : this.servlet.getCookieNames()) {
 			if (req.isParameterPresent(name)) {
 				addCookie(req, resp, name);
@@ -49,10 +51,9 @@ public class CookieHandler {
 		}
 	}
 
-	private void addCookie(final WorkbenchRequest req, final HttpServletResponse resp, final String name)
-			throws UnsupportedEncodingException {
+	private void addCookie(final WorkbenchRequest req, final HttpServletResponse resp, final String name) {
 		final String raw = req.getParameter(name);
-		final String value = URLEncoder.encode(raw, "UTF-8");
+		final String value = URLEncoder.encode(raw, StandardCharsets.UTF_8);
 		LOGGER.info("name: {}\nvalue: {}", name, value);
 		LOGGER.info("un-encoded value: {}\n--", raw);
 		final Cookie cookie = new Cookie(name, value);

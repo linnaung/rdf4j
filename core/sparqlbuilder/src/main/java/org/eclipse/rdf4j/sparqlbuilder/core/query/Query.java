@@ -1,16 +1,21 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core.query;
 
 import java.util.Optional;
+import java.util.function.Consumer;
 
 import org.eclipse.rdf4j.sparqlbuilder.constraint.Expression;
+import org.eclipse.rdf4j.sparqlbuilder.constraint.Values;
 import org.eclipse.rdf4j.sparqlbuilder.core.Dataset;
 import org.eclipse.rdf4j.sparqlbuilder.core.From;
 import org.eclipse.rdf4j.sparqlbuilder.core.GroupBy;
@@ -42,6 +47,7 @@ public abstract class Query<T extends Query<T>> implements QueryElement {
 	protected Optional<GroupBy> groupBy = Optional.empty();
 	protected Optional<OrderBy> orderBy = Optional.empty();
 	protected Optional<Having> having = Optional.empty();
+	protected Optional<Values> values = Optional.empty();
 	protected int limit = -1, offset = -1, varCount = -1, bnodeCount = -1;
 
 	/**
@@ -73,7 +79,6 @@ public abstract class Query<T extends Query<T>> implements QueryElement {
 	 *
 	 * @param queryPatterns the patterns to add
 	 * @return this
-	 *
 	 * @see QueryPattern
 	 */
 	public T where(GraphPattern... queryPatterns) {
@@ -99,7 +104,6 @@ public abstract class Query<T extends Query<T>> implements QueryElement {
 	 *
 	 * @param groupables the objects to group on, in order (appended to the end of any existing grouping specifiers)
 	 * @return this
-	 *
 	 * @see GroupBy
 	 */
 	public T groupBy(Groupable... groupables) {
@@ -126,7 +130,6 @@ public abstract class Query<T extends Query<T>> implements QueryElement {
 	 *
 	 * @param conditions the objects to order on, in order
 	 * @return this
-	 *
 	 * @see OrderBy
 	 */
 	public T orderBy(Orderable... conditions) {
@@ -153,7 +156,6 @@ public abstract class Query<T extends Query<T>> implements QueryElement {
 	 *
 	 * @param constraints the constraints to add to the clause
 	 * @return this
-	 *
 	 * @see Having
 	 */
 	public T having(Expression<?>... constraints) {
@@ -180,7 +182,6 @@ public abstract class Query<T extends Query<T>> implements QueryElement {
 	 *
 	 * @param limit
 	 * @return this
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#modResultLimit"> Limits in SPARQL
 	 *      Queries</a>
 	 */
@@ -195,12 +196,18 @@ public abstract class Query<T extends Query<T>> implements QueryElement {
 	 *
 	 * @param offset
 	 * @return this
-	 *
 	 * @see <a href="http://www.w3.org/TR/2013/REC-sparql11-query-20130321/#modOffset">Offsets in SPARQL Queries</a>
 	 */
 	public T offset(int offset) {
 		this.offset = offset;
 
+		return (T) this;
+	}
+
+	public T values(Consumer<Values.VariablesBuilder> valuesConfigurer) {
+		Values.Builder builder = (Values.Builder) Values.builder();
+		valuesConfigurer.accept(builder);
+		this.values = Optional.of(builder.build());
 		return (T) this;
 	}
 
@@ -249,7 +256,7 @@ public abstract class Query<T extends Query<T>> implements QueryElement {
 		if (offset >= 0) {
 			query.append(OFFSET + " ").append(offset).append("\n");
 		}
-
+		SparqlBuilderUtils.appendAndNewlineIfPresent(values, query);
 		return query.toString();
 	}
 }

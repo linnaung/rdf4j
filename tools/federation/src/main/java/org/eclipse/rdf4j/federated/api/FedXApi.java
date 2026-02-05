@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.api;
 
@@ -21,23 +24,23 @@ import org.eclipse.rdf4j.repository.RepositoryResult;
 
 public interface FedXApi {
 
-	public TupleQueryResult evaluate(String query) throws QueryEvaluationException;
+	TupleQueryResult evaluate(String query) throws QueryEvaluationException;
 
-	public TupleQueryResult evaluate(String query, List<Endpoint> endpoints)
+	TupleQueryResult evaluate(String query, List<Endpoint> endpoints)
 			throws FedXException, QueryEvaluationException;
 
-	public TupleQueryResult evaluateAt(String query, List<String> endpointIds)
+	TupleQueryResult evaluateAt(String query, List<String> endpointIds)
 			throws FedXException, QueryEvaluationException;
 
-	public RepositoryResult<Statement> getStatements(Resource subject, IRI predicate, Value object,
+	RepositoryResult<Statement> getStatements(Resource subject, IRI predicate, Value object,
 			Resource... contexts);
 
-	public void addEndpoint(Endpoint e);
+	void addEndpoint(Endpoint e);
 
-	public void removeEndpoint(Endpoint e);
+	void removeEndpoint(Endpoint e);
 
-	public void removeEndpoint(String endpointId);
+	void removeEndpoint(String endpointId);
 
-	public void shutdown();
+	void shutdown();
 
 }

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.structures;
 
@@ -25,12 +28,10 @@ import org.eclipse.rdf4j.repository.sail.SailTupleQuery;
 /**
  * Abstraction of a {@link SailTupleQuery} which takes care for tracking the
  * {@link FedXRepositoryConnection#BINDING_ORIGINAL_MAX_EXECUTION_TIME} during evaluation.
- *
+ * <p>
  * All methods are delegated to the actual {@link SailTupleQuery}.
  *
- *
  * @author Andreas Schwarte
- *
  */
 public class FedXTupleQuery extends SailTupleQuery {
 
@@ -60,17 +61,26 @@ public class FedXTupleQuery extends SailTupleQuery {
 		delegate.getParsedQuery().setTupleExpr(passThroughTupleExpr);
 
 		FedXUtil.applyQueryBindings(this);
-		TupleQueryResult tqr = delegate.evaluate();
+		TupleQueryResult tqr = null;
+		try {
+			tqr = delegate.evaluate();
 
-		if (!passThroughTupleExpr.isPassedThrough()) {
-			// if the result is not passed through to the handler directly,
-			// we need to make sure to report the result. Note that only
-			// SingleSourceQuery instances can be passed through
-			QueryResults.report(tqr, handler);
-		} else {
-			// to be absolutely sure that everything is closed
-			tqr.close();
+			if (!passThroughTupleExpr.isPassedThrough()) {
+				// if the result is not passed through to the handler directly,
+				// we need to make sure to report the result. Note that only
+				// SingleSourceQuery instances can be passed through
+				QueryResults.report(tqr, handler);
+			} else {
+				// to be absolutely sure that everything is closed
+				tqr.close();
+			}
+		} catch (Throwable t) {
+			if (tqr != null) {
+				tqr.close();
+			}
+			throw t;
 		}
+
 	}
 
 	/*

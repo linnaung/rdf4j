@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.exception;
 
@@ -56,6 +59,10 @@ public class ExceptionUtil {
 	 */
 	public static QueryEvaluationException traceExceptionSource(Endpoint endpoint, Throwable ex,
 			String additionalInfo) {
+
+		if (ex instanceof InterruptedException) {
+			Thread.currentThread().interrupt();
+		}
 
 		String eID;
 
@@ -125,7 +132,7 @@ public class ExceptionUtil {
 	 */
 	public static <E extends Exception> E changeExceptionMessage(String msgPrefix, E ex, Class<E> exClazz) {
 
-		Constructor<E> constructor = null;
+		Constructor<E> constructor;
 
 		try {
 			// try to find the constructor 'public Exception(String, Throwable)'
@@ -189,6 +196,10 @@ public class ExceptionUtil {
 		if (res instanceof QueryEvaluationException) {
 			return (QueryEvaluationException) res;
 		}
+		if (t instanceof InterruptedException) {
+			Thread.currentThread().interrupt();
+		}
+
 		return new QueryEvaluationException(res);
 	}
 }

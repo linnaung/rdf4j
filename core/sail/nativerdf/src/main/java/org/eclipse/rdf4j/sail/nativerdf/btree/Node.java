@@ -1,17 +1,21 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.btree;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Iterator;
-import java.util.concurrent.ConcurrentLinkedDeque;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
 
@@ -19,31 +23,45 @@ import org.eclipse.rdf4j.common.io.ByteArrayUtil;
 
 class Node {
 
-	/** This node's ID. */
+	/**
+	 * This node's ID.
+	 */
 	private final int id;
 
 	private final BTree tree;
 
-	/** This node's data. */
+	/**
+	 * This node's data.
+	 */
 	private final byte[] data;
 
-	/** The number of values containined in this node. */
+	/**
+	 * The number of values containined in this node.
+	 */
 	private int valueCount;
 
-	/** The number of objects currently 'using' this node. */
+	/**
+	 * The number of objects currently 'using' this node.
+	 */
 	private final AtomicInteger usageCount = new AtomicInteger(0);
 
-	/** Flag indicating whether the contents of data has changed. */
+	/**
+	 * Flag indicating whether the contents of data has changed.
+	 */
 	private boolean dataChanged;
 
-	/** Registered listeners that want to be notified of changes to the node. */
-	private final ConcurrentLinkedDeque<NodeListener> listeners = new ConcurrentLinkedDeque<>();
+	/**
+	 * Registered listeners that want to be notified of changes to the node.
+	 */
+	private final Object listenerMutex = new Object();
+
+	private NodeListenerHandle listenerHead;
 
 	/**
 	 * Creates a new Node object with the specified ID.
 	 *
-	 * @param id The node's ID, must be larger than <tt>0</tt>.
-	 * @throws IllegalArgumentException If the specified <tt>id</tt> is &lt;= <tt>0</tt>.
+	 * @param id The node's ID, must be larger than <var>0</var>.
+	 * @throws IllegalArgumentException If the specified <var>id</var> is &lt;= <var>0</var>.
 	 */
 	public Node(int id, BTree tree) {
 		if (id <= 0) {
@@ -89,6 +107,18 @@ class Node {
 		return usageCount.get();
 	}
 
+	int getRegisteredListenerCount() {
+		synchronized (listenerMutex) {
+			int count = 0;
+			for (NodeListenerHandle cursor = listenerHead; cursor != null; cursor = cursor.next) {
+				if (!cursor.isRemoved()) {
+					count++;
+				}
+			}
+			return count;
+		}
+	}
+
 	public boolean dataChanged() {
 		return dataChanged;
 	}
@@ -108,7 +138,7 @@ class Node {
 	/**
 	 * Checks if this node has any values.
 	 *
-	 * @return <tt>true</tt> if this node has no values, <tt>fals</tt> if it has.
+	 * @return <var>true</var> if this node has no values, <var>fals</var> if it has.
 	 */
 	public boolean isEmpty() {
 		return valueCount == 0;
@@ -212,7 +242,7 @@ class Node {
 		dataChanged = true;
 	}
 
-	public Node getChildNode(int nodeIdx) throws IOException {
+	public Node getChildNode(int nodeIdx) {
 		assert nodeIdx >= 0 : "nodeIdx must be positive, is: " + nodeIdx;
 		assert nodeIdx <= valueCount : "nodeIdx out of range (" + nodeIdx + " > " + valueCount + ")";
 
@@ -377,14 +407,45 @@ class Node {
 		notifyRotatedRight(valueIdx, leftChildNode, rightChildNode);
 	}
 
-	public void register(NodeListener listener) {
-		// assert !listeners.contains(listener);
-		listeners.add(listener);
+	public NodeListenerHandle register(NodeListener listener) {
+		NodeListenerHandle handle = new NodeListenerHandle(this, listener);
+		synchronized (listenerMutex) {
+			handle.next = listenerHead;
+			if (listenerHead != null) {
+				listenerHead.prev = handle;
+			}
+			listenerHead = handle;
+		}
+		return handle;
 	}
 
 	public void deregister(NodeListener listener) {
-		// assert listeners.contains(listener);
-		listeners.removeFirstOccurrence(listener);
+		NodeListenerHandle handle = null;
+		synchronized (listenerMutex) {
+			for (NodeListenerHandle cursor = listenerHead; cursor != null; cursor = cursor.next) {
+				if (cursor.listener == listener) {
+					handle = cursor;
+					break;
+				}
+			}
+		}
+		if (handle != null) {
+			handle.remove();
+		}
+	}
+
+	void removeListenerHandle(NodeListenerHandle handle) {
+		synchronized (listenerMutex) {
+			if (handle.prev != null) {
+				handle.prev.next = handle.next;
+			} else if (listenerHead == handle) {
+				listenerHead = handle.next;
+			}
+
+			if (handle.next != null) {
+				handle.next.prev = handle.prev;
+			}
+		}
 	}
 
 	private void notifyValueAdded(int index) {
@@ -421,26 +482,39 @@ class Node {
 	}
 
 	private void notifyListeners(NodeListenerNotifier notifier) throws IOException {
-		Iterator<NodeListener> iter = listeners.iterator();
-
-		while (iter.hasNext()) {
-			boolean deregister = notifier.apply(iter.next());
-
+		for (NodeListenerHandle handle : snapshotListeners()) {
+			if (handle.isRemoved()) {
+				continue;
+			}
+			boolean deregister = notifier.apply(handle.listener);
 			if (deregister) {
-				iter.remove();
+				handle.remove();
 			}
 		}
 	}
 
 	private void notifySafeListeners(Function<NodeListener, Boolean> notifier) {
-		Iterator<NodeListener> iter = listeners.iterator();
-
-		while (iter.hasNext()) {
-			boolean deregister = notifier.apply(iter.next());
-
-			if (deregister) {
-				iter.remove();
+		for (NodeListenerHandle handle : snapshotListeners()) {
+			if (handle.isRemoved()) {
+				continue;
 			}
+			boolean deregister = notifier.apply(handle.listener);
+			if (deregister) {
+				handle.remove();
+			}
+		}
+	}
+
+	private List<NodeListenerHandle> snapshotListeners() {
+		synchronized (listenerMutex) {
+			if (listenerHead == null) {
+				return Collections.emptyList();
+			}
+			List<NodeListenerHandle> snapshot = new ArrayList<>();
+			for (NodeListenerHandle cursor = listenerHead; cursor != null; cursor = cursor.next) {
+				snapshot.add(cursor);
+			}
+			return snapshot;
 		}
 	}
 
@@ -471,7 +545,7 @@ class Node {
 	}
 
 	/**
-	 * Shifts the data between <tt>startOffset</tt> (inclusive) and <tt>endOffset</tt> (exclusive) <tt>shift</tt>
+	 * Shifts the data between <var>startOffset</var> (inclusive) and <var>endOffset</var> (exclusive) <var>shift</var>
 	 * positions to the right. Negative shift values can be used to shift data to the left.
 	 */
 	private void shiftData(int startOffset, int endOffset, int shift) {
@@ -479,8 +553,8 @@ class Node {
 	}
 
 	/**
-	 * Clears the data between <tt>startOffset</tt> (inclusive) and <tt>endOffset</tt> (exclusive). All bytes in this
-	 * range will be set to 0.
+	 * Clears the data between <var>startOffset</var> (inclusive) and <var>endOffset</var> (exclusive). All bytes in
+	 * this range will be set to 0.
 	 */
 	private void clearData(int startOffset, int endOffset) {
 		Arrays.fill(data, startOffset, endOffset, (byte) 0);

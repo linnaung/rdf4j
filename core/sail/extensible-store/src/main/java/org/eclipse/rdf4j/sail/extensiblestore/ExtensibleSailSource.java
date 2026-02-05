@@ -1,19 +1,24 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.extensiblestore;
 
+import java.util.Comparator;
 import java.util.HashSet;
 import java.util.Set;
 
-import org.eclipse.rdf4j.IsolationLevel;
 import org.eclipse.rdf4j.common.annotation.Experimental;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.common.iteration.CloseableIteratorIteration;
+import org.eclipse.rdf4j.common.order.StatementOrder;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Namespace;
 import org.eclipse.rdf4j.model.Resource;
@@ -103,13 +108,7 @@ class ExtensibleSailSource implements SailSource {
 
 			@Override
 			public void approve(Statement statement) throws SailException {
-
 				dataStructure.addStatement(extensibleStatementHelper.fromStatement(statement, inferred));
-			}
-
-			@Override
-			public void deprecate(Resource subj, IRI pred, Value obj, Resource ctx) throws SailException {
-				throw new IllegalStateException("Unsupported operation. Use deprecate(Statement statement) instead!");
 			}
 
 			@Override
@@ -144,17 +143,18 @@ class ExtensibleSailSource implements SailSource {
 			}
 
 			@Override
-			public CloseableIteration<? extends Namespace, SailException> getNamespaces() {
-				return new CloseableIteratorIteration<Namespace, SailException>(namespaceStore.iterator());
+			public CloseableIteration<? extends Namespace> getNamespaces() {
+				return new CloseableIteratorIteration<>(namespaceStore.iterator());
 //				return new EmptyIteration<>();
 			}
 
 			@Override
-			public CloseableIteration<? extends Resource, SailException> getContextIDs() throws SailException {
-				return new CloseableIteration<Resource, SailException>() {
-					CloseableIteration<? extends Statement, SailException> statements = getStatements(null, null, null);
+			public CloseableIteration<? extends Resource> getContextIDs() throws SailException {
+				return new CloseableIteration<>() {
+					final CloseableIteration<? extends Statement> statements = getStatements(null, null,
+							null);
 
-					Set<Resource> contexts = new HashSet<>();
+					final Set<Resource> contexts = new HashSet<>();
 
 					Resource next = internalNext();
 
@@ -162,7 +162,7 @@ class ExtensibleSailSource implements SailSource {
 
 						while (statements.hasNext()) {
 							Statement next = statements.next();
-							if (!contexts.contains(next.getContext())) {
+							if (next.getContext() != null && !contexts.contains(next.getContext())) {
 								contexts.add(next.getContext());
 								return next.getContext();
 							}
@@ -206,11 +206,25 @@ class ExtensibleSailSource implements SailSource {
 			}
 
 			@Override
-			public CloseableIteration<? extends Statement, SailException> getStatements(Resource subj, IRI pred,
+			public CloseableIteration<? extends Statement> getStatements(Resource subj, IRI pred,
 					Value obj, Resource... contexts) throws SailException {
 				return dataStructure.getStatements(subj, pred, obj, inferred, contexts);
 			}
 
+			@Override
+			public CloseableIteration<? extends Statement> getStatements(StatementOrder order, Resource subj, IRI pred,
+					Value obj, Resource... contexts) throws SailException {
+				return dataStructure.getStatements(order, subj, pred, obj, inferred, contexts);
+			}
+
+			@Override
+			public Set<StatementOrder> getSupportedOrders(Resource subj, IRI pred, Value obj, Resource... contexts) {
+				return dataStructure.getSupportedOrders(subj, pred, obj, inferred, contexts);
+			}
+
+			public Comparator<Value> getComparator() {
+				return dataStructure.getComparator();
+			}
 		};
 	}
 

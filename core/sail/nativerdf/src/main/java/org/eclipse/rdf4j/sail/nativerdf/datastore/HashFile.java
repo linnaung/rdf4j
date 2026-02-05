@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.datastore;
 
@@ -261,7 +264,9 @@ public class HashFile implements Closeable {
 
 	public void clear() throws IOException {
 		structureLock.writeLock().lock();
-		poorMansBloomFilter.clear();
+		if (poorMansBloomFilter != null) {
+			poorMansBloomFilter.clear();
+		}
 		try {
 			// Truncate the file to remove any overflow buffers
 			nioFile.truncate(HEADER_LENGTH + (long) bucketCount * recordSize);
@@ -294,12 +299,20 @@ public class HashFile implements Closeable {
 
 	public void sync(boolean force) throws IOException {
 		sync();
+		// Always honor explicit requests to force metadata to disk while preserving data durability for sync(false)
 		nioFile.force(force);
 	}
 
 	@Override
 	public void close() throws IOException {
-		nioFile.close();
+		// Persist current header (bucketCount, bucketSize, itemCount) before closing
+		// to ensure readers after reopen see the correct table layout even if no
+		// explicit sync() was called after structural changes (e.g., rehash).
+		try {
+			sync(true);
+		} finally {
+			nioFile.close();
+		}
 	}
 
 	/*-----------------*
@@ -491,6 +504,7 @@ public class HashFile implements Closeable {
 			// Discard the temp file
 		}
 		tmpFile.delete();
+		sync(true);
 	}
 
 	/*------------------------*
@@ -504,7 +518,7 @@ public class HashFile implements Closeable {
 		}
 
 		@Override
-		public int next() throws IOException {
+		public int next() {
 			return -1;
 		}
 	};
@@ -544,7 +558,7 @@ public class HashFile implements Closeable {
 		}
 
 		/**
-		 * Returns the next ID that has been mapped to the specified hash code, or <tt>-1</tt> if no more IDs were
+		 * Returns the next ID that has been mapped to the specified hash code, or <var>-1</var> if no more IDs were
 		 * found.
 		 */
 		public int next() throws IOException {

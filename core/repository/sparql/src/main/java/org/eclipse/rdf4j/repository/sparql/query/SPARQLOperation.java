@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.sparql.query;
 
@@ -32,11 +35,11 @@ import org.eclipse.rdf4j.query.impl.SimpleDataset;
 @Deprecated
 public abstract class SPARQLOperation implements Operation {
 
-	private static Executor executor = Executors.newCachedThreadPool();
+	private static final Executor executor = Executors.newCachedThreadPool();
 
 	protected HttpClient client;
 
-	private String url;
+	private final String url;
 
 	protected Dataset dataset = new SimpleDataset();
 
@@ -48,7 +51,7 @@ public abstract class SPARQLOperation implements Operation {
 		this.url = url;
 		this.operation = operation;
 		this.client = client;
-		boolean abs = base != null && base.length() > 0 && ParsedIRI.create(base).isAbsolute();
+		boolean abs = base != null && !base.isEmpty() && ParsedIRI.create(base).isAbsolute();
 		if (abs && !operation.toUpperCase().contains("BASE")) {
 			this.operation = "BASE <" + base + "> " + operation;
 		}
@@ -106,7 +109,7 @@ public abstract class SPARQLOperation implements Operation {
 	}
 
 	protected Set<String> getBindingNames() {
-		if (bindings.size() == 0) {
+		if (bindings.isEmpty()) {
 			return Collections.EMPTY_SET;
 		}
 		Set<String> names = new HashSet<>();
@@ -126,7 +129,7 @@ public abstract class SPARQLOperation implements Operation {
 	}
 
 	protected String getQueryString() {
-		if (bindings.size() == 0) {
+		if (bindings.isEmpty()) {
 			return operation;
 		}
 		String qry = operation;

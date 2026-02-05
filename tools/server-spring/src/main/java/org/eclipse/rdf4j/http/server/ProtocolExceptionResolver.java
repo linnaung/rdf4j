@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.server;
 
@@ -14,8 +17,8 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
+import org.eclipse.rdf4j.common.exception.ValidationException;
 import org.eclipse.rdf4j.common.webapp.views.SimpleResponseView;
-import org.eclipse.rdf4j.exceptions.ValidationException;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
@@ -31,7 +34,7 @@ import org.springframework.web.servlet.ModelAndView;
  */
 public class ProtocolExceptionResolver implements HandlerExceptionResolver {
 
-	private Logger logger = LoggerFactory.getLogger(this.getClass());
+	private final Logger logger = LoggerFactory.getLogger(this.getClass());
 
 	@Override
 	public ModelAndView resolveException(HttpServletRequest request, HttpServletResponse response, Object handler,
@@ -75,15 +78,14 @@ public class ProtocolExceptionResolver implements HandlerExceptionResolver {
 
 			StringWriter stringWriter = new StringWriter();
 
-			// We choose NQUADS because we want to support streaming in the future, and because there could be a use for
-			// different graphs in the future
-			Rio.write(validationReportModel, stringWriter, RDFFormat.NQUADS);
+			// We choose RDFJSON because this format doesn't rename blank nodes.
+			Rio.write(validationReportModel, stringWriter, RDFFormat.RDFJSON);
 
 			statusCode = HttpServletResponse.SC_CONFLICT;
 			errMsg = stringWriter.toString();
 
 			Map<String, String> headers = new HashMap<>();
-			headers.put("Content-Type", "application/shacl-validation-report+n-quads");
+			headers.put("Content-Type", "application/shacl-validation-report+rdf+json");
 			model.put(SimpleResponseView.CUSTOM_HEADERS_KEY, headers);
 		}
 

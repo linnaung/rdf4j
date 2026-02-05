@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.resultio.text.csv;
 
@@ -19,6 +22,7 @@ import org.eclipse.rdf4j.query.impl.ListBindingSet;
 import org.eclipse.rdf4j.query.resultio.text.SPARQLResultsXSVMappingStrategy;
 
 import com.opencsv.CSVReader;
+import com.opencsv.exceptions.CsvValidationException;
 
 /**
  * Implements a {@link com.opencsv.bean.MappingStrategy} to allow opencsv to work in parallel. This is where the input
@@ -34,8 +38,11 @@ public class SPARQLResultsCSVMappingStrategy extends SPARQLResultsXSVMappingStra
 
 	@Override
 	public void captureHeader(CSVReader reader) throws IOException {
-		// header is mandatory in SPARQL CSV
-		bindingNames = Arrays.asList(reader.readNext());
+		try {
+			bindingNames = Arrays.asList(reader.readNext());
+		} catch (CsvValidationException ex) {
+			throw new IOException(ex);
+		}
 	}
 
 	@Override

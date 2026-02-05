@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearchstore;
 
@@ -14,7 +17,10 @@ import org.elasticsearch.client.Client;
  * cluster information. The client provided by the user is not closed by the ElasticsearchStore.
  *
  * @author Håvard Mikkelsen Ottestad
+ * @deprecated Deprecated in preparation for an Elasticsearch client upgrade; this API will change or be removed in a
+ *             future release.
  */
+@Deprecated(since = "5.3.0", forRemoval = true)
 public class UserProvidedClientProvider implements ClientProvider {
 
 	final private Client client;
@@ -36,7 +42,7 @@ public class UserProvidedClientProvider implements ClientProvider {
 	}
 
 	@Override
-	synchronized public void close() throws Exception {
+	synchronized public void close() {
 		if (!closed) {
 			closed = true;
 		}

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.helpers;
 
@@ -13,6 +16,7 @@ import org.eclipse.rdf4j.common.annotation.Experimental;
 import org.eclipse.rdf4j.common.annotation.InternalUseOnly;
 import org.eclipse.rdf4j.query.algebra.BinaryTupleOperator;
 import org.eclipse.rdf4j.query.algebra.QueryModelNode;
+import org.eclipse.rdf4j.query.algebra.QueryRoot;
 import org.eclipse.rdf4j.query.algebra.VariableScopeChange;
 import org.eclipse.rdf4j.query.explanation.GenericPlanNode;
 
@@ -25,9 +29,12 @@ public class QueryModelTreeToGenericPlanNode extends AbstractQueryModelVisitor<R
 
 	GenericPlanNode top = null;
 	QueryModelNode topTupleExpr;
-	ArrayDeque<GenericPlanNode> deque = new ArrayDeque<>();
+	ArrayDeque<GenericPlanNode> planNodes = new ArrayDeque<>();
 
 	public QueryModelTreeToGenericPlanNode(QueryModelNode topTupleExpr) {
+		if (topTupleExpr instanceof QueryRoot) {
+			topTupleExpr = ((QueryRoot) topTupleExpr).getArg();
+		}
 		this.topTupleExpr = topTupleExpr;
 	}
 
@@ -35,8 +42,6 @@ public class QueryModelTreeToGenericPlanNode extends AbstractQueryModelVisitor<R
 		return top;
 	}
 
-	// node.getParentNode() is not reliable because nodes are reused and parent is not maintained! This is why we use a
-	// queue to maintain the effective parent stack.
 	@Override
 	protected void meetNode(QueryModelNode node) {
 		GenericPlanNode genericPlanNode = new GenericPlanNode(node.getSignature());
@@ -60,15 +65,14 @@ public class QueryModelTreeToGenericPlanNode extends AbstractQueryModelVisitor<R
 			top = genericPlanNode;
 		}
 
-		if (!deque.isEmpty()) {
-			GenericPlanNode genericParentNode = deque.getLast();
+		if (!planNodes.isEmpty()) {
+			GenericPlanNode genericParentNode = planNodes.getLast();
 			genericParentNode.addPlans(genericPlanNode);
 		}
 
-		deque.addLast(genericPlanNode);
+		planNodes.addLast(genericPlanNode);
 		super.meetNode(node);
-		deque.removeLast();
-
+		planNodes.removeLast();
 	}
 
 }

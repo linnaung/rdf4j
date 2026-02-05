@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.iterator;
 
@@ -21,14 +24,14 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
  * @author Andreas Schwarte
  *
  */
-public class PrintingIteration extends AbstractCloseableIteration<BindingSet, QueryEvaluationException> {
+public class PrintingIteration extends AbstractCloseableIteration<BindingSet> {
 
-	protected final CloseableIteration<BindingSet, QueryEvaluationException> inner;
+	protected final CloseableIteration<BindingSet> inner;
 	protected LinkedList<BindingSet> copyQueue = new LinkedList<>();
 	protected boolean done = false;
 
 	public PrintingIteration(
-			CloseableIteration<BindingSet, QueryEvaluationException> inner) {
+			CloseableIteration<BindingSet> inner) {
 		super();
 		this.inner = inner;
 	}
@@ -49,7 +52,7 @@ public class PrintingIteration extends AbstractCloseableIteration<BindingSet, Qu
 
 	@Override
 	public boolean hasNext() throws QueryEvaluationException {
-		return !done || copyQueue.size() > 0;
+		return !done || !copyQueue.isEmpty();
 	}
 
 	@Override

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.inferencer.fc.config;
 
@@ -28,7 +31,7 @@ public class SchemaCachingRDFSInferencerFactory implements SailFactory {
 	public static final String SAIL_TYPE = "rdf4j:SchemaCachingRDFSInferencer";
 
 	/**
-	 * Returns the Sail's type: <tt>rdf4j:SchemaCachingRDFSInferencer</tt>.
+	 * Returns the Sail's type: <var>rdf4j:SchemaCachingRDFSInferencer</var>.
 	 */
 	@Override
 	public String getSailType() {

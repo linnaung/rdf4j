@@ -1,35 +1,37 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.http;
 
-import static org.junit.Assert.fail;
+import static org.junit.jupiter.api.Assertions.fail;
 
-import org.eclipse.rdf4j.IsolationLevel;
-import org.eclipse.rdf4j.RDF4JException;
-import org.eclipse.rdf4j.repository.RDFSchemaRepositoryConnectionTest;
+import java.io.File;
+
+import org.eclipse.rdf4j.common.exception.RDF4JException;
+import org.eclipse.rdf4j.common.transaction.IsolationLevel;
 import org.eclipse.rdf4j.repository.Repository;
-import org.eclipse.rdf4j.repository.RepositoryConnectionTest;
 import org.eclipse.rdf4j.rio.RDFFormat;
-import org.junit.AfterClass;
-import org.junit.BeforeClass;
-import org.junit.Ignore;
-import org.junit.Test;
+import org.eclipse.rdf4j.testsuite.repository.RDFSchemaRepositoryConnectionTest;
+import org.eclipse.rdf4j.testsuite.repository.RepositoryConnectionTest;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeAll;
+import org.junit.jupiter.api.Disabled;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 
 /* FIXME: are these tests really necessary, or are we just duplicating what is already tested locally? */
 public class RDFSchemaHTTPRepositoryConnectionTest extends RDFSchemaRepositoryConnectionTest {
 
 	private static HTTPMemServer server;
 
-	public RDFSchemaHTTPRepositoryConnectionTest(IsolationLevel level) {
-		super(level);
-	}
-
-	@BeforeClass
+	@BeforeAll
 	public static void startServer() throws Exception {
 		server = new HTTPMemServer();
 		try {
@@ -40,89 +42,102 @@ public class RDFSchemaHTTPRepositoryConnectionTest extends RDFSchemaRepositoryCo
 		}
 	}
 
-	@AfterClass
+	@AfterAll
 	public static void stopServer() throws Exception {
 		server.stop();
 	}
 
 	@Override
-	protected Repository createRepository() {
+	protected Repository createRepository(File dataDir) {
 		return new HTTPRepository(HTTPMemServer.INFERENCE_REPOSITORY_URL);
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testTransactionIsolation() throws Exception {
+	public void testTransactionIsolation(IsolationLevel level) {
 		System.err.println("temporarily disabled testTransactionIsolation() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testAutoCommit() throws Exception {
+	public void testAutoCommit(IsolationLevel level) {
 		System.err.println("temporarily disabled testAutoCommit() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testRollback() throws Exception {
+	public void testRollback(IsolationLevel level) {
 		System.err.println("temporarily disabled testRollback() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testEmptyCommit() throws Exception {
+	public void testEmptyCommit(IsolationLevel level) {
 		System.err.println("temporarily disabled testEmptyCommit() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testEmptyRollback() throws Exception {
+	public void testEmptyRollback(IsolationLevel level) {
 		System.err.println("temporarily disabled testEmptyRollback() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testSizeCommit() throws Exception {
+	public void testSizeCommit(IsolationLevel level) {
 		System.err.println("temporarily disabled testSizeCommit() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testSizeRollback() throws Exception {
+	public void testSizeRollback(IsolationLevel level) {
 		System.err.println("temporarily disabled testSizeRollback() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testGetContextIDs() throws Exception {
+	public void testGetContextIDs(IsolationLevel level) {
 		System.err.println("temporarily disabled testGetContextIDs() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testInferencerQueryDuringTransaction() throws Exception {
+	public void testInferencerQueryDuringTransaction(IsolationLevel level) {
 		System.err.println("temporarily disabled testInferencerDuringTransaction() for HTTPRepository");
 	}
 
-	@Ignore("temporarily disabled for HTTPRepository")
-	@Test
+	@Disabled("temporarily disabled for HTTPRepository")
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testInferencerTransactionIsolation() throws Exception {
+	public void testInferencerTransactionIsolation(IsolationLevel level) {
 		System.err.println("temporarily disabled testInferencerTransactionIsolation() for HTTPRepository");
 	}
 
-	@Test
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	public void testAddMalformedLiteralsDefaultConfig() throws Exception {
+	public void testAddMalformedLiteralsDefaultConfig(IsolationLevel level) throws Exception {
+		setupTest(level);
+
 		try {
 			testCon.add(RepositoryConnectionTest.class.getResourceAsStream(TEST_DIR_PREFIX + "malformed-literals.ttl"),
 					"", RDFFormat.TURTLE);
@@ -132,37 +147,42 @@ public class RDFSchemaHTTPRepositoryConnectionTest extends RDFSchemaRepositoryCo
 	}
 
 	@Override
-	@Test
-	@Ignore
-	public void testQueryDefaultGraph() throws Exception {
+	@ParameterizedTest
+	@MethodSource("parameters")
+	@Disabled
+	public void testQueryDefaultGraph(IsolationLevel level) {
 		// ignore - schema caching inferencer uses different context handling
 	}
 
 	@Override
-	@Test
-	@Ignore
-	public void testDeleteDefaultGraph() throws Exception {
+	@ParameterizedTest
+	@MethodSource("parameters")
+	@Disabled
+	public void testDeleteDefaultGraph(IsolationLevel level) {
 		// ignore - schema caching inferencer uses different context handling
 	}
 
 	@Override
-	@Test
-	@Ignore
-	public void testContextStatementsNotDuplicated() throws Exception {
+	@ParameterizedTest
+	@MethodSource("parameters")
+	@Disabled
+	public void testContextStatementsNotDuplicated(IsolationLevel level) {
 		// ignore - schema caching inferencer uses different context handling
 	}
 
 	@Override
-	@Test
-	@Ignore
-	public void testContextStatementsNotDuplicated2() throws Exception {
+	@ParameterizedTest
+	@MethodSource("parameters")
+	@Disabled
+	public void testContextStatementsNotDuplicated2(IsolationLevel level) {
 		// ignore - schema caching inferencer uses different context handling
 	}
 
-	@Test
+	@ParameterizedTest
+	@MethodSource("parameters")
 	@Override
-	@Ignore("See SES-1833")
-	public void testAddMalformedLiteralsStrictConfig() throws Exception {
+	@Disabled("See SES-1833")
+	public void testAddMalformedLiteralsStrictConfig(IsolationLevel level) {
 		System.err.println("SES-1833: temporarily disabled testAddMalformedLiteralsStrictConfig() for HTTPRepository");
 	}
 

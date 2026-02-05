@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.hdt;
 
@@ -16,14 +19,14 @@ import org.eclipse.rdf4j.common.io.UncloseableInputStream;
 
 /**
  * HDT Triples Part.
- *
+ * <p>
  * This part starts with <code>$HDT</code>, followed by a byte indicating the type of the part, the NULL-terminated URI
  * string for the format, and optionally one or more <code>key=value;</code> properties.
- *
+ * <p>
  * These properties may include the order (SPO, SOP...), and the number of triples.
- *
+ * <p>
  * Then a <code>NULL</code> byte, followed by the 16-bit CRC (<code>$HDT</code> and <code>NULL</code> included)
- *
+ * <p>
  * Structure:
  *
  * <pre>
@@ -35,7 +38,7 @@ import org.eclipse.rdf4j.common.io.UncloseableInputStream;
  * @author Bart Hanssens
  */
 class HDTTriples extends HDTPart {
-	protected enum Order {
+	enum Order {
 		UNKNOWN(0),
 		SPO(1),
 		SOP(2),
@@ -46,7 +49,7 @@ class HDTTriples extends HDTPart {
 
 		private final int value;
 
-		protected int getValue() {
+		int getValue() {
 			return value;
 		}
 
@@ -55,17 +58,17 @@ class HDTTriples extends HDTPart {
 		 *
 		 * @param value integer value
 		 */
-		private Order(int value) {
+		Order(int value) {
 			this.value = value;
 		}
 	}
 
-	protected final static byte[] FORMAT_LIST = "<http://purl.org/HDT/hdt#triplesList>"
+	final static byte[] FORMAT_LIST = "<http://purl.org/HDT/hdt#triplesList>"
 			.getBytes(StandardCharsets.US_ASCII);
-	protected final static byte[] FORMAT_BITMAP = "<http://purl.org/HDT/hdt#triplesBitmap>"
+	final static byte[] FORMAT_BITMAP = "<http://purl.org/HDT/hdt#triplesBitmap>"
 			.getBytes(StandardCharsets.US_ASCII);
-	protected final static String ORDER = "order";
-	protected final static String NUM = "numTriples";
+	final static String ORDER = "order";
+	final static String NUM = "numTriples";
 
 	private Order order;
 	private int nrtriples;
@@ -75,12 +78,12 @@ class HDTTriples extends HDTPart {
 	 *
 	 * @return enum
 	 */
-	protected Order getOrder() {
+	Order getOrder() {
 		return order;
 	}
 
 	@Override
-	protected void parse(InputStream is) throws IOException {
+	void parse(InputStream is) throws IOException {
 		// don't close CheckedInputStream, as it will close the underlying inputstream
 		try (UncloseableInputStream uis = new UncloseableInputStream(is);
 				CheckedInputStream cis = new CheckedInputStream(uis, new CRC16())) {

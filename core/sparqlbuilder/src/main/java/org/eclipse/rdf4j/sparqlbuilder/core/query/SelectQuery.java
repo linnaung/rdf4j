@@ -1,9 +1,12 @@
 /*******************************************************************************
- Copyright (c) 2018 Eclipse RDF4J contributors.
- All rights reserved. This program and the accompanying materials
- are made available under the terms of the Eclipse Distribution License v1.0
- which accompanies this distribution, and is available at
- http://www.eclipse.org/org/documents/edl-v10.php.
+ * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sparqlbuilder.core.query;
@@ -28,7 +31,6 @@ public class SelectQuery extends OuterQuery<SelectQuery> {
 	 * Specify the query's projection to be distinct
 	 *
 	 * @return this
-	 *
 	 * @see Projection#distinct()
 	 */
 	public SelectQuery distinct() {
@@ -40,7 +42,6 @@ public class SelectQuery extends OuterQuery<SelectQuery> {
 	 *
 	 * @param isDistinct if this query's projection should be distinct
 	 * @return this
-	 *
 	 * @see Projection#distinct(boolean)
 	 */
 	public SelectQuery distinct(boolean isDistinct) {
@@ -56,7 +57,6 @@ public class SelectQuery extends OuterQuery<SelectQuery> {
 	 * {@link #select(Projectable...)} or {@link #select(Projection)} when printing
 	 *
 	 * @return this
-	 *
 	 * @see Projection#all()
 	 */
 	public SelectQuery all() {
@@ -72,7 +72,6 @@ public class SelectQuery extends OuterQuery<SelectQuery> {
 	 *
 	 * @param selectAll if all in-scope expressions should be selected
 	 * @return this
-	 *
 	 * @see Projection#all(boolean)
 	 */
 	public SelectQuery all(boolean selectAll) {
@@ -89,7 +88,6 @@ public class SelectQuery extends OuterQuery<SelectQuery> {
 	 *
 	 * @param projectables expressions to add
 	 * @return this
-	 *
 	 * @see Projection#select(Projectable...)
 	 */
 	public SelectQuery select(Projectable... projectables) {

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2016 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.xsd;
 
@@ -11,11 +14,12 @@ import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
 import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
+import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
 
 /**
  * Abstract superclass for {@link org.eclipse.rdf4j.query.algebra.evaluation.function.Function}s that cast an argument
@@ -28,7 +32,7 @@ public abstract class CastFunction implements Function {
 
 	@Override
 	public final String getURI() {
-		return getXsdDatatype().toString();
+		return getCoreXsdDatatype().getIri().toString();
 	}
 
 	@Override
@@ -40,15 +44,15 @@ public abstract class CastFunction implements Function {
 
 		if (args[0] instanceof Literal) {
 			Literal literal = (Literal) args[0];
-			IRI datatype = literal.getDatatype();
+			CoreDatatype datatype = literal.getCoreDatatype();
 
-			if (QueryEvaluationUtil.isStringLiteral(literal)) {
+			if (QueryEvaluationUtility.isStringLiteral(literal)) {
 				String lexicalValue = XMLDatatypeUtil.collapseWhiteSpace(literal.getLabel());
 				if (isValidForDatatype(lexicalValue)) {
-					return valueFactory.createLiteral(lexicalValue, getXsdDatatype());
+					return valueFactory.createLiteral(lexicalValue, getCoreXsdDatatype());
 				}
 			} else if (datatype != null) {
-				if (datatype.equals(getXsdDatatype())) {
+				if (datatype == getCoreXsdDatatype()) {
 					return literal;
 				}
 			}
@@ -74,7 +78,12 @@ public abstract class CastFunction implements Function {
 	 *
 	 * @return an XML Schema datatype IRI
 	 */
-	protected abstract IRI getXsdDatatype();
+	@Deprecated(since = "5.0.0", forRemoval = true)
+	protected IRI getXsdDatatype() {
+		return getCoreXsdDatatype().getIri();
+	}
+
+	protected abstract CoreDatatype.XSD getCoreXsdDatatype();
 
 	/**
 	 * Returns a prefixed name representation of the specific datatype that this function returns
@@ -82,7 +91,7 @@ public abstract class CastFunction implements Function {
 	 * @return a prefixed name, e.g. 'xsd:integer'.
 	 */
 	protected String getXsdName() {
-		return "xsd:" + getXsdDatatype().getLocalName();
+		return "xsd:" + getCoreXsdDatatype().getIri().getLocalName();
 	}
 
 	/**

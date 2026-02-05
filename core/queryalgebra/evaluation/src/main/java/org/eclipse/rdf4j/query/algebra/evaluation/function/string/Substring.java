@@ -1,24 +1,25 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation.function.string;
 
 import java.util.Optional;
 
-import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.model.datatypes.XMLDatatypeUtil;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.vocabulary.FN;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.query.algebra.evaluation.ValueExprEvaluationException;
 import org.eclipse.rdf4j.query.algebra.evaluation.function.Function;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtil;
+import org.eclipse.rdf4j.query.algebra.evaluation.util.QueryEvaluationUtility;
 
 /**
  * The SPARQL built-in {@link Function} SUBSTR, as defined in
@@ -50,7 +51,7 @@ public class Substring implements Function {
 			Literal literal = (Literal) argValue;
 
 			// substr function accepts string literals only.
-			if (QueryEvaluationUtil.isStringLiteral(literal)) {
+			if (QueryEvaluationUtility.isStringLiteral(literal)) {
 				String lexicalValue = literal.getLabel();
 
 				// determine start index.
@@ -115,8 +116,8 @@ public class Substring implements Function {
 		Optional<String> language = literal.getLanguage();
 		if (language.isPresent()) {
 			return valueFactory.createLiteral(lexicalValue, language.get());
-		} else if (XSD.STRING.equals(literal.getDatatype())) {
-			return valueFactory.createLiteral(lexicalValue, XSD.STRING);
+		} else if (QueryEvaluationUtility.isSimpleLiteral(literal)) {
+			return valueFactory.createLiteral(lexicalValue, CoreDatatype.XSD.STRING);
 		} else {
 			return valueFactory.createLiteral(lexicalValue);
 		}
@@ -124,11 +125,11 @@ public class Substring implements Function {
 
 	public static int intFromLiteral(Literal literal) throws ValueExprEvaluationException {
 
-		IRI datatype = literal.getDatatype();
+		CoreDatatype.XSD datatype = literal.getCoreDatatype().asXSDDatatypeOrNull();
 
 		// function accepts only numeric literals
-		if (datatype != null && XMLDatatypeUtil.isNumericDatatype(datatype)) {
-			if (XMLDatatypeUtil.isIntegerDatatype(datatype)) {
+		if (datatype != null && datatype.isNumericDatatype()) {
+			if (datatype.isIntegerDatatype()) {
 				return literal.intValue();
 			} else {
 				throw new ValueExprEvaluationException("unexpected datatype for function operand: " + literal);

@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio;
 
@@ -11,61 +14,61 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.eclipse.rdf4j.rio.helpers.AbstractRioSetting;
 import org.eclipse.rdf4j.rio.helpers.BooleanRioSetting;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 public class RioConfigTest {
 
 	private RioConfig config;
 
-	private String key = "org.eclipse.rdf4j.rio.rioconfig.test";
+	private final String key = "org.eclipse.rdf4j.rio.rioconfig.test";
 
-	private BooleanRioSetting testSetting = new BooleanRioSetting(key, "test setting", true);
+	private final BooleanRioSetting testSetting = new BooleanRioSetting(key, "test setting", true);
 
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 		config = new RioConfig();
 	}
 
-	@After
+	@AfterEach
 	public void cleanup() {
 		System.clearProperty(key);
 	}
 
 	@Test
-	public void testIsSetDefault() throws Exception {
+	public void testIsSetDefault() {
 		assertThat(config.isSet(testSetting)).isFalse();
 	}
 
 	@Test
-	public void testIsSetWithSystemPropertyOverride() throws Exception {
+	public void testIsSetWithSystemPropertyOverride() {
 		System.setProperty(key, "false");
 		assertThat(config.isSet(testSetting)).isTrue();
 	}
 
 	@Test
-	public void testIsSetWithExplicitSet() throws Exception {
+	public void testIsSetWithExplicitSet() {
 		config.set(testSetting, false);
 		assertThat(config.isSet(testSetting)).isTrue();
 	}
 
 	@Test
-	public void testUseDefaultsNoOverride() throws Exception {
+	public void testUseDefaultsNoOverride() {
 		config.set(testSetting, false);
 		config.useDefaults();
 		assertThat(config.isSet(testSetting)).isFalse();
 	}
 
 	@Test
-	public void testUseDefaultsWithOverride() throws Exception {
+	public void testUseDefaultsWithOverride() {
 		System.setProperty(key, "false");
 		config.useDefaults();
 		assertThat(config.isSet(testSetting)).isTrue();
 	}
 
 	@Test
-	public void testGetWithSystemPropertyOverride() throws Exception {
+	public void testGetWithSystemPropertyOverride() {
 		System.setProperty(key, "false");
 		assertThat(config.get(testSetting)).as("default setting overridden by system prop").isFalse();
 
@@ -83,9 +86,9 @@ public class RioConfigTest {
 	}
 
 	@Test
-	public void testGetWithUnsupportedConversionType() throws Exception {
+	public void testGetWithUnsupportedConversionType() {
 		// we deliberately do not use StringRioSetting as that supports conversion of system property values
-		AbstractRioSetting<String> nonConvertableSetting = new AbstractRioSetting<String>(key, "test setting",
+		AbstractRioSetting<String> nonConvertableSetting = new AbstractRioSetting<>(key, "test setting",
 				"default value") {
 			private static final long serialVersionUID = 1L;
 		};

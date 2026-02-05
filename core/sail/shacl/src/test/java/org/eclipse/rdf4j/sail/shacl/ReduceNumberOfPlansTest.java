@@ -1,29 +1,31 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl;
-
-import static junit.framework.TestCase.assertEquals;
 
 import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.ValueFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.rio.RDFParseException;
 import org.eclipse.rdf4j.rio.UnsupportedRDFormatException;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.eclipse.rdf4j.sail.shacl.ast.planNodes.EmptyNode;
 import org.eclipse.rdf4j.sail.shacl.ast.planNodes.PlanNode;
-import org.junit.Test;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Håvard Ottestad
@@ -31,36 +33,46 @@ import org.junit.Test;
 public class ReduceNumberOfPlansTest {
 
 	@Test
-	public void testAddingTypeStatement() throws RDFParseException, UnsupportedRDFormatException, IOException {
+	public void testAddingTypeStatement()
+			throws RDFParseException, UnsupportedRDFormatException, IOException, InterruptedException {
 		ShaclSail shaclSail = new ShaclSail(new MemoryStore());
 		shaclSail.init();
-		Utils.loadShapeData(shaclSail, "reduceNumberOfPlansTest/shacl.ttl");
+		Utils.loadShapeData(shaclSail, "reduceNumberOfPlansTest/shacl.trig");
+
+		addDummyData(shaclSail);
 
 		try (ShaclSailConnection connection = (ShaclSailConnection) shaclSail.getConnection()) {
 			connection.begin();
 
-			refreshAddedRemovedStatements(connection);
+			connection.prepareValidation(new ValidationSettings());
+
 			try (ConnectionsGroup connectionsGroup = connection.getConnectionsGroup()) {
 
-				List<PlanNode> collect = shaclSail.getShapes()
+				List<PlanNode> collect = shaclSail.getCachedShapes()
+						.getDataAndRelease()
 						.stream()
-						.map(shape -> shape.generatePlans(connectionsGroup, false, false))
-						.filter(s -> !(s instanceof EmptyNode))
+						.map(s -> s.getShape())
+						.map(shape -> shape.generatePlans(connectionsGroup, new ValidationSettings()))
+						.filter(s -> !(s.isGuaranteedEmpty()))
 						.collect(Collectors.toList());
 
-				assertEquals(0, collect.size());
+				Assertions.assertEquals(0, collect.size());
 			}
 			IRI person1 = Utils.Ex.createIri();
 			connection.addStatement(person1, RDF.TYPE, Utils.Ex.Person);
-			refreshAddedRemovedStatements(connection);
+
+			connection.prepareValidation(new ValidationSettings());
+
 			try (ConnectionsGroup connectionsGroup = connection.getConnectionsGroup()) {
 
-				List<PlanNode> collect2 = shaclSail.getShapes()
+				List<PlanNode> collect2 = shaclSail.getCachedShapes()
+						.getDataAndRelease()
 						.stream()
-						.map(shape -> shape.generatePlans(connectionsGroup, false, false))
-						.filter(s -> !(s instanceof EmptyNode))
+						.map(s -> s.getShape())
+						.map(shape -> shape.generatePlans(connectionsGroup, new ValidationSettings()))
+						.filter(s -> !(s.isGuaranteedEmpty()))
 						.collect(Collectors.toList());
-				assertEquals(2, collect2.size());
+				Assertions.assertEquals(2, collect2.size());
 
 			}
 			ValueFactory vf = shaclSail.getValueFactory();
@@ -70,15 +82,20 @@ public class ReduceNumberOfPlansTest {
 
 			connection.commit();
 
+		} finally {
+			shaclSail.shutDown();
 		}
 
 	}
 
 	@Test
-	public void testRemovingPredicate() throws RDF4JException, UnsupportedRDFormatException, IOException {
+	public void testRemovingPredicate()
+			throws RDF4JException, UnsupportedRDFormatException, IOException, InterruptedException {
 		ShaclSail shaclSail = new ShaclSail(new MemoryStore());
 		shaclSail.init();
-		Utils.loadShapeData(shaclSail, "reduceNumberOfPlansTest/shacl.ttl");
+		Utils.loadShapeData(shaclSail, "reduceNumberOfPlansTest/shacl.trig");
+
+		addDummyData(shaclSail);
 
 		try (ShaclSailConnection connection = (ShaclSailConnection) shaclSail.getConnection()) {
 
@@ -97,53 +114,67 @@ public class ReduceNumberOfPlansTest {
 
 			connection.removeStatements(person1, Utils.Ex.ssn, vf.createLiteral("b"));
 
-			refreshAddedRemovedStatements(connection);
+			connection.prepareValidation(new ValidationSettings());
+
 			try (ConnectionsGroup connectionsGroup = connection.getConnectionsGroup()) {
 
-				List<PlanNode> collect1 = shaclSail.getShapes()
+				List<PlanNode> collect1 = shaclSail.getCachedShapes()
+						.getDataAndRelease()
 						.stream()
-						.map(shape -> shape.generatePlans(connectionsGroup, false, false))
-						.filter(s -> !(s instanceof EmptyNode))
+						.map(s -> s.getShape())
+						.map(shape -> shape.generatePlans(connectionsGroup, new ValidationSettings()))
+						.filter(s -> !(s.isGuaranteedEmpty()))
 						.collect(Collectors.toList());
-				assertEquals(1, collect1.size());
+				Assertions.assertEquals(1, collect1.size());
 
 			}
 
 			connection.removeStatements(person1, Utils.Ex.ssn, vf.createLiteral("a"));
 
-			refreshAddedRemovedStatements(connection);
+			connection.prepareValidation(new ValidationSettings());
+
 			try (ConnectionsGroup connectionsGroup = connection.getConnectionsGroup()) {
 
-				List<PlanNode> collect2 = shaclSail.getShapes()
+				List<PlanNode> collect2 = shaclSail.getCachedShapes()
+						.getDataAndRelease()
 						.stream()
-						.map(shape -> shape.generatePlans(connectionsGroup, false, false))
-						.filter(s -> !(s instanceof EmptyNode))
+						.map(s -> s.getShape())
+						.map(shape -> shape.generatePlans(connectionsGroup, new ValidationSettings()))
+						.filter(s -> !(s.isGuaranteedEmpty()))
 
 						.collect(Collectors.toList());
-				assertEquals(1, collect2.size());
+				Assertions.assertEquals(1, collect2.size());
 			}
 			connection.removeStatements(person1, Utils.Ex.name, vf.createLiteral("c"));
-			refreshAddedRemovedStatements(connection);
+
+			connection.prepareValidation(new ValidationSettings());
+
 			try (ConnectionsGroup connectionsGroup = connection.getConnectionsGroup()) {
 
-				List<PlanNode> collect3 = shaclSail.getShapes()
+				List<PlanNode> collect3 = shaclSail.getCachedShapes()
+						.getDataAndRelease()
 						.stream()
-						.map(shape -> shape.generatePlans(connectionsGroup, false, false))
-						.filter(s -> !(s instanceof EmptyNode))
+						.map(s -> s.getShape())
+						.map(shape -> shape.generatePlans(connectionsGroup, new ValidationSettings()))
+						.filter(s -> !(s.isGuaranteedEmpty()))
 
 						.collect(Collectors.toList());
-				assertEquals(2, collect3.size());
+				Assertions.assertEquals(2, collect3.size());
 			}
 			connection.rollback();
 
+		} finally {
+			shaclSail.shutDown();
 		}
 
 	}
 
-	private void refreshAddedRemovedStatements(ShaclSailConnection connection) {
-
-		connection.prepareValidation();
-
+	private void addDummyData(ShaclSail shaclSail) {
+		try (ShaclSailConnection connection = (ShaclSailConnection) shaclSail.getConnection()) {
+			connection.begin();
+			connection.addStatement(RDF.TYPE, RDF.TYPE, RDF.PROPERTY);
+			connection.commit();
+		}
 	}
 
 }

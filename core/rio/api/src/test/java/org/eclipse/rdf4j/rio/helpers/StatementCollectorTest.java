@@ -1,15 +1,18 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
-import static org.junit.Assert.assertFalse;
-import static org.junit.Assert.assertNotNull;
-import static org.junit.Assert.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -22,9 +25,9 @@ import java.util.Set;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
-import org.junit.After;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * @author Peter Ansell
@@ -32,24 +35,22 @@ import org.junit.Test;
 public class StatementCollectorTest {
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@Before
-	public void setUp() throws Exception {
+	@BeforeEach
+	public void setUp() {
 	}
 
 	/**
-	 * @throws java.lang.Exception
 	 */
-	@After
-	public void tearDown() throws Exception {
+	@AfterEach
+	public void tearDown() {
 	}
 
 	/**
 	 * Test method for {@link org.eclipse.rdf4j.rio.helpers.StatementCollector#StatementCollector()}.
 	 */
 	@Test
-	public final void testStatementCollector() throws Exception {
+	public final void testStatementCollector() {
 		StatementCollector collector = new StatementCollector();
 
 		assertNotNull(collector.getStatements());
@@ -61,7 +62,7 @@ public class StatementCollectorTest {
 	 * .
 	 */
 	@Test
-	public final void testStatementCollectorList() throws Exception {
+	public final void testStatementCollectorList() {
 		List<Statement> testList = new ArrayList<>();
 		StatementCollector collector = new StatementCollector(testList);
 
@@ -76,7 +77,7 @@ public class StatementCollectorTest {
 	 * .
 	 */
 	@Test
-	public final void testStatementCollectorSet() throws Exception {
+	public final void testStatementCollectorSet() {
 		Set<Statement> testList = new LinkedHashSet<>();
 		StatementCollector collector = new StatementCollector(testList);
 
@@ -91,7 +92,7 @@ public class StatementCollectorTest {
 	 * .
 	 */
 	@Test
-	public final void testStatementCollectorCollectionModel() throws Exception {
+	public final void testStatementCollectorCollectionModel() {
 		Model testList = new LinkedHashModel();
 		StatementCollector collector = new StatementCollector(testList);
 
@@ -119,7 +120,7 @@ public class StatementCollectorTest {
 	 * .
 	 */
 	@Test
-	public final void testStatementCollectorCollectionModelMapIndependent() throws Exception {
+	public final void testStatementCollectorCollectionModelMapIndependent() {
 		Model testList = new LinkedHashModel();
 		Map<String, String> testNamespaces = new LinkedHashMap<>();
 		StatementCollector collector = new StatementCollector(testList, testNamespaces);
@@ -137,7 +138,7 @@ public class StatementCollectorTest {
 	 * .
 	 */
 	@Test
-	public final void testStatementCollectorCollectionMapModel() throws Exception {
+	public final void testStatementCollectorCollectionMapModel() {
 		Collection<Statement> testList = new LinkedHashModel();
 		Map<String, String> testNamespaces = new LinkedHashMap<>();
 		StatementCollector collector = new StatementCollector(testList, testNamespaces);
@@ -152,7 +153,7 @@ public class StatementCollectorTest {
 	 * Test method for {@link org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler#startRDF()}.
 	 */
 	@Test
-	public final void testStartRDF() throws Exception {
+	public final void testStartRDF() {
 		StatementCollector testCollector = new StatementCollector();
 		testCollector.startRDF();
 	}
@@ -161,7 +162,7 @@ public class StatementCollectorTest {
 	 * Test method for {@link org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler#endRDF()}.
 	 */
 	@Test
-	public final void testEndRDF() throws Exception {
+	public final void testEndRDF() {
 		StatementCollector testCollector = new StatementCollector();
 		testCollector.startRDF();
 		testCollector.endRDF();
@@ -170,10 +171,9 @@ public class StatementCollectorTest {
 	/**
 	 * Test method for {@link org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler#handleComment(java.lang.String)} .
 	 *
-	 * @throws Exception
 	 */
 	@Test
-	public final void testHandleComment() throws Exception {
+	public final void testHandleComment() {
 		StatementCollector testCollector = new StatementCollector();
 		// StatementCollector must be able to handle comments, but does not
 		// preserve them

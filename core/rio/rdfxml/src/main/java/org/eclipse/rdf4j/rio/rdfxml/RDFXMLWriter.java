@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.rdfxml;
 
@@ -26,12 +29,11 @@ import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.model.Value;
+import org.eclipse.rdf4j.model.base.CoreDatatype;
 import org.eclipse.rdf4j.model.util.Literals;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
-import org.eclipse.rdf4j.model.vocabulary.XSD;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFHandlerException;
-import org.eclipse.rdf4j.rio.RDFWriter;
 import org.eclipse.rdf4j.rio.RioSetting;
 import org.eclipse.rdf4j.rio.WriterConfig;
 import org.eclipse.rdf4j.rio.helpers.AbstractRDFWriter;
@@ -42,7 +44,7 @@ import org.eclipse.rdf4j.rio.helpers.XMLWriterSettings;
 /**
  * An implementation of the RDFWriter interface that writes RDF documents in XML-serialized RDF format.
  */
-public class RDFXMLWriter extends AbstractRDFWriter implements RDFWriter, CharSink {
+public class RDFXMLWriter extends AbstractRDFWriter implements CharSink {
 
 	protected final ParsedIRI baseIRI;
 	protected final Writer writer;
@@ -104,6 +106,7 @@ public class RDFXMLWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 		return writer;
 	}
 
+	@Override
 	public Collection<RioSetting<?>> getSupportedSettings() {
 		final Collection<RioSetting<?>> settings = new HashSet<>(super.getSupportedSettings());
 		settings.add(BasicWriterSettings.BASE_DIRECTIVE);
@@ -298,14 +301,15 @@ public class RDFXMLWriter extends AbstractRDFWriter implements RDFWriter, CharSi
 				if (Literals.isLanguageLiteral(objLit)) {
 					writeAttribute("xml:lang", objLit.getLanguage().get());
 				} else {
-					IRI datatype = objLit.getDatatype();
+					CoreDatatype coreDatatype = objLit.getCoreDatatype();
+
 					// Check if datatype is rdf:XMLLiteral
-					isXMLLiteral = datatype.equals(RDF.XMLLITERAL);
+					isXMLLiteral = coreDatatype == CoreDatatype.RDF.XMLLITERAL;
 
 					if (isXMLLiteral) {
 						writeAttribute(RDF.NAMESPACE, "parseType", "Literal");
-					} else if (!datatype.equals(XSD.STRING)) {
-						writeAttribute(RDF.NAMESPACE, "datatype", datatype.toString());
+					} else if (coreDatatype != CoreDatatype.XSD.STRING) {
+						writeAttribute(RDF.NAMESPACE, "datatype", objLit.getDatatype().toString());
 					}
 				}
 

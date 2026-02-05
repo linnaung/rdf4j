@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.inferencer.fc;
 
@@ -85,29 +88,32 @@ public class DirectTypeHierarchyInferencer extends NotifyingSailWrapper {
 
 	static {
 		try {
-			DIRECT_SUBCLASSOF_MATCHER = QueryParserUtil.parseGraphQuery(QueryLanguage.SERQL,
-					"CONSTRUCT * FROM {X} sesame:directSubClassOf {Y} ", null);
+			DIRECT_SUBCLASSOF_MATCHER = QueryParserUtil.parseGraphQuery(QueryLanguage.SPARQL,
+					"CONSTRUCT WHERE { ?X sesame:directSubClassOf ?Y } ", null);
 
-			DIRECT_SUBPROPERTYOF_MATCHER = QueryParserUtil.parseGraphQuery(QueryLanguage.SERQL,
-					"CONSTRUCT * FROM {X} sesame:directType {Y}", null);
+			DIRECT_SUBPROPERTYOF_MATCHER = QueryParserUtil.parseGraphQuery(QueryLanguage.SPARQL,
+					"CONSTRUCT WHERE { ?X sesame:directType ?Y }", null);
 
-			DIRECT_TYPE_MATCHER = QueryParserUtil.parseGraphQuery(QueryLanguage.SERQL,
-					"CONSTRUCT * FROM {X} sesame:directSubPropertyOf {Y}", null);
+			DIRECT_TYPE_MATCHER = QueryParserUtil.parseGraphQuery(QueryLanguage.SPARQL,
+					"CONSTRUCT WHERE { ?X sesame:directSubPropertyOf ?Y}", null);
 
-			DIRECT_SUBCLASSOF_QUERY = QueryParserUtil.parseGraphQuery(QueryLanguage.SERQL,
-					"CONSTRUCT {X} sesame:directSubClassOf {Y} " + "FROM {X} rdfs:subClassOf {Y} " + "WHERE X != Y AND "
-							+ "NOT EXISTS (SELECT Z FROM {X} rdfs:subClassOf {Z} rdfs:subClassOf {Y} WHERE X != Z AND Z != Y)",
+			DIRECT_SUBCLASSOF_QUERY = QueryParserUtil.parseGraphQuery(QueryLanguage.SPARQL,
+					"CONSTRUCT { ?X sesame:directSubClassOf ?Y } "
+							+ "WHERE { ?X rdfs:subClassOf ?Y . "
+							+ "FILTER (?X != ?Y && "
+							+ "NOT EXISTS { SELECT ?Z WHERE { ?X rdfs:subClassOf ?Z. ?Z rdfs:subClassOf ?Y . FILTER (?X != ?Z && ?Z != ?Y) }})}",
 					null);
 
-			DIRECT_SUBPROPERTYOF_QUERY = QueryParserUtil.parseGraphQuery(QueryLanguage.SERQL,
-					"CONSTRUCT {X} sesame:directSubPropertyOf {Y} " + "FROM {X} rdfs:subPropertyOf {Y} "
-							+ "WHERE X != Y AND "
-							+ "NOT EXISTS (SELECT Z FROM {X} rdfs:subPropertyOf {Z} rdfs:subPropertyOf {Y} WHERE X != Z AND Z != Y)",
+			DIRECT_SUBPROPERTYOF_QUERY = QueryParserUtil.parseGraphQuery(QueryLanguage.SPARQL,
+					"CONSTRUCT { ?X sesame:directSubPropertyOf ?Y } "
+							+ "WHERE { ?X rdfs:subPropertyOf ?Y . "
+							+ "FILTER (?X != ?Y && "
+							+ "NOT EXISTS { SELECT ?Z WHERE { ?X rdfs:subPropertyOf ?Z. ?Z rdfs:subPropertyOf ?Y . FILTER (?X != ?Z && ?Z != ?Y) }})}",
 					null);
 
-			DIRECT_TYPE_QUERY = QueryParserUtil.parseGraphQuery(QueryLanguage.SERQL,
-					"CONSTRUCT {X} sesame:directType {Y} FROM {X} rdf:type {Y} "
-							+ "WHERE NOT EXISTS (SELECT Z FROM {X} rdf:type {Z} rdfs:subClassOf {Y} WHERE Z != Y)",
+			DIRECT_TYPE_QUERY = QueryParserUtil.parseGraphQuery(QueryLanguage.SPARQL,
+					"CONSTRUCT { ?X sesame:directType ?Y } WHERE { ?X rdf:type ?Y . \n "
+							+ "FILTER NOT EXISTS { SELECT ?Z WHERE { ?X rdf:type ?Z. ?Z rdfs:subClassOf ?Y . FILTER (?Z != ?Y) }}}",
 					null);
 		} catch (MalformedQueryException e) {
 			// Can only occur due to a bug in this code
@@ -142,8 +148,8 @@ public class DirectTypeHierarchyInferencer extends NotifyingSailWrapper {
 	}
 
 	@Override
-	public void initialize() throws SailException {
-		super.initialize();
+	public void init() throws SailException {
+		super.init();
 
 		try (InferencerConnection con = getConnection()) {
 			con.begin();
@@ -255,7 +261,7 @@ public class DirectTypeHierarchyInferencer extends NotifyingSailWrapper {
 
 		private void evaluateIntoStatements(ParsedGraphQuery query, Collection<Statement> statements)
 				throws SailException, RDFHandlerException, QueryEvaluationException {
-			try (CloseableIteration<? extends BindingSet, QueryEvaluationException> bindingsIter = getWrappedConnection()
+			try (CloseableIteration<? extends BindingSet> bindingsIter = getWrappedConnection()
 					.evaluate(query.getTupleExpr(), null, EmptyBindingSet.getInstance(), true)) {
 				ValueFactory vf = getValueFactory();
 

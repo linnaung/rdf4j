@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.results;
@@ -22,6 +25,7 @@ import org.eclipse.rdf4j.model.impl.BooleanLiteral;
 import org.eclipse.rdf4j.model.impl.DynamicModelFactory;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.model.vocabulary.RDF4J;
+import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.SHACL;
 
 /**
@@ -33,7 +37,9 @@ import org.eclipse.rdf4j.model.vocabulary.SHACL;
 @Deprecated
 public class ValidationReport {
 
-	protected final Resource id = bnode();
+	private static final DynamicModelFactory DYNAMIC_MODEL_FACTORY = new DynamicModelFactory();
+
+	protected Resource id = null;
 
 	protected boolean conforms = true;
 
@@ -58,21 +64,28 @@ public class ValidationReport {
 		model.add(getId(), RDF.TYPE, SHACL.VALIDATION_REPORT);
 		model.add(getId(), RDF4J.TRUNCATED, BooleanLiteral.valueOf(truncated));
 
-		HashSet<Resource> resources = new HashSet<>();
+		HashSet<Resource> rdfListDedupe = new HashSet<>();
 
 		for (ValidationResult result : validationResult) {
 			model.add(getId(), SHACL.RESULT, result.getId());
-			result.asModel(model, resources);
+			result.asModel(model, rdfListDedupe);
 		}
 
 		return model;
 	}
 
 	public Model asModel() {
-		return asModel(new DynamicModelFactory().createEmptyModel());
+		Model model = asModel(DYNAMIC_MODEL_FACTORY.createEmptyModel());
+		model.setNamespace(SHACL.PREFIX, SHACL.NAMESPACE);
+		model.setNamespace(RDF.PREFIX, RDF.NAMESPACE);
+		model.setNamespace(RDFS.PREFIX, RDFS.NAMESPACE);
+		return model;
 	}
 
-	public Resource getId() {
+	public final Resource getId() {
+		if (id == null) {
+			id = bnode();
+		}
 		return id;
 	}
 

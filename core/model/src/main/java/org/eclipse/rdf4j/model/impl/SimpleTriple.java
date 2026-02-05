@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.impl;
 
@@ -26,17 +29,17 @@ public class SimpleTriple extends AbstractTriple {
 	/**
 	 * The triple's subject.
 	 */
-	private Resource subject;
+	private final Resource subject;
 
 	/**
 	 * The triple's predicate.
 	 */
-	private IRI predicate;
+	private final IRI predicate;
 
 	/**
 	 * The triple's object.
 	 */
-	private Value object;
+	private final Value object;
 
 	/**
 	 * Creates a new Triple with the supplied subject, predicate and object.
@@ -44,10 +47,9 @@ public class SimpleTriple extends AbstractTriple {
 	 * Note that creating SimpleStatement objects directly via this constructor is not the recommended approach.
 	 * Instead, use an instance of {@link org.eclipse.rdf4j.model.ValueFactory} to create new Triple objects.
 	 *
-	 * @param subject   The triple's subject, must not be <tt>null</tt>.
-	 * @param predicate The triple's predicate, must not be <tt>null</tt>.
-	 * @param object    The triple's object, must not be <tt>null</tt>.
-	 *
+	 * @param subject   The triple's subject, must not be <var>null</var>.
+	 * @param predicate The triple's predicate, must not be <var>null</var>.
+	 * @param object    The triple's object, must not be <var>null</var>.
 	 * @see SimpleValueFactory#createTriple(Resource, IRI, Value)
 	 */
 	protected SimpleTriple(Resource subject, IRI predicate, Value object) {

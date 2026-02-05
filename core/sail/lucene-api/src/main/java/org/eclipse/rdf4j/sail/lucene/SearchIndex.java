@@ -1,17 +1,23 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.lucene;
 
 import java.io.IOException;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -28,19 +34,7 @@ public interface SearchIndex {
 
 	void initialize(Properties parameters) throws Exception;
 
-	/**
-	 * To be removed from interface, prefer {@link #evaluate(SearchQueryEvaluator query)}.
-	 */
-	@Deprecated
-	Collection<BindingSet> evaluate(QuerySpec query) throws SailException;
-
 	Collection<BindingSet> evaluate(SearchQueryEvaluator query) throws SailException;
-
-	@Deprecated
-	void beginReading() throws IOException;
-
-	@Deprecated
-	void endReading() throws IOException;
 
 	void shutDown() throws IOException;
 
@@ -62,6 +56,36 @@ public interface SearchIndex {
 	boolean isGeoField(String propertyName);
 
 	/**
+	 * Returns true if the given statement is a type statement, see {@link LuceneSail#INDEXEDTYPES} to use. This method
+	 * should return false if {@link #isTypeFilteringEnabled()} returns false.
+	 *
+	 * @param statement statement
+	 * @return boolean
+	 */
+	boolean isTypeStatement(Statement statement);
+
+	/**
+	 * is the {@link LuceneSail#INDEXEDTYPES} parameter set for this index.
+	 *
+	 * @return boolean
+	 */
+	boolean isTypeFilteringEnabled();
+
+	/**
+	 * Returns true if the given statement is a type statement of the right type, see {@link LuceneSail#INDEXEDTYPES} to
+	 * use. This method should return false if {@link #isTypeFilteringEnabled()} returns false.
+	 *
+	 * @param statement statement
+	 * @return boolean
+	 */
+	boolean isIndexedTypeStatement(Statement statement);
+
+	/**
+	 * @return the accepted types for a particular predicate map (predicate -> [objects])
+	 */
+	Map<IRI, Set<IRI>> getIndexedTypeMapping();
+
+	/**
 	 * Begins a transaction.
 	 *
 	 * @throws java.io.IOException
@@ -70,8 +94,8 @@ public interface SearchIndex {
 
 	/**
 	 * Commits any changes done to the LuceneIndex since the last commit.The semantics is synchronous to
-	 * SailConnection.commit(), i.e. the LuceneIndex should be committed/rollbacked whenever the LuceneSailConnection is
-	 * committed/rollbacked.
+	 * SailConnection.commit(), i.e. the LuceneIndex should be committed/rolled back whenever the LuceneSailConnection
+	 * is committed/rolled back.
 	 *
 	 * @throws IOException
 	 */
@@ -89,10 +113,11 @@ public interface SearchIndex {
 
 	/**
 	 * Removes the specified Statement from the indexes.This should be called from within a begin-commit-rollback
-	 *
+	 * <p>
 	 * block.
 	 *
 	 * @param statement
+	 * @throws java.io.IOException
 	 */
 	void removeStatement(Statement statement) throws IOException;
 

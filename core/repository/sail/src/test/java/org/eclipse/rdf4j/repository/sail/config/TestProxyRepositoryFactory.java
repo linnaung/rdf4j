@@ -1,18 +1,22 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.repository.sail.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.Assert.assertThrows;
 import static org.mockito.Mockito.mock;
 
 import java.io.IOException;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.model.Model;
 import org.eclipse.rdf4j.model.util.Models;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
@@ -23,7 +27,7 @@ import org.eclipse.rdf4j.repository.config.RepositoryImplConfig;
 import org.eclipse.rdf4j.repository.sail.ProxyRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.Rio;
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 public class TestProxyRepositoryFactory {
 
@@ -34,11 +38,11 @@ public class TestProxyRepositoryFactory {
 		assertThat(factory.getRepositoryType()).isEqualTo("openrdf:ProxyRepository");
 	}
 
-	@Test(expected = RepositoryConfigException.class)
+	@Test
 	public final void testGetConfig() throws RepositoryConfigException {
 		RepositoryImplConfig factoryConfig = factory.getConfig();
 		assertThat(factoryConfig).isInstanceOf(ProxyRepositoryConfig.class);
-		factoryConfig.validate();
+		assertThrows(RepositoryConfigException.class, () -> factoryConfig.validate());
 	}
 
 	@Test

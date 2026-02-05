@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.helpers;
 
@@ -11,8 +14,8 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 
-import org.eclipse.rdf4j.OpenRDFUtil;
 import org.eclipse.rdf4j.model.NamespaceAware;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
@@ -31,13 +34,13 @@ public class ContextStatementCollector extends AbstractRDFHandler {
 	 * Variables *
 	 *-----------*/
 
-	private Collection<Statement> statements;
+	private final Collection<Statement> statements;
 
-	private Map<String, String> namespaces;
+	private final Map<String, String> namespaces;
 
-	private Resource[] contexts;
+	private final Resource[] contexts;
 
-	private ValueFactory vf;
+	private final ValueFactory vf;
 
 	/*--------------*
 	 * Constructors *
@@ -56,7 +59,9 @@ public class ContextStatementCollector extends AbstractRDFHandler {
 	 * LinkedHashMap to store the reported namespaces.
 	 */
 	public ContextStatementCollector(Collection<Statement> statements, ValueFactory vf, Resource... contexts) {
-		OpenRDFUtil.verifyContextNotNull(contexts);
+		Objects.requireNonNull(contexts,
+				"contexts argument may not be null; either the value should be cast to Resource or an empty array should be supplied");
+
 		if (statements instanceof NamespaceAware) {
 			this.namespaces = Namespaces.wrap(((NamespaceAware) statements).getNamespaces());
 		} else {
@@ -72,7 +77,8 @@ public class ContextStatementCollector extends AbstractRDFHandler {
 	 */
 	public ContextStatementCollector(Collection<Statement> statements, Map<String, String> namespaces, ValueFactory vf,
 			Resource... contexts) {
-		OpenRDFUtil.verifyContextNotNull(contexts);
+		Objects.requireNonNull(contexts,
+				"contexts argument may not be null; either the value should be cast to Resource or an empty array should be supplied");
 		this.statements = statements;
 		this.namespaces = namespaces;
 		this.vf = vf;

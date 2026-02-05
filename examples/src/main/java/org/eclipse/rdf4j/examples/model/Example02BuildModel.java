@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2016 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.examples.model;
 
@@ -24,8 +27,7 @@ public class Example02BuildModel {
 
 		// Create a new RDF model containing two statements by using a ModelBuilder
 		ModelBuilder builder = new ModelBuilder();
-		Model model = builder
-				.setNamespace("ex", "http://example.org/")
+		Model model = builder.setNamespace("ex", "http://example.org/")
 				.subject("ex:Picasso")
 				.add(RDF.TYPE, "ex:Artist") // Picasso is an Artist
 				.add(FOAF.FIRST_NAME, "Pablo") // his first name is "Pablo"

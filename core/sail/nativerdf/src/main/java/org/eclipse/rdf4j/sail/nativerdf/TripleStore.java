@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf;
 
@@ -14,11 +17,16 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+import java.nio.ByteOrder;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -36,8 +44,8 @@ import org.slf4j.LoggerFactory;
 /**
  * File-based indexed storage and retrieval of RDF statements. TripleStore stores statements in the form of four integer
  * IDs. Each ID represent an RDF value that is stored in a {@link ValueStore}. The four IDs refer to the statement's
- * subject, predicate, object and context. The ID <tt>0</tt> is used to represent the "null" context and doesn't map to
- * an actual RDF value.
+ * subject, predicate, object and context. The ID <var>0</var> is used to represent the "null" context and doesn't map
+ * to an actual RDF value.
  *
  * @author Arjohn Kampman
  */
@@ -47,6 +55,10 @@ class TripleStore implements Closeable {
 	/*-----------*
 	 * Constants *
 	 *-----------*/
+
+	private static final int CHECK_MEMORY_PRESSURE_INTERVAL = isAssertionsEnabled() ? 3 : 1024;
+	private static final long MIN_FREE_MEMORY_BEFORE_OVERFLOW = isAssertionsEnabled() ? Long.MAX_VALUE
+			: 1024 * 1024 * 128;
 
 	/**
 	 * The default triple indexes.
@@ -67,6 +79,12 @@ class TripleStore implements Closeable {
 	 * The key used to store the triple indexes specification that specifies which triple indexes exist.
 	 */
 	private static final String INDEXES_KEY = "triple-indexes";
+
+	/**
+	 * System property that enables the experimental {@link MemoryMappedTxnStatusFile} implementation instead of the
+	 * default {@link TxnStatusFile}.
+	 */
+	private static final String MEMORY_MAPPED_TXN_STATUS_FILE_ENABLED_PROP = "org.eclipse.rdf4j.sail.nativerdf.MemoryMappedTxnStatusFile.enabled";
 
 	/**
 	 * The version number for the current triple store.
@@ -143,7 +161,7 @@ class TripleStore implements Closeable {
 
 	private final TxnStatusFile txnStatusFile;
 
-	private volatile RecordCache updatedTriplesCache;
+	private volatile SortedRecordCache updatedTriplesCache;
 
 	/*--------------*
 	 * Constructors *
@@ -156,7 +174,7 @@ class TripleStore implements Closeable {
 	public TripleStore(File dir, String indexSpecStr, boolean forceSync) throws IOException, SailException {
 		this.dir = dir;
 		this.forceSync = forceSync;
-		this.txnStatusFile = new TxnStatusFile(dir);
+		this.txnStatusFile = createTxnStatusFile(dir);
 
 		File propFile = new File(dir, PROPERTIES_FILE);
 
@@ -209,6 +227,13 @@ class TripleStore implements Closeable {
 			properties.setProperty(INDEXES_KEY, indexSpecStr);
 			storeProperties(propFile);
 		}
+	}
+
+	private static TxnStatusFile createTxnStatusFile(File dir) throws IOException {
+		if (Boolean.getBoolean(MEMORY_MAPPED_TXN_STATUS_FILE_ENABLED_PROP)) {
+			return new MemoryMappedTxnStatusFile(dir);
+		}
+		return new TxnStatusFile(dir);
 	}
 
 	/*---------*
@@ -279,9 +304,71 @@ class TripleStore implements Closeable {
 	}
 
 	private void initIndexes(Set<String> indexSpecs) throws IOException {
+
+		HashSet<String> invalidIndexes = new HashSet<>();
+
 		for (String fieldSeq : indexSpecs) {
 			logger.trace("Initializing index '{}'...", fieldSeq);
-			indexes.add(new TripleIndex(fieldSeq));
+			try {
+				indexes.add(new TripleIndex(fieldSeq, false));
+			} catch (Exception e) {
+				if (NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+					invalidIndexes.add(fieldSeq);
+					logger.warn("Ignoring index because it failed to initialize index '{}'", fieldSeq, e);
+				} else {
+					logger.error(
+							"Failed to initialize index '{}', consider setting org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes to true.",
+							fieldSeq, e);
+					throw e;
+				}
+
+			}
+
+		}
+
+		if (NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+			indexSpecs.removeAll(invalidIndexes);
+		}
+
+		List<TripleIndex> emptyIndexes = new ArrayList<>();
+		List<TripleIndex> nonEmptyIndexes = new ArrayList<>();
+
+		checkIfIndexesAreEmptyOrNot(nonEmptyIndexes, emptyIndexes);
+
+		if (!emptyIndexes.isEmpty() && !nonEmptyIndexes.isEmpty()) {
+			if (NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+				indexes.removeAll(emptyIndexes);
+			} else {
+				for (TripleIndex index : emptyIndexes) {
+					throw new IOException("Index '" + new String(index.getFieldSeq())
+							+ "' is unexpectedly empty while other indexes are not. Consider setting the system property org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes to true. Index file: "
+							+ index.getBTree().getFile().getAbsolutePath());
+				}
+			}
+		}
+
+	}
+
+	private void checkIfIndexesAreEmptyOrNot(List<TripleIndex> nonEmptyIndexes, List<TripleIndex> emptyIndexes)
+			throws IOException {
+		for (TripleIndex index : indexes) {
+			try (RecordIterator recordIterator = index.getBTree().iterateAll()) {
+				try {
+					byte[] next = recordIterator.next();
+					if (next != null) {
+						next = recordIterator.next();
+						if (next != null) {
+							nonEmptyIndexes.add(index);
+						} else {
+							emptyIndexes.add(index);
+						}
+					} else {
+						emptyIndexes.add(index);
+					}
+				} catch (Throwable ignored) {
+					emptyIndexes.add(index);
+				}
+			}
 		}
 	}
 
@@ -347,13 +434,13 @@ class TripleStore implements Closeable {
 			for (String fieldSeq : addedIndexSpecs) {
 				logger.debug("Initializing new index '{}'...", fieldSeq);
 
-				TripleIndex addedIndex = new TripleIndex(fieldSeq);
+				TripleIndex addedIndex = new TripleIndex(fieldSeq, true);
 				BTree addedBTree = null;
 				RecordIterator sourceIter = null;
 				try {
 					addedBTree = addedIndex.getBTree();
 					sourceIter = sourceIndex.getBTree().iterateAll();
-					byte[] value = null;
+					byte[] value;
 					while ((value = sourceIter.next()) != null) {
 						addedBTree.insert(value);
 					}
@@ -437,13 +524,12 @@ class TripleStore implements Closeable {
 		}
 	}
 
-	public RecordIterator getTriples(int subj, int pred, int obj, int context) throws IOException {
+	public RecordIterator getTriples(int subj, int pred, int obj, int context) {
 		// Return all triples except those that were added but not yet committed
 		return getTriples(subj, pred, obj, context, 0, ADDED_FLAG);
 	}
 
-	public RecordIterator getTriples(int subj, int pred, int obj, int context, boolean readTransaction)
-			throws IOException {
+	public RecordIterator getTriples(int subj, int pred, int obj, int context, boolean readTransaction) {
 		if (readTransaction) {
 			// Don't read removed statements
 			return getTriples(subj, pred, obj, context, 0, TripleStore.REMOVED_FLAG);
@@ -458,9 +544,8 @@ class TripleStore implements Closeable {
 	 *
 	 * @param readTransaction
 	 * @return All triples sorted by context or null if no context index exists
-	 * @throws IOException
 	 */
-	public RecordIterator getAllTriplesSortedByContext(boolean readTransaction) throws IOException {
+	public RecordIterator getAllTriplesSortedByContext(boolean readTransaction) {
 		if (readTransaction) {
 			// Don't read removed statements
 			return getAllTriplesSortedByContext(0, TripleStore.REMOVED_FLAG);
@@ -471,7 +556,7 @@ class TripleStore implements Closeable {
 	}
 
 	public RecordIterator getTriples(int subj, int pred, int obj, int context, boolean explicit,
-			boolean readTransaction) throws IOException {
+			boolean readTransaction) {
 		int flags = 0;
 		int flagsMask = 0;
 
@@ -498,6 +583,10 @@ class TripleStore implements Closeable {
 		}
 
 		return btreeIter;
+	}
+
+	public void disableTxnStatus() {
+		txnStatusFile.disable();
 	}
 
 	/*-------------------------------------*
@@ -578,14 +667,13 @@ class TripleStore implements Closeable {
 		}
 	} // end inner class ImplicitStatementFilter
 
-	private RecordIterator getTriples(int subj, int pred, int obj, int context, int flags, int flagsMask)
-			throws IOException {
+	private RecordIterator getTriples(int subj, int pred, int obj, int context, int flags, int flagsMask) {
 		TripleIndex index = getBestIndex(subj, pred, obj, context);
 		boolean doRangeSearch = index.getPatternScore(subj, pred, obj, context) > 0;
 		return getTriplesUsingIndex(subj, pred, obj, context, flags, flagsMask, index, doRangeSearch);
 	}
 
-	private RecordIterator getAllTriplesSortedByContext(int flags, int flagsMask) throws IOException {
+	private RecordIterator getAllTriplesSortedByContext(int flags, int flagsMask) {
 		for (TripleIndex index : indexes) {
 			if (index.getFieldSeq()[0] == 'c') {
 				// found a context-first index
@@ -656,7 +744,7 @@ class TripleStore implements Closeable {
 	}
 
 	public boolean storeTriple(int subj, int pred, int obj, int context, boolean explicit) throws IOException {
-		boolean stAdded = false;
+		boolean stAdded;
 
 		byte[] data = getData(subj, pred, obj, context, 0);
 		byte[] storedData = indexes.get(0).getBTree().get(data);
@@ -726,18 +814,15 @@ class TripleStore implements Closeable {
 	/**
 	 * Remove triples
 	 *
-	 * @param subj     The subject for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param pred     The predicate for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param obj      The object for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param context  The context for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <tt>true</tt> removes
-	 *                 explicit statements that match the pattern, <tt>false</tt> removes inferred statements that match
-	 *                 the pattern.
+	 * @param subj    The subject for the pattern, or <var>-1</var> for a wildcard.
+	 * @param pred    The predicate for the pattern, or <var>-1</var> for a wildcard.
+	 * @param obj     The object for the pattern, or <var>-1</var> for a wildcard.
+	 * @param context The context for the pattern, or <var>-1</var> for a wildcard.
 	 * @return The number of triples that were removed.
 	 * @throws IOException
-	 * @deprecated since 2.5.3. use {@link #removeTriplesByContext(int, int, int, int)} instead.
+	 * @deprecated Use {@link #removeTriplesByContext(int, int, int, int)} instead.
 	 */
-	@Deprecated
+	@Deprecated(since = "2.5.3")
 	public int removeTriples(int subj, int pred, int obj, int context) throws IOException {
 		Map<Integer, Long> countPerContext = removeTriplesByContext(subj, pred, obj, context);
 		return (int) countPerContext.values().stream().mapToLong(Long::longValue).sum();
@@ -746,13 +831,10 @@ class TripleStore implements Closeable {
 	/**
 	 * Remove triples by context
 	 *
-	 * @param subj     The subject for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param pred     The predicate for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param obj      The object for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param context  The context for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <tt>true</tt> removes
-	 *                 explicit statements that match the pattern, <tt>false</tt> removes inferred statements that match
-	 *                 the pattern.
+	 * @param subj    The subject for the pattern, or <var>-1</var> for a wildcard.
+	 * @param pred    The predicate for the pattern, or <var>-1</var> for a wildcard.
+	 * @param obj     The object for the pattern, or <var>-1</var> for a wildcard.
+	 * @param context The context for the pattern, or <var>-1</var> for a wildcard.
 	 * @return A mapping of each modified context to the number of statements removed in that context.
 	 * @throws IOException
 	 * @since 2.5.3
@@ -765,64 +847,76 @@ class TripleStore implements Closeable {
 	/**
 	 * Remove triples
 	 *
-	 * @param subj     The subject for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param pred     The predicate for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param obj      The object for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param context  The context for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <tt>true</tt> removes
-	 *                 explicit statements that match the pattern, <tt>false</tt> removes inferred statements that match
-	 *                 the pattern.
+	 * @param subj     The subject for the pattern, or <var>-1</var> for a wildcard.
+	 * @param pred     The predicate for the pattern, or <var>-1</var> for a wildcard.
+	 * @param obj      The object for the pattern, or <var>-1</var> for a wildcard.
+	 * @param context  The context for the pattern, or <var>-1</var> for a wildcard.
+	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <var>true</var>
+	 *                 removes explicit statements that match the pattern, <var>false</var> removes inferred statements
+	 *                 that match the pattern.
 	 * @return The number of triples that were removed.
 	 * @throws IOException
 	 * @deprecated since 2.5.3. use {@link #removeTriplesByContext(int, int, int, int, boolean)} instead.
 	 */
-	@Deprecated
+	@Deprecated(since = "2.5.3")
 	public int removeTriples(int subj, int pred, int obj, int context, boolean explicit) throws IOException {
 		Map<Integer, Long> countPerContext = removeTriplesByContext(subj, pred, obj, context, explicit);
 		return (int) countPerContext.values().stream().mapToLong(Long::longValue).sum();
 	}
 
 	/**
-	 * @param subj     The subject for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param pred     The predicate for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param obj      The object for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param context  The context for the pattern, or <tt>-1</tt> for a wildcard.
-	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <tt>true</tt> removes
-	 *                 explicit statements that match the pattern, <tt>false</tt> removes inferred statements that match
-	 *                 the pattern.
+	 * @param subj     The subject for the pattern, or <var>-1</var> for a wildcard.
+	 * @param pred     The predicate for the pattern, or <var>-1</var> for a wildcard.
+	 * @param obj      The object for the pattern, or <var>-1</var> for a wildcard.
+	 * @param context  The context for the pattern, or <var>-1</var> for a wildcard.
+	 * @param explicit Flag indicating whether explicit or inferred statements should be removed; <var>true</var>
+	 *                 removes explicit statements that match the pattern, <var>false</var> removes inferred statements
+	 *                 that match the pattern.
 	 * @return A mapping of each modified context to the number of statements removed in that context.
 	 * @throws IOException
 	 */
 	public Map<Integer, Long> removeTriplesByContext(int subj, int pred, int obj, int context, boolean explicit)
 			throws IOException {
 		byte flags = explicit ? EXPLICIT_FLAG : 0;
-		RecordIterator iter = getTriples(subj, pred, obj, context, flags, EXPLICIT_FLAG);
-		return removeTriples(iter);
+		try (RecordIterator iter = getTriples(subj, pred, obj, context, flags, EXPLICIT_FLAG)) {
+			return removeTriples(iter);
+		}
 	}
 
 	private Map<Integer, Long> removeTriples(RecordIterator iter) throws IOException {
-		final Map<Integer, Long> perContextCounts = new HashMap<>();
 
 		byte[] data = iter.next();
 		if (data == null) {
 			// no triples to remove
-			return perContextCounts;
+			return Collections.emptyMap();
 		}
+
+		final HashMap<Integer, Long> perContextCounts = new HashMap<>();
 
 		// Store the values that need to be removed in a tmp file and then
 		// iterate over this file to set the REMOVED flag
-		RecordCache removedTriplesCache = new SequentialRecordCache(dir, RECORD_LENGTH);
+		RecordCache removedTriplesCache = new InMemRecordCache();
 		try {
-			while (data != null) {
-				if ((data[FLAG_IDX] & REMOVED_FLAG) == 0) {
-					data[FLAG_IDX] |= REMOVED_FLAG;
-					removedTriplesCache.storeRecord(data);
-					int context = ByteArrayUtil.getInt(data, CONTEXT_IDX);
-					perContextCounts.merge(context, 1L, (c, one) -> c + one);
+			try (iter) {
+				while (data != null) {
+					if ((data[FLAG_IDX] & REMOVED_FLAG) == 0) {
+						data[FLAG_IDX] |= REMOVED_FLAG;
+						removedTriplesCache.storeRecord(data);
+						int context = ByteArrayUtil.getInt(data, CONTEXT_IDX);
+						perContextCounts.merge(context, 1L, Long::sum);
+					}
+					data = iter.next();
+
+					if (shouldOverflowToDisk(removedTriplesCache)) {
+						logger.debug("Overflowing RecordCache to disk due to low free mem.");
+						assert removedTriplesCache instanceof InMemRecordCache;
+						InMemRecordCache old = (InMemRecordCache) removedTriplesCache;
+						removedTriplesCache = new SequentialRecordCache(dir, RECORD_LENGTH);
+						removedTriplesCache.storeRecords(old);
+						old.clear();
+					}
 				}
-				data = iter.next();
 			}
-			iter.close();
 
 			updatedTriplesCache.storeRecords(removedTriplesCache);
 
@@ -843,8 +937,23 @@ class TripleStore implements Closeable {
 		return perContextCounts;
 	}
 
+	private boolean shouldOverflowToDisk(RecordCache removedTriplesCache) {
+		if (removedTriplesCache instanceof InMemRecordCache
+				&& removedTriplesCache.getRecordCount() % CHECK_MEMORY_PRESSURE_INTERVAL == 0) {
+			Runtime runtime = Runtime.getRuntime();
+			long allocatedMemory = runtime.totalMemory() - runtime.freeMemory();
+			long presumableFreeMemory = runtime.maxMemory() - allocatedMemory;
+
+			logger.trace("Free memory {} MB and required free memory {} MB", presumableFreeMemory / 1024 / 1024,
+					MIN_FREE_MEMORY_BEFORE_OVERFLOW / 1024 / 1024);
+			return presumableFreeMemory < MIN_FREE_MEMORY_BEFORE_OVERFLOW;
+		}
+
+		return false;
+	}
+
 	public void startTransaction() throws IOException {
-		txnStatusFile.setTxnStatus(TxnStatus.ACTIVE);
+		txnStatusFile.setTxnStatus(TxnStatus.ACTIVE, forceSync);
 
 		// Create a record cache for storing updated triples with a maximum of
 		// some 10% of the number of triples
@@ -859,7 +968,7 @@ class TripleStore implements Closeable {
 	}
 
 	public void commit() throws IOException {
-		txnStatusFile.setTxnStatus(TxnStatus.COMMITTING);
+		txnStatusFile.setTxnStatus(TxnStatus.COMMITTING, forceSync);
 
 		// updatedTriplesCache will be null when recovering from a crashed commit
 		boolean validCache = updatedTriplesCache != null && updatedTriplesCache.isValid();
@@ -914,7 +1023,7 @@ class TripleStore implements Closeable {
 
 		sync();
 
-		txnStatusFile.setTxnStatus(TxnStatus.NONE);
+		txnStatusFile.setTxnStatus(TxnStatus.NONE, forceSync);
 		// checkAllCommitted();
 	}
 
@@ -937,7 +1046,7 @@ class TripleStore implements Closeable {
 	}
 
 	public void rollback() throws IOException {
-		txnStatusFile.setTxnStatus(TxnStatus.ROLLING_BACK);
+		txnStatusFile.setTxnStatus(TxnStatus.ROLLING_BACK, forceSync);
 
 		// updatedTriplesCache will be null when recovering from a crash
 		boolean validCache = updatedTriplesCache != null && updatedTriplesCache.isValid();
@@ -957,7 +1066,7 @@ class TripleStore implements Closeable {
 			}
 
 			try {
-				byte[] data = null;
+				byte[] data;
 				while ((data = iter.next()) != null) {
 					byte flags = data[FLAG_IDX];
 					boolean wasAdded = (flags & ADDED_FLAG) != 0;
@@ -991,7 +1100,7 @@ class TripleStore implements Closeable {
 
 		sync();
 
-		txnStatusFile.setTxnStatus(TxnStatus.NONE);
+		txnStatusFile.setTxnStatus(TxnStatus.NONE, forceSync);
 	}
 
 	protected void sync() throws IOException {
@@ -1092,9 +1201,20 @@ class TripleStore implements Closeable {
 
 		private final BTree btree;
 
-		public TripleIndex(String fieldSeq) throws IOException {
+		public TripleIndex(String fieldSeq, boolean deleteExistingIndexFile) throws IOException {
+			if (deleteExistingIndexFile) {
+				File indexFile = new File(dir, getFilenamePrefix(fieldSeq) + ".dat");
+				if (indexFile.exists()) {
+					indexFile.delete();
+				}
+				File alloxFile = new File(dir, getFilenamePrefix(fieldSeq) + ".alloc");
+				if (alloxFile.exists()) {
+					alloxFile.delete();
+				}
+			}
 			tripleComparator = new TripleComparator(fieldSeq);
-			btree = new BTree(dir, getFilenamePrefix(fieldSeq), 2048, RECORD_LENGTH, tripleComparator, forceSync);
+			btree = new BTree(dir, getFilenamePrefix(fieldSeq), 2048, RECORD_LENGTH, tripleComparator.compareStrategy,
+					forceSync);
 		}
 
 		private String getFilenamePrefix(String fieldSeq) {
@@ -1173,9 +1293,92 @@ class TripleStore implements Closeable {
 	private static class TripleComparator implements RecordComparator {
 
 		private final char[] fieldSeq;
+		private final RecordComparator compareStrategy;
 
 		public TripleComparator(String fieldSeq) {
-			this.fieldSeq = fieldSeq.toCharArray();
+			String normalized = normalizeFieldSequence(fieldSeq);
+			this.fieldSeq = normalized.toCharArray();
+			this.compareStrategy = getComparator(normalized);
+		}
+
+		private static final RecordComparator compareSPOC = TripleComparator::compareSPOC;
+		private static final RecordComparator compareSPCO = TripleComparator::compareSPCO;
+		private static final RecordComparator compareSOPC = TripleComparator::compareSOPC;
+		private static final RecordComparator compareSOCP = TripleComparator::compareSOCP;
+		private static final RecordComparator compareSCPO = TripleComparator::compareSCPO;
+		private static final RecordComparator compareSCOP = TripleComparator::compareSCOP;
+		private static final RecordComparator comparePSOC = TripleComparator::comparePSOC;
+		private static final RecordComparator comparePSCO = TripleComparator::comparePSCO;
+		private static final RecordComparator comparePOSC = TripleComparator::comparePOSC;
+		private static final RecordComparator comparePOCS = TripleComparator::comparePOCS;
+		private static final RecordComparator comparePCSO = TripleComparator::comparePCSO;
+		private static final RecordComparator comparePCOS = TripleComparator::comparePCOS;
+		private static final RecordComparator compareOSPC = TripleComparator::compareOSPC;
+		private static final RecordComparator compareOSCP = TripleComparator::compareOSCP;
+		private static final RecordComparator compareOPSC = TripleComparator::compareOPSC;
+		private static final RecordComparator compareOPCS = TripleComparator::compareOPCS;
+		private static final RecordComparator compareOCSP = TripleComparator::compareOCSP;
+		private static final RecordComparator compareOCPS = TripleComparator::compareOCPS;
+		private static final RecordComparator compareCSPO = TripleComparator::compareCSPO;
+		private static final RecordComparator compareCSOP = TripleComparator::compareCSOP;
+		private static final RecordComparator compareCPSO = TripleComparator::compareCPSO;
+		private static final RecordComparator compareCPOS = TripleComparator::compareCPOS;
+		private static final RecordComparator compareCOSP = TripleComparator::compareCOSP;
+		private static final RecordComparator compareCOPS = TripleComparator::compareCOPS;
+
+		private static RecordComparator getComparator(String order) {
+			switch (order) {
+			case "spoc":
+				return compareSPOC;
+			case "spco":
+				return compareSPCO;
+			case "sopc":
+				return compareSOPC;
+			case "socp":
+				return compareSOCP;
+			case "scpo":
+				return compareSCPO;
+			case "scop":
+				return compareSCOP;
+			case "psoc":
+				return comparePSOC;
+			case "psco":
+				return comparePSCO;
+			case "posc":
+				return comparePOSC;
+			case "pocs":
+				return comparePOCS;
+			case "pcso":
+				return comparePCSO;
+			case "pcos":
+				return comparePCOS;
+			case "ospc":
+				return compareOSPC;
+			case "oscp":
+				return compareOSCP;
+			case "opsc":
+				return compareOPSC;
+			case "opcs":
+				return compareOPCS;
+			case "ocsp":
+				return compareOCSP;
+			case "ocps":
+				return compareOCPS;
+			case "cspo":
+				return compareCSPO;
+			case "csop":
+				return compareCSOP;
+			case "cpso":
+				return compareCPSO;
+			case "cpos":
+				return compareCPOS;
+			case "cosp":
+				return compareCOSP;
+			case "cops":
+				return compareCOPS;
+			default:
+				throw new IllegalArgumentException("Unknown field order: " + order);
+			}
 		}
 
 		public char[] getFieldSeq() {
@@ -1184,35 +1387,194 @@ class TripleStore implements Closeable {
 
 		@Override
 		public final int compareBTreeValues(byte[] key, byte[] data, int offset, int length) {
-			for (char field : fieldSeq) {
-				int fieldIdx = 0;
+			return compareStrategy.compareBTreeValues(key, data, offset, length);
+		}
 
-				switch (field) {
-				case 's':
-					fieldIdx = SUBJ_IDX;
-					break;
-				case 'p':
-					fieldIdx = PRED_IDX;
-					break;
-				case 'o':
-					fieldIdx = OBJ_IDX;
-					break;
-				case 'c':
-					fieldIdx = CONTEXT_IDX;
-					break;
-				default:
-					throw new IllegalArgumentException(
-							"invalid character '" + field + "' in field sequence: " + new String(fieldSeq));
-				}
-
-				int diff = ByteArrayUtil.compareRegion(key, fieldIdx, data, offset + fieldIdx, 4);
-
-				if (diff != 0) {
-					return diff;
-				}
+		private static String normalizeFieldSequence(String fieldSeq) {
+			if (fieldSeq == null) {
+				throw new IllegalArgumentException("Field sequence must not be null");
 			}
+			String normalized = fieldSeq.trim().toLowerCase(Locale.ROOT);
+			if (normalized.length() != 4) {
+				throw new IllegalArgumentException(
+						"Field sequence '" + fieldSeq + "' must be four characters long (permutation of 'spoc').");
+			}
+			return normalized;
+		}
+
+		private static int compareSPOC(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, SUBJ_IDX, PRED_IDX, OBJ_IDX, CONTEXT_IDX);
+		}
+
+		private static int compareSPCO(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, SUBJ_IDX, PRED_IDX, CONTEXT_IDX, OBJ_IDX);
+		}
+
+		private static int compareSOPC(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, SUBJ_IDX, OBJ_IDX, PRED_IDX, CONTEXT_IDX);
+		}
+
+		private static int compareSOCP(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, SUBJ_IDX, OBJ_IDX, CONTEXT_IDX, PRED_IDX);
+		}
+
+		private static int compareSCPO(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, SUBJ_IDX, CONTEXT_IDX, PRED_IDX, OBJ_IDX);
+		}
+
+		private static int compareSCOP(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, SUBJ_IDX, CONTEXT_IDX, OBJ_IDX, PRED_IDX);
+		}
+
+		private static int comparePSOC(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, PRED_IDX, SUBJ_IDX, OBJ_IDX, CONTEXT_IDX);
+		}
+
+		private static int comparePSCO(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, PRED_IDX, SUBJ_IDX, CONTEXT_IDX, OBJ_IDX);
+		}
+
+		private static int comparePOSC(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, PRED_IDX, OBJ_IDX, SUBJ_IDX, CONTEXT_IDX);
+		}
+
+		private static int comparePOCS(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, PRED_IDX, OBJ_IDX, CONTEXT_IDX, SUBJ_IDX);
+		}
+
+		private static int comparePCSO(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, PRED_IDX, CONTEXT_IDX, SUBJ_IDX, OBJ_IDX);
+		}
+
+		private static int comparePCOS(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, PRED_IDX, CONTEXT_IDX, OBJ_IDX, SUBJ_IDX);
+		}
+
+		private static int compareOSPC(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, OBJ_IDX, SUBJ_IDX, PRED_IDX, CONTEXT_IDX);
+		}
+
+		private static int compareOSCP(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, OBJ_IDX, SUBJ_IDX, CONTEXT_IDX, PRED_IDX);
+		}
+
+		private static int compareOPSC(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, OBJ_IDX, PRED_IDX, SUBJ_IDX, CONTEXT_IDX);
+		}
+
+		private static int compareOPCS(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, OBJ_IDX, PRED_IDX, CONTEXT_IDX, SUBJ_IDX);
+		}
+
+		private static int compareOCSP(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, OBJ_IDX, CONTEXT_IDX, SUBJ_IDX, PRED_IDX);
+		}
+
+		private static int compareOCPS(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, OBJ_IDX, CONTEXT_IDX, PRED_IDX, SUBJ_IDX);
+		}
+
+		private static int compareCSPO(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, CONTEXT_IDX, SUBJ_IDX, PRED_IDX, OBJ_IDX);
+		}
+
+		private static int compareCSOP(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, CONTEXT_IDX, SUBJ_IDX, OBJ_IDX, PRED_IDX);
+		}
+
+		private static int compareCPSO(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, CONTEXT_IDX, PRED_IDX, SUBJ_IDX, OBJ_IDX);
+		}
+
+		private static int compareCPOS(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, CONTEXT_IDX, PRED_IDX, OBJ_IDX, SUBJ_IDX);
+		}
+
+		private static int compareCOSP(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, CONTEXT_IDX, OBJ_IDX, SUBJ_IDX, PRED_IDX);
+		}
+
+		private static int compareCOPS(byte[] key, byte[] data, int offset, int length) {
+			return compareFields(key, data, offset, CONTEXT_IDX, OBJ_IDX, PRED_IDX, SUBJ_IDX);
+		}
+
+		/**
+		 * Lexicographically compares four 4-byte fields drawn from 'key' and 'data' at indices (first, second, third,
+		 * fourth), where the data side is offset by 'offset'. Bytes are treated as unsigned, and the return value is
+		 * the (unsigned) difference of the first mismatching bytes, or 0 if all four fields are equal.
+		 */
+		static int compareFields(byte[] key, byte[] data, int offset,
+				int first, int second, int third, int fourth) {
+
+			// Field 1
+			int a = (int) INT_BE.get(key, first);
+			int b = (int) INT_BE.get(data, offset + first);
+			int x = a ^ b;
+			if (x != 0)
+				return diffFromXorInt(a, b, x);
+
+			// Field 2
+			a = (int) INT_BE.get(key, second);
+			b = (int) INT_BE.get(data, offset + second);
+			x = a ^ b;
+			if (x != 0)
+				return diffFromXorInt(a, b, x);
+
+			// Field 3
+			a = (int) INT_BE.get(key, third);
+			b = (int) INT_BE.get(data, offset + third);
+			x = a ^ b;
+			if (x != 0)
+				return diffFromXorInt(a, b, x);
+
+			// Field 4
+			a = (int) INT_BE.get(key, fourth);
+			b = (int) INT_BE.get(data, offset + fourth);
+			x = a ^ b;
+			if (x != 0)
+				return diffFromXorInt(a, b, x);
 
 			return 0;
+		}
+
+		/**
+		 * Given two big-endian-packed ints and their XOR (non-zero), return the (unsigned) difference of the first
+		 * mismatching bytes.
+		 *
+		 * Trick: the first differing byte’s position is the number of leading zeros of x, rounded down to a multiple of
+		 * 8. Left-shift both ints by that many bits so the mismatching byte moves into the top byte, then extract it.
+		 */
+		private static int diffFromXorInt(int a, int b, int x) {
+			int n = Integer.numberOfLeadingZeros(x) & ~7; // 0,8,16,24
+			return ((a << n) >>> 24) - ((b << n) >>> 24);
+		}
+
+		private static final VarHandle INT_BE = MethodHandles.byteArrayViewVarHandle(int[].class, ByteOrder.BIG_ENDIAN);
+
+		public static int compareFieldLength4(byte[] key, byte[] data, int offset, int fieldIdx) {
+			final int a = (int) INT_BE.get(key, fieldIdx);
+			final int b = (int) INT_BE.get(data, offset + fieldIdx);
+
+			final int x = a ^ b; // mask of differing bits
+			if (x == 0)
+				return 0; // all 4 bytes equal
+
+			// Find the first differing *byte* from the left (k .. k+3).
+			// With a big‑endian view, the first byte lives in bits 31..24, etc.
+			final int byteIndex = Integer.numberOfLeadingZeros(x) >>> 3; // 0..3 equal-leading-byte count
+			final int shift = 24 - (byteIndex << 3);
+
+			// Extract that byte from each int (as unsigned) and return their difference.
+			return ((a >>> shift) & 0xFF) - ((b >>> shift) & 0xFF);
+		}
+	}
+
+	private static boolean isAssertionsEnabled() {
+		try {
+			assert false;
+			return false;
+		} catch (AssertionError ignored) {
+			return true;
 		}
 	}
 }

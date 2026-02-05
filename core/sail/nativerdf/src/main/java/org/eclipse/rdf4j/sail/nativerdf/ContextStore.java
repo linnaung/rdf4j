@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf;
 
@@ -29,7 +32,6 @@ import org.eclipse.rdf4j.common.iteration.CloseableIteration;
 import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.ValueFactory;
-import org.eclipse.rdf4j.sail.SailException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -43,7 +45,7 @@ import org.slf4j.LoggerFactory;
  *  byte 4           : the file format version
  *  byte 5-8         : the number of mapped contexts contained in the file, as an int.
  * </pre>
- *
+ * <p>
  * Each context is encoded in the file as a record, as follows:
  *
  * <pre>
@@ -54,7 +56,6 @@ import org.slf4j.LoggerFactory;
  * </pre>
  *
  * @author Jeen Broekstra
- *
  */
 class ContextStore implements Iterable<Resource> {
 
@@ -176,7 +177,7 @@ class ContextStore implements Iterable<Resource> {
 
 	private void initializeContextCache() throws IOException {
 		logger.debug("initializing context cache");
-		try (CloseableIteration<Resource, SailException> contextIter = store.getContexts()) {
+		try (CloseableIteration<Resource> contextIter = store.getContexts()) {
 			while (contextIter.hasNext()) {
 				increment(contextIter.next());
 			}

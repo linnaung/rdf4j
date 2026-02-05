@@ -1,19 +1,25 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.memory.model;
 
+import java.lang.ref.SoftReference;
+
 import org.eclipse.rdf4j.model.IRI;
+import org.eclipse.rdf4j.model.Value;
 
 /**
  * A MemoryStore-specific implementation of URI that stores separated namespace and local name information to enable
  * reuse of namespace String objects (reducing memory usage) and that gives it node properties.
  */
-public class MemIRI implements IRI, MemResource {
+public class MemIRI extends MemResource implements IRI {
 
 	private static final long serialVersionUID = 9118488004995852467L;
 
@@ -39,27 +45,17 @@ public class MemIRI implements IRI, MemResource {
 	/**
 	 * The MemURI's hash code, 0 if not yet initialized.
 	 */
-	private int hashCode = 0;
-
-	/**
-	 * The list of statements for which this MemURI is the subject.
-	 */
-	transient private volatile MemStatementList subjectStatements = null;
+	private volatile int hashCode = 0;
 
 	/**
 	 * The list of statements for which this MemURI is the predicate.
 	 */
-	transient private volatile MemStatementList predicateStatements = null;
+	transient private final MemStatementList predicateStatements = new MemStatementList();
 
 	/**
 	 * The list of statements for which this MemURI is the object.
 	 */
-	transient private volatile MemStatementList objectStatements = null;
-
-	/**
-	 * The list of statements for which this MemURI represents the context.
-	 */
-	transient private volatile MemStatementList contextStatements = null;
+	transient private final MemStatementList objectStatements = new MemStatementList();
 
 	/*--------------*
 	 * Constructors *
@@ -82,9 +78,22 @@ public class MemIRI implements IRI, MemResource {
 	 * Methods *
 	 *---------*/
 
+	transient SoftReference<String> toStringCache = null;
+
 	@Override
 	public String toString() {
-		return namespace + localName;
+		String result;
+		if (toStringCache == null) {
+			result = namespace + localName;
+			toStringCache = new SoftReference<>(result);
+		} else {
+			result = toStringCache.get();
+			if (result == null) {
+				result = namespace + localName;
+				toStringCache = new SoftReference<>(result);
+			}
+		}
+		return result;
 	}
 
 	@Override
@@ -103,19 +112,44 @@ public class MemIRI implements IRI, MemResource {
 	}
 
 	@Override
-	public boolean equals(Object other) {
-		if (this == other) {
+	public boolean equals(Object o) {
+		if (this == o) {
 			return true;
 		}
 
-		if (other instanceof MemIRI) {
-			MemIRI o = (MemIRI) other;
-			return namespace.equals(o.getNamespace()) && localName.equals(o.getLocalName());
-		} else if (other instanceof IRI) {
-			String otherStr = other.toString();
+		if (o == null) {
+			return false;
+		}
 
-			return namespace.length() + localName.length() == otherStr.length() && otherStr.endsWith(localName)
-					&& otherStr.startsWith(namespace);
+		if (o.getClass() == MemIRI.class) {
+			MemIRI oMemIRI = (MemIRI) o;
+			if (oMemIRI.creator == creator) {
+				// two different MemIRI from the same MemoryStore can not be equal.
+				return false;
+			}
+			return namespace.length() == oMemIRI.namespace.length() &&
+					localName.length() == oMemIRI.localName.length() &&
+					namespace.equals(oMemIRI.namespace) &&
+					localName.equals(oMemIRI.localName);
+
+		}
+
+		if (o instanceof Value) {
+			Value oValue = (Value) o;
+			if (oValue.isIRI()) {
+				String oStr = oValue.stringValue();
+
+				if (toStringCache != null) {
+					String stringValue = toStringCache.get();
+					if (stringValue != null) {
+						return stringValue.equals(oStr);
+					}
+				}
+
+				return namespace.length() + localName.length() == oStr.length() &&
+						oStr.endsWith(localName) &&
+						oStr.startsWith(namespace);
+			}
 		}
 
 		return false;
@@ -124,7 +158,7 @@ public class MemIRI implements IRI, MemResource {
 	@Override
 	public int hashCode() {
 		if (hashCode == 0) {
-			hashCode = toString().hashCode();
+			hashCode = stringValue().hashCode();
 		}
 
 		return hashCode;
@@ -137,55 +171,8 @@ public class MemIRI implements IRI, MemResource {
 
 	@Override
 	public boolean hasStatements() {
-		return subjectStatements != null || predicateStatements != null || objectStatements != null
-				|| contextStatements != null;
-	}
-
-	@Override
-	public MemStatementList getSubjectStatementList() {
-		if (subjectStatements == null) {
-			return EMPTY_LIST;
-		} else {
-			return subjectStatements;
-		}
-	}
-
-	@Override
-	public int getSubjectStatementCount() {
-		if (subjectStatements == null) {
-			return 0;
-		} else {
-			return subjectStatements.size();
-		}
-	}
-
-	@Override
-	public void addSubjectStatement(MemStatement st) {
-		if (subjectStatements == null) {
-			subjectStatements = new MemStatementList(4);
-		}
-
-		subjectStatements.add(st);
-	}
-
-	@Override
-	public void removeSubjectStatement(MemStatement st) {
-		subjectStatements.remove(st);
-
-		if (subjectStatements.isEmpty()) {
-			subjectStatements = null;
-		}
-	}
-
-	@Override
-	public void cleanSnapshotsFromSubjectStatements(int currentSnapshot) {
-		if (subjectStatements != null) {
-			subjectStatements.cleanSnapshots(currentSnapshot);
-
-			if (subjectStatements.isEmpty()) {
-				subjectStatements = null;
-			}
-		}
+		return !subjectStatements.isEmpty() || !predicateStatements.isEmpty() || !objectStatements.isEmpty()
+				|| !contextStatements.isEmpty();
 	}
 
 	/**
@@ -194,11 +181,7 @@ public class MemIRI implements IRI, MemResource {
 	 * @return a MemStatementList containing the statements.
 	 */
 	public MemStatementList getPredicateStatementList() {
-		if (predicateStatements == null) {
-			return EMPTY_LIST;
-		} else {
-			return predicateStatements;
-		}
+		return predicateStatements;
 	}
 
 	/**
@@ -207,33 +190,14 @@ public class MemIRI implements IRI, MemResource {
 	 * @return An integer larger than or equal to 0.
 	 */
 	public int getPredicateStatementCount() {
-		if (predicateStatements == null) {
-			return 0;
-		} else {
-			return predicateStatements.size();
-		}
+		return predicateStatements.size();
 	}
 
 	/**
 	 * Adds a statement to this MemURI's list of statements for which it is the predicate.
 	 */
-	public void addPredicateStatement(MemStatement st) {
-		if (predicateStatements == null) {
-			predicateStatements = new MemStatementList(4);
-		}
-
+	public void addPredicateStatement(MemStatement st) throws InterruptedException {
 		predicateStatements.add(st);
-	}
-
-	/**
-	 * Removes a statement from this MemURI's list of statements for which it is the predicate.
-	 */
-	public void removePredicateStatement(MemStatement st) {
-		predicateStatements.remove(st);
-
-		if (predicateStatements.isEmpty()) {
-			predicateStatements = null;
-		}
 	}
 
 	/**
@@ -242,105 +206,38 @@ public class MemIRI implements IRI, MemResource {
 	 *
 	 * @param currentSnapshot The current snapshot version.
 	 */
-	public void cleanSnapshotsFromPredicateStatements(int currentSnapshot) {
-		if (predicateStatements != null) {
-			predicateStatements.cleanSnapshots(currentSnapshot);
-
-			if (predicateStatements.isEmpty()) {
-				predicateStatements = null;
-			}
-		}
+	public void cleanSnapshotsFromPredicateStatements(int currentSnapshot) throws InterruptedException {
+		predicateStatements.cleanSnapshots(currentSnapshot);
 	}
 
 	@Override
 	public MemStatementList getObjectStatementList() {
-		if (objectStatements == null) {
-			return EMPTY_LIST;
-		} else {
-			return objectStatements;
-		}
+		return objectStatements;
 	}
 
 	@Override
 	public int getObjectStatementCount() {
-		if (objectStatements == null) {
-			return 0;
-		} else {
-			return objectStatements.size();
-		}
+		return objectStatements.size();
 	}
 
 	@Override
-	public void addObjectStatement(MemStatement st) {
-		if (objectStatements == null) {
-			objectStatements = new MemStatementList(4);
-		}
+	public void addObjectStatement(MemStatement st) throws InterruptedException {
 		objectStatements.add(st);
 	}
 
 	@Override
-	public void removeObjectStatement(MemStatement st) {
-		objectStatements.remove(st);
-		if (objectStatements.isEmpty()) {
-			objectStatements = null;
-		}
+	public void cleanSnapshotsFromObjectStatements(int currentSnapshot) throws InterruptedException {
+		objectStatements.cleanSnapshots(currentSnapshot);
 	}
 
 	@Override
-	public void cleanSnapshotsFromObjectStatements(int currentSnapshot) {
-		if (objectStatements != null) {
-			objectStatements.cleanSnapshots(currentSnapshot);
-
-			if (objectStatements.isEmpty()) {
-				objectStatements = null;
-			}
-		}
+	public boolean hasPredicateStatements() {
+		return !predicateStatements.isEmpty();
 	}
 
 	@Override
-	public MemStatementList getContextStatementList() {
-		if (contextStatements == null) {
-			return EMPTY_LIST;
-		} else {
-			return contextStatements;
-		}
+	public boolean hasObjectStatements() {
+		return !objectStatements.isEmpty();
 	}
 
-	@Override
-	public int getContextStatementCount() {
-		if (contextStatements == null) {
-			return 0;
-		} else {
-			return contextStatements.size();
-		}
-	}
-
-	@Override
-	public void addContextStatement(MemStatement st) {
-		if (contextStatements == null) {
-			contextStatements = new MemStatementList(4);
-		}
-
-		contextStatements.add(st);
-	}
-
-	@Override
-	public void removeContextStatement(MemStatement st) {
-		contextStatements.remove(st);
-
-		if (contextStatements.isEmpty()) {
-			contextStatements = null;
-		}
-	}
-
-	@Override
-	public void cleanSnapshotsFromContextStatements(int currentSnapshot) {
-		if (contextStatements != null) {
-			contextStatements.cleanSnapshots(currentSnapshot);
-
-			if (contextStatements.isEmpty()) {
-				contextStatements = null;
-			}
-		}
-	}
 }

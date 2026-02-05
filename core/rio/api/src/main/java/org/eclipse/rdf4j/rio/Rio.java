@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio;
 
@@ -207,12 +210,33 @@ public class Rio {
 	 * @throws IOException                  If an I/O error occurred while reading from the input stream.
 	 * @throws UnsupportedRDFormatException If no {@link RDFParser} is available for the specified RDF format.
 	 * @throws RDFParseException            If an error was found while parsing the RDF data.
-	 * 
 	 * @since 3.5.0
 	 */
 	public static Model parse(InputStream in, RDFFormat dataFormat, Resource... contexts)
 			throws IOException, RDFParseException, UnsupportedRDFormatException {
 		return parse(in, null, dataFormat, new ParserConfig(), SimpleValueFactory.getInstance(),
+				new ParseErrorLogger(), contexts);
+	}
+
+	/**
+	 * Adds RDF data from an {@link InputStream} to a {@link Model}, optionally to one or more named contexts.
+	 *
+	 * @param in         An InputStream from which RDF data can be read.
+	 * @param dataFormat The serialization format of the data.
+	 * @param settings   The {@link ParserConfig} containing settings for configuring the parser.
+	 * @param contexts   The contexts to add the data to. If one or more contexts are supplied the method ignores
+	 *                   contextual information in the actual data. If no contexts are supplied the contextual
+	 *                   information in the input stream is used, if no context information is available the data is
+	 *                   added without any context.
+	 * @return A {@link Model} containing the parsed statements.
+	 * @throws IOException                  If an I/O error occurred while reading from the input stream.
+	 * @throws UnsupportedRDFormatException If no {@link RDFParser} is available for the specified RDF format.
+	 * @throws RDFParseException            If an error was found while parsing the RDF data.
+	 * @since 4.0.0
+	 */
+	public static Model parse(InputStream in, RDFFormat dataFormat, ParserConfig settings, Resource... contexts)
+			throws IOException, RDFParseException, UnsupportedRDFormatException {
+		return parse(in, null, dataFormat, settings, SimpleValueFactory.getInstance(),
 				new ParseErrorLogger(), contexts);
 	}
 
@@ -235,6 +259,31 @@ public class Rio {
 	public static Model parse(InputStream in, String baseURI, RDFFormat dataFormat, Resource... contexts)
 			throws IOException, RDFParseException, UnsupportedRDFormatException {
 		return parse(in, baseURI, dataFormat, new ParserConfig(), SimpleValueFactory.getInstance(),
+				new ParseErrorLogger(), contexts);
+	}
+
+	/**
+	 * Adds RDF data from an {@link InputStream} to a {@link Model}, optionally to one or more named contexts.
+	 *
+	 * @param in         An InputStream from which RDF data can be read.
+	 * @param baseURI    The base URI to resolve any relative URIs that are in the data against. May be
+	 *                   <code>null</code>.
+	 * @param dataFormat The serialization format of the data.
+	 * @param settings   The {@link ParserConfig} containing settings for configuring the parser.
+	 * @param contexts   The contexts to add the data to. If one or more contexts are supplied the method ignores
+	 *                   contextual information in the actual data. If no contexts are supplied the contextual
+	 *                   information in the input stream is used, if no context information is available the data is
+	 *                   added without any context.
+	 * @return A {@link Model} containing the parsed statements.
+	 * @throws IOException                  If an I/O error occurred while reading from the input stream.
+	 * @throws UnsupportedRDFormatException If no {@link RDFParser} is available for the specified RDF format.
+	 * @throws RDFParseException            If an error was found while parsing the RDF data.
+	 * @since 4.0.0
+	 */
+	public static Model parse(InputStream in, String baseURI, RDFFormat dataFormat, ParserConfig settings,
+			Resource... contexts)
+			throws IOException, RDFParseException, UnsupportedRDFormatException {
+		return parse(in, baseURI, dataFormat, settings, SimpleValueFactory.getInstance(),
 				new ParseErrorLogger(), contexts);
 	}
 
@@ -314,12 +363,34 @@ public class Rio {
 	 * @throws IOException                  If an I/O error occurred while reading from the reader.
 	 * @throws UnsupportedRDFormatException If no {@link RDFParser} is available for the specified RDF format.
 	 * @throws RDFParseException            If an error was found while parsing the RDF data.
-	 * 
 	 * @since 3.5.0
 	 */
 	public static Model parse(Reader reader, RDFFormat dataFormat, Resource... contexts)
 			throws IOException, RDFParseException, UnsupportedRDFormatException {
 		return parse(reader, null, dataFormat, new ParserConfig(), SimpleValueFactory.getInstance(),
+				new ParseErrorLogger(), contexts);
+	}
+
+	/**
+	 * Adds RDF data from a {@link Reader} to a {@link Model}, optionally to one or more named contexts. <b>Note: using
+	 * a Reader to upload byte-based data means that you have to be careful not to destroy the data's character encoding
+	 * by enforcing a default character encoding upon the bytes. If possible, adding such data using an InputStream is
+	 * to be preferred.</b>
+	 *
+	 * @param reader     A Reader from which RDF data can be read.
+	 * @param dataFormat The serialization format of the data.
+	 * @param settings   The {@link ParserConfig} containing settings for configuring the parser.
+	 * @param contexts   The contexts to add the data to. If one or more contexts are specified the data is added to
+	 *                   these contexts, ignoring any context information in the data itself.
+	 * @return A {@link Model} containing the parsed statements.
+	 * @throws IOException                  If an I/O error occurred while reading from the reader.
+	 * @throws UnsupportedRDFormatException If no {@link RDFParser} is available for the specified RDF format.
+	 * @throws RDFParseException            If an error was found while parsing the RDF data.
+	 * @since 4.0.0
+	 */
+	public static Model parse(Reader reader, RDFFormat dataFormat, ParserConfig settings, Resource... contexts)
+			throws IOException, RDFParseException, UnsupportedRDFormatException {
+		return parse(reader, null, dataFormat, settings, SimpleValueFactory.getInstance(),
 				new ParseErrorLogger(), contexts);
 	}
 
@@ -671,7 +742,7 @@ public class Rio {
 		String outputFile = args[1];
 
 		try (FileOutputStream outStream = new FileOutputStream(outputFile);
-				FileInputStream inStream = new FileInputStream(inputFile);) {
+				FileInputStream inStream = new FileInputStream(inputFile)) {
 			createParser(getParserFormatForFileName(inputFile).orElse(RDFFormat.RDFXML))
 					.setRDFHandler(
 							createWriter(getWriterFormatForFileName(outputFile).orElse(RDFFormat.RDFXML), outStream))

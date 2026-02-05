@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.workbench.proxy;
 
@@ -16,6 +19,7 @@ import java.util.concurrent.ConcurrentHashMap;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
+import javax.servlet.annotation.MultipartConfig;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
@@ -28,6 +32,7 @@ import org.eclipse.rdf4j.workbench.util.TupleResultBuilder;
 /**
  * All requests are serviced by this Servlet, though it usually delegates to other Servlets.
  */
+@MultipartConfig
 public class WorkbenchGateway extends AbstractServlet {
 
 	private static final String DEFAULT_SERVER = "default-server";

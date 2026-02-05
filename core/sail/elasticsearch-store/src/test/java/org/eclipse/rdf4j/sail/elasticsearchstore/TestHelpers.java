@@ -1,80 +1,52 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearchstore;
 
-import java.io.File;
 import java.io.IOException;
-import java.util.Random;
-import java.util.concurrent.TimeUnit;
 
-import org.apache.commons.io.FileUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import pl.allegro.tech.embeddedelasticsearch.EmbeddedElastic;
-import pl.allegro.tech.embeddedelasticsearch.JavaHomeOption;
-import pl.allegro.tech.embeddedelasticsearch.PopularProperties;
+import org.apache.http.HttpHost;
+import org.elasticsearch.client.RestClient;
+import org.elasticsearch.client.RestHighLevelClient;
 
 public class TestHelpers {
+	public static String CLUSTER = "test";
+	public static int PORT = 9300;
+	public static String HOST = "localhost";
 
-	private final static Random random = new Random();
-	public static final String VERSION = "6.8.8";
-	public static final String CLUSTER = "cluster1";
-	public static final String ELASTICSEARCH_DOWNLOAD_DIRECTORY = "tempElasticsearchDownload";
+	private static RestHighLevelClient CLIENT;
 
-	private static final Logger logger = LoggerFactory.getLogger(TestHelpers.class);
+	public static synchronized void openClient() {
+		if (CLIENT != null) {
+			return;
+		}
 
-	public static EmbeddedElastic startElasticsearch(File installLocation) throws IOException, InterruptedException {
+		ElasticsearchStoreTestContainerSupport.start();
 
-		EmbeddedElastic embeddedElastic = EmbeddedElastic.builder()
-				.withElasticVersion(VERSION)
-				.withSetting(PopularProperties.TRANSPORT_TCP_PORT, random.nextInt(10000) + 10000)
-				.withSetting(PopularProperties.HTTP_PORT, random.nextInt(10000) + 10000)
-				.withSetting(PopularProperties.CLUSTER_NAME, "cluster1")
-				.withInstallationDirectory(installLocation)
-				.withDownloadDirectory(new File("tempElasticsearchDownload"))
-//			.withPlugin("analysis-stempel")
-				.withStartTimeout(5, TimeUnit.MINUTES)
-				.build();
+		CLUSTER = ElasticsearchStoreTestContainerSupport.getClusterName();
+		PORT = ElasticsearchStoreTestContainerSupport.getTransportPort();
+		HOST = ElasticsearchStoreTestContainerSupport.getHost();
 
-		embeddedElastic.start();
-		logger.info("Elasticearch using transport port: " + embeddedElastic.getTransportTcpPort());
-		logger.info("Elasticearch using http port: " + embeddedElastic.getHttpPort());
-
-		return embeddedElastic;
+		CLIENT = new RestHighLevelClient(RestClient
+				.builder(new HttpHost(HOST, ElasticsearchStoreTestContainerSupport.getHttpPort(), "http")));
 	}
 
-	public static void stopElasticsearch(EmbeddedElastic embeddedElastic, File installLocation) {
-		embeddedElastic.stop();
+	public static RestHighLevelClient getClient() {
+		return CLIENT;
+	}
 
-		try {
-			FileUtils.deleteDirectory(installLocation);
-		} catch (IOException e) {
-			throw new RuntimeException(e);
+	public static void closeClient() throws IOException {
+		if (CLIENT != null) {
+			CLIENT.close();
+			CLIENT = null;
 		}
 	}
 
-	public static EmbeddedElastic startElasticsearch(File installLocation, String javaHomePath)
-			throws IOException, InterruptedException {
-
-		EmbeddedElastic embeddedElastic = EmbeddedElastic.builder()
-				.withElasticVersion(VERSION)
-				.withSetting(PopularProperties.TRANSPORT_TCP_PORT, random.nextInt(10000) + 10000)
-				.withSetting(PopularProperties.HTTP_PORT, random.nextInt(10000) + 10000)
-				.withSetting(PopularProperties.CLUSTER_NAME, CLUSTER)
-				.withInstallationDirectory(installLocation)
-				.withJavaHome(JavaHomeOption.path(javaHomePath))
-				.withDownloadDirectory(new File(ELASTICSEARCH_DOWNLOAD_DIRECTORY))
-//			.withPlugin("analysis-stempel")
-				.withStartTimeout(5, TimeUnit.MINUTES)
-				.build();
-
-		embeddedElastic.start();
-		return embeddedElastic;
-	}
 }

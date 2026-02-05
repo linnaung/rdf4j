@@ -1,15 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.endpoint;
 
 import java.io.File;
 import java.io.FileReader;
-import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -65,7 +67,7 @@ public class EndpointFactory {
 	 *
 	 * @return an initialized {@link EndpointBase} containing the repository
 	 *
-	 * @throws Exception
+	 * @throws FedXException
 	 */
 	public static Endpoint loadSPARQLEndpoint(String name, String endpoint) throws FedXException {
 
@@ -200,7 +202,7 @@ public class EndpointFactory {
 	 *
 	 * @return an initialized endpoint containing the repository
 	 *
-	 * @throws Exception
+	 * @throws FedXException
 	 */
 	public static Endpoint loadNativeEndpoint(String name, File location) throws FedXException {
 
@@ -221,7 +223,7 @@ public class EndpointFactory {
 	 *
 	 * @return an initialized endpoint containing the repository
 	 *
-	 * @throws Exception
+	 * @throws FedXException
 	 */
 	public static Endpoint loadNativeEndpoint(File location) throws FedXException {
 		return loadNativeEndpoint("http://" + location.getName(), location);
@@ -241,8 +243,7 @@ public class EndpointFactory {
 	 *
 	 * @return a list of initialized endpoints, i.e. the federation members
 	 *
-	 * @throws IOException
-	 * @throws Exception
+	 * @throws FedXException
 	 */
 	public static List<Endpoint> loadFederationMembers(File dataConfig, File fedXBaseDir) throws FedXException {
 
@@ -353,18 +354,18 @@ public class EndpointFactory {
 
 		@Override
 		public void endRDF() throws RDFHandlerException {
-			; // no-op
+			// no-op
 		}
 
 		@Override
 		public void handleComment(String comment) throws RDFHandlerException {
-			; // no-op
+			// no-op
 		}
 
 		@Override
 		public void handleNamespace(String prefix, String uri)
 				throws RDFHandlerException {
-			; // no-op
+			// no-op
 		}
 
 		@Override
@@ -374,7 +375,7 @@ public class EndpointFactory {
 
 		@Override
 		public void startRDF() throws RDFHandlerException {
-			; // no-op
+			// no-op
 		}
 	}
 }

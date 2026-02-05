@@ -1,99 +1,134 @@
 /*******************************************************************************
- * .Copyright (c) 2020 Eclipse RDF4J contributors.
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 
 package org.eclipse.rdf4j.sail.shacl.ast.planNodes;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 
 import org.apache.commons.text.StringEscapeUtils;
 import org.eclipse.rdf4j.common.iteration.CloseableIteration;
-import org.eclipse.rdf4j.query.algebra.evaluation.util.ValueComparator;
+import org.eclipse.rdf4j.sail.InterruptedSailException;
 import org.eclipse.rdf4j.sail.SailException;
+import org.eclipse.rdf4j.sail.shacl.wrapper.data.ConnectionsGroup;
 
 public class Sort implements PlanNode {
 
 	private final PlanNode parent;
 	private boolean printed = false;
 	private ValidationExecutionLogger validationExecutionLogger;
-	final static ValueComparator valueComparator = new ValueComparator();
 
-	public Sort(PlanNode parent) {
-		parent = PlanNodeHelper.handleSorting(this, parent);
-		this.parent = parent;
+	public Sort(PlanNode parent, ConnectionsGroup connectionsGroup) {
+		this.parent = PlanNodeHelper.handleSorting(this, parent, connectionsGroup);
 	}
 
 	@Override
-	public CloseableIteration<? extends ValidationTuple, SailException> iterator() {
-		return new LoggingCloseableIteration(this, validationExecutionLogger) {
+	public CloseableIteration<? extends ValidationTuple> iterator() {
 
-			final CloseableIteration<? extends ValidationTuple, SailException> iterator = parent.iterator();
+		return new LoggingCloseableIteration(this, validationExecutionLogger) {
 
 			List<ValidationTuple> sortedTuples;
 
 			Iterator<ValidationTuple> sortedTuplesIterator;
+			CloseableIteration<? extends ValidationTuple> iterator;
 
-			@Override
-			public void close() throws SailException {
-				iterator.close();
-			}
+			protected void init() {
+				assert sortedTuples == null;
 
-			@Override
-			boolean localHasNext() throws SailException {
-				sortTuples();
-				return sortedTuplesIterator.hasNext();
-			}
+				checkClosedOrInterrupted();
 
-			private void sortTuples() {
-				if (sortedTuples == null) {
-					sortedTuples = new ArrayList<>();
-					boolean alreadySorted = true;
+				boolean alreadySorted;
+				List<ValidationTuple> sortedTuples = new ArrayList<>(1);
+
+				try (CloseableIteration<? extends ValidationTuple> iterator = parent.iterator()) {
+					this.iterator = iterator;
+					alreadySorted = true;
 					ValidationTuple prev = null;
 					while (iterator.hasNext()) {
+						checkClosedOrInterrupted();
 						ValidationTuple next = iterator.next();
+						checkClosedOrInterrupted();
+
 						sortedTuples.add(next);
-						if (prev != null
-								&& valueComparator.compare(prev.getActiveTarget(), next.getActiveTarget()) > 0) {
+
+						// quick break out if sortedTuples is guaranteed to be of size 1 since we don't need to sort
+						// it then
+						if (sortedTuples.size() == 1 && !iterator.hasNext()) {
+							this.sortedTuples = sortedTuples;
+							sortedTuplesIterator = sortedTuples.iterator();
+							return;
+						}
+
+						if (prev != null && prev.compareActiveTarget(next) > 0) {
 							alreadySorted = false;
 						}
 						prev = next;
-					}
+						checkClosedOrInterrupted();
 
-					if (!alreadySorted && sortedTuples.size() > 1) {
-						if (sortedTuples.size() > 8192) { // MIN_ARRAY_SORT_GRAN in Arrays.parallelSort(...)
-							ValidationTuple[] objects = sortedTuples.toArray(new ValidationTuple[0]);
-							Arrays.parallelSort(objects,
-									(a, b) -> valueComparator.compare(a.getActiveTarget(), b.getActiveTarget()));
-							sortedTuples = Arrays.asList(objects);
-						} else {
-							sortedTuples
-									.sort((a, b) -> valueComparator.compare(a.getActiveTarget(), b.getActiveTarget()));
-						}
 					}
-					sortedTuplesIterator = sortedTuples.iterator();
-
+					this.iterator = null;
+					assert !iterator.hasNext() : "Iterator: " + iterator;
 				}
+
+				if (!alreadySorted && sortedTuples.size() > 1) {
+					if (sortedTuples.size() > 8192) { // MIN_ARRAY_SORT_GRAN in Arrays.parallelSort(...)
+						ValidationTuple[] objects = sortedTuples.toArray(new ValidationTuple[0]);
+						Arrays.parallelSort(objects, ValidationTuple::compareActiveTarget);
+						sortedTuples = Arrays.asList(objects);
+					} else {
+						sortedTuples.sort(ValidationTuple::compareActiveTarget);
+					}
+				}
+
+				this.sortedTuples = sortedTuples;
+				sortedTuplesIterator = sortedTuples.iterator();
+
+			}
+
+			private void checkClosedOrInterrupted() {
+				if (Thread.currentThread().isInterrupted()) {
+					close();
+					Thread.currentThread().interrupt();
+					throw new InterruptedSailException("Thread was interrupted while sorting.");
+				}
+				if (isClosed()) {
+					throw new SailException("Iterator was closed while sorting.");
+				}
+
 			}
 
 			@Override
-			ValidationTuple loggingNext() throws SailException {
-				sortTuples();
+			protected boolean localHasNext() {
+				return sortedTuplesIterator.hasNext();
+			}
 
+			@Override
+			protected ValidationTuple loggingNext() {
 				return sortedTuplesIterator.next();
 			}
 
 			@Override
-			public void remove() throws SailException {
-
+			public void localClose() {
+				sortedTuplesIterator = Collections.emptyIterator();
+				sortedTuples = null;
+				var iterator = this.iterator;
+				if (iterator != null) {
+					iterator.close();
+				}
 			}
+
 		};
 
 	}
@@ -118,11 +153,6 @@ public class Sort implements PlanNode {
 	@Override
 	public String getId() {
 		return System.identityHashCode(this) + "";
-	}
-
-	@Override
-	public String toString() {
-		return "Sort";
 	}
 
 	@Override
@@ -156,5 +186,10 @@ public class Sort implements PlanNode {
 	@Override
 	public boolean requiresSorted() {
 		return false;
+	}
+
+	@Override
+	public String toString() {
+		return "Sort";
 	}
 }

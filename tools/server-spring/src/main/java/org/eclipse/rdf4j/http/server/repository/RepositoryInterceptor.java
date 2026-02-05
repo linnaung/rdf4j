@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.http.server.repository;
 
@@ -102,6 +105,13 @@ public class RepositoryInterceptor extends ServerInterceptor {
 			request.setAttribute(REPOSITORY_KEY, new RepositoryConfigRepository(repositoryManager));
 		} else if (nextRepositoryID != null) {
 			try {
+				// For requests to delete a repository, we must not attempt to initialize the repository. Otherwise a
+				// corrupt/invalid configuration can block deletion.
+				if ("DELETE".equals(request.getMethod()) && request.getPathInfo().equals("/" + nextRepositoryID)) {
+					request.setAttribute(REPOSITORY_ID_KEY, nextRepositoryID);
+					return;
+				}
+
 				Repository repository = repositoryManager.getRepository(nextRepositoryID);
 				if (repository == null && !"PUT".equals(request.getMethod())) {
 					throw new ClientHTTPException(SC_NOT_FOUND, "Unknown repository: " + nextRepositoryID);
@@ -130,8 +140,11 @@ public class RepositoryInterceptor extends ServerInterceptor {
 	 * @param request the {@link HttpServletRequest} for which a {@link RepositoryConnection} is to be returned
 	 * @return a configured {@link RepositoryConnection}
 	 */
-	public static RepositoryConnection getRepositoryConnection(HttpServletRequest request) {
+	public static RepositoryConnection getRepositoryConnection(HttpServletRequest request) throws ClientHTTPException {
 		Repository repo = getRepository(request);
+		if (repo == null) {
+			throw new ClientHTTPException(SC_NOT_FOUND, "Unknown repository: " + getRepositoryID(request));
+		}
 		RepositoryConnection conn = repo.getConnection();
 		conn.getParserConfig().addNonFatalError(BasicParserSettings.VERIFY_DATATYPE_VALUES);
 		conn.getParserConfig().addNonFatalError(BasicParserSettings.VERIFY_LANGUAGE_TAGS);

@@ -1,13 +1,17 @@
 /*******************************************************************************
  * Copyright (c) 2018 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.btree;
 
 import java.io.File;
+import java.util.Random;
 
 public class BTreeTestRuns {
 	/*--------------*
@@ -29,9 +33,9 @@ public class BTreeTestRuns {
 		String filenamePrefix = args[1];
 		int valueCount = Integer.parseInt(args[2]);
 		RecordComparator comparator = new DefaultRecordComparator();
-		try (BTree btree = new BTree(dataDir, filenamePrefix, 501, 13, comparator);) {
+		try (BTree btree = new BTree(dataDir, filenamePrefix, 501, 13, comparator)) {
 
-			java.util.Random random = new java.util.Random(0L);
+			Random random = new Random(0L);
 			byte[] value = new byte[13];
 
 			long startTime = System.currentTimeMillis();
@@ -78,7 +82,7 @@ public class BTreeTestRuns {
 	public static void runDebugTest(String[] args) throws Exception {
 		File dataDir = new File(args[0]);
 		String filenamePrefix = args[1];
-		try (BTree btree = new BTree(dataDir, filenamePrefix, 28, 1);) {
+		try (BTree btree = new BTree(dataDir, filenamePrefix, 28, 1)) {
 
 			btree.print(System.out);
 

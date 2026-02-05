@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.util;
 
@@ -391,7 +394,7 @@ public class QueryStringUtil {
 
 		// TODO evaluate filter expression remote
 //		if (filterExpr!=null) {
-//		
+//
 //		}
 
 		res.append(" }");
@@ -408,11 +411,11 @@ public class QueryStringUtil {
 	 * <pre>
 	 * SELECT ?v ?__index WHERE {
 	 *    VALUES (?s ?__index) {
-	 *      (:s1 1) (:s2 2) 
-	 *      ... 
-	 *      (:sN N) 
+	 *      (:s1 1) (:s2 2)
+	 *      ...
+	 *      (:sN N)
 	 *    }
-	 *    ?s name ?v. 
+	 *    ?s name ?v.
 	 * }
 	 * </pre>
 	 *
@@ -448,7 +451,7 @@ public class QueryStringUtil {
 
 		// TODO evaluate filter expression remote
 //		if (filterExpr!=null) {
-//		
+//
 //		}
 
 		// add VALUES clause
@@ -889,19 +892,19 @@ public class QueryStringUtil {
 	 * @return the string builder
 	 */
 	protected static StringBuilder appendLiteral(StringBuilder sb, Literal lit) {
-		sb.append('"');
-		sb.append(lit.getLabel().replace("\"", "\\\""));
-		sb.append('"');
+		sb.append("'''");
+		sb.append(lit.getLabel().replace("\"", "\\\"").replace("'", "\\'"));
+		sb.append("'''");
 
 		if (lit.getLanguage().isPresent()) {
 			sb.append('@');
-			sb.append(lit.getLanguage());
-		}
-
-		if (lit.getDatatype() != null) {
-			sb.append("^^<");
-			sb.append(lit.getDatatype().stringValue());
-			sb.append('>');
+			sb.append(lit.getLanguage().get());
+		} else {
+			if (lit.getDatatype() != null) {
+				sb.append("^^<");
+				sb.append(lit.getDatatype().stringValue());
+				sb.append('>');
+			}
 		}
 		return sb;
 	}
@@ -925,7 +928,7 @@ public class QueryStringUtil {
 	 */
 	public static List<String> loadQueries(String queryFile) throws FileNotFoundException, IOException {
 		ArrayList<String> res = new ArrayList<>();
-		try (BufferedReader in = new BufferedReader(new FileReader(queryFile));) {
+		try (BufferedReader in = new BufferedReader(new FileReader(queryFile))) {
 			String tmp;
 			String tmpQuery = "";
 			while ((tmp = in.readLine()) != null) {

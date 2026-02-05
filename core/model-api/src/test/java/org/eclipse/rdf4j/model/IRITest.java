@@ -1,10 +1,13 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
- ******************************************************************************/
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 
 package org.eclipse.rdf4j.model;
 
@@ -12,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
 import static org.assertj.core.api.Assertions.assertThatNullPointerException;
 
-import org.junit.Test;
+import org.junit.jupiter.api.Test;
 
 /**
  * Abstract {@link IRI} test suite.
@@ -26,7 +29,6 @@ public abstract class IRITest {
 	 * Creates a test IRI instance.
 	 *
 	 * @param iri the string value of the IRI
-	 *
 	 * @return a new instance of the concrete IRI class under test
 	 */
 	protected abstract IRI iri(String iri);
@@ -36,7 +38,6 @@ public abstract class IRITest {
 	 *
 	 * @param namespace the namespace of the IRI
 	 * @param localname the localname of the IRI
-	 *
 	 * @return a new instance of the concrete IRI class under test
 	 */
 	protected abstract IRI iri(String namespace, String localname);
@@ -118,7 +119,7 @@ public abstract class IRITest {
 
 		assertThat(iri.hashCode())
 				.as("computed according to contract")
-				.isEqualTo(iri.toString().hashCode()); // !!! .toString() >> .valueString()
+				.isEqualTo(iri.stringValue().hashCode());
 	}
 
 }

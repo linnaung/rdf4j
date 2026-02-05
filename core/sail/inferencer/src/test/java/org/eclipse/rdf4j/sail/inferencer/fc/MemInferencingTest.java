@@ -1,17 +1,19 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.inferencer.fc;
 
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
-import java.lang.reflect.InvocationTargetException;
 
 import org.assertj.core.util.Files;
 import org.eclipse.rdf4j.model.BNode;
@@ -22,10 +24,10 @@ import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.repository.Repository;
 import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
-import org.eclipse.rdf4j.sail.InferencingTest;
 import org.eclipse.rdf4j.sail.Sail;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.junit.Test;
+import org.eclipse.rdf4j.testsuite.sail.InferencingTest;
+import org.junit.jupiter.api.Test;
 
 public class MemInferencingTest extends InferencingTest {
 
@@ -41,7 +43,6 @@ public class MemInferencingTest extends InferencingTest {
 
 		SchemaCachingRDFSInferencer sailStack = new SchemaCachingRDFSInferencer(new MemoryStore(datadir), true);
 		SailRepository repo = new SailRepository(sailStack);
-		repo.initialize();
 		ValueFactory vf = repo.getValueFactory();
 
 		IRI s1 = vf.createIRI("foo:s1");
@@ -60,7 +61,7 @@ public class MemInferencingTest extends InferencingTest {
 		// re-init
 //		sailStack = new SchemaCachingRDFSInferencer(new MemoryStore(datadir), true);
 //		repo = new SailRepository(sailStack);
-		repo.initialize();
+		repo.init();
 
 		try (RepositoryConnection conn = repo.getConnection()) {
 			assertTrue(conn.hasStatement(s1, RDF.TYPE, c2, true));
@@ -84,14 +85,14 @@ public class MemInferencingTest extends InferencingTest {
 		try (RepositoryConnection connection = sailRepository.getConnection()) {
 			boolean correctInference = connection.hasStatement(vf.createIRI("http://d"), RDF.TYPE,
 					vf.createIRI("http://c"), true);
-			assertTrue("d should be type c, because 3 and 1 entail 'd _:bNode e' with 2 entail 'd type c'",
-					correctInference);
+			assertTrue(correctInference,
+					"d should be type c, because 3 and 1 entail 'd _:bNode e' with 2 entail 'd type c'");
 		}
 
 	}
 
 	@Test
-	public void testRollback() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+	public void testRollback() {
 		Repository sailRepository = new SailRepository(createSail());
 		ValueFactory vf = sailRepository.getValueFactory();
 
@@ -129,16 +130,16 @@ public class MemInferencingTest extends InferencingTest {
 		try (RepositoryConnection connection = sailRepository.getConnection()) {
 
 			boolean incorrectInference = connection.hasStatement(aInstance, RDF.TYPE, B, true);
-			assertFalse("Previous rollback() should have have cleared the cache for A subClassOf B. ",
-					incorrectInference);
+			assertFalse(incorrectInference,
+					"Previous rollback() should have have cleared the cache for A subClassOf B. ");
 
 			boolean correctInference = connection.hasStatement(aInstance, RDF.TYPE, C, true);
-			assertTrue("aInstance should be instance of C because A subClassOfC was added earlier.", correctInference);
+			assertTrue(correctInference, "aInstance should be instance of C because A subClassOfC was added earlier.");
 		}
 	}
 
 	@Test
-	public void testFastInstantiate() throws NoSuchMethodException, InvocationTargetException, IllegalAccessException {
+	public void testFastInstantiate() {
 		Repository sailRepository = new SailRepository(createSail());
 		ValueFactory vf = sailRepository.getValueFactory();
 
@@ -154,7 +155,6 @@ public class MemInferencingTest extends InferencingTest {
 
 		SailRepository sailRepository1 = new SailRepository(SchemaCachingRDFSInferencer.fastInstantiateFrom(
 				(SchemaCachingRDFSInferencer) ((SailRepository) sailRepository).getSail(), new MemoryStore()));
-		sailRepository1.initialize();
 
 		try (RepositoryConnection connection = sailRepository1.getConnection()) {
 			connection.add(vf.createStatement(aInstance, RDF.TYPE, A));
@@ -163,8 +163,8 @@ public class MemInferencingTest extends InferencingTest {
 		try (RepositoryConnection connection = sailRepository1.getConnection()) {
 			boolean correctInference = connection.hasStatement(aInstance, RDF.TYPE, C, true);
 			assertTrue(
-					"aInstance should be instance of C because A subClassOfC was added to the sail used by fastInstantiateFrom.",
-					correctInference);
+					correctInference,
+					"aInstance should be instance of C because A subClassOfC was added to the sail used by fastInstantiateFrom.");
 		}
 	}
 }

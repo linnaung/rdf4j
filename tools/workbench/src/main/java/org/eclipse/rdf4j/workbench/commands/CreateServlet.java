@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.workbench.commands;
 
@@ -11,6 +14,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.StringReader;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.List;
 
@@ -18,7 +22,7 @@ import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServletResponse;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.io.IOUtil;
 import org.eclipse.rdf4j.federated.repository.FedXRepositoryConfigBuilder;
 import org.eclipse.rdf4j.model.Model;
@@ -26,6 +30,7 @@ import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.impl.LinkedHashModel;
 import org.eclipse.rdf4j.model.impl.SimpleValueFactory;
 import org.eclipse.rdf4j.model.util.Models;
+import org.eclipse.rdf4j.model.vocabulary.CONFIG;
 import org.eclipse.rdf4j.model.vocabulary.RDF;
 import org.eclipse.rdf4j.query.QueryResultHandlerException;
 import org.eclipse.rdf4j.repository.RepositoryException;
@@ -33,7 +38,6 @@ import org.eclipse.rdf4j.repository.config.ConfigTemplate;
 import org.eclipse.rdf4j.repository.config.RepositoryConfig;
 import org.eclipse.rdf4j.repository.config.RepositoryConfigSchema;
 import org.eclipse.rdf4j.repository.manager.RepositoryInfo;
-import org.eclipse.rdf4j.repository.manager.SystemRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.rio.RDFParser;
 import org.eclipse.rdf4j.rio.Rio;
@@ -82,13 +86,11 @@ public class CreateServlet extends TransformationServlet {
 			builder.transform(xslPath, "create.xsl");
 		}
 		builder.start(federate ? new String[] { "id", "description", "location" } : new String[] {});
-		builder.link(Arrays.asList(INFO));
+		builder.link(List.of(INFO));
 		if (federate) {
 			for (RepositoryInfo info : manager.getAllRepositoryInfos()) {
 				String identity = info.getId();
-				if (!SystemRepository.ID.equals(identity)) {
-					builder.result(identity, info.getDescription(), info.getLocation());
-				}
+				builder.result(identity, info.getDescription(), info.getLocation());
 			}
 		}
 		builder.end();
@@ -111,10 +113,12 @@ public class CreateServlet extends TransformationServlet {
 		final Model graph = new LinkedHashModel();
 		final RDFParser rdfParser = Rio.createParser(RDFFormat.TURTLE, SimpleValueFactory.getInstance());
 		rdfParser.setRDFHandler(new StatementCollector(graph));
-		rdfParser.parse(new StringReader(configString), RepositoryConfigSchema.NAMESPACE);
+		rdfParser.parse(new StringReader(configString), CONFIG.NAMESPACE);
 
-		Resource res = Models.subject(graph.getStatements(null, RDF.TYPE, RepositoryConfigSchema.REPOSITORY))
-				.orElseThrow(() -> new RepositoryException("could not find instance of Repository class in config"));
+		Resource res = Models.subject(graph.getStatements(null, RDF.TYPE, CONFIG.Rep.Repository))
+				.orElseGet(() -> Models.subject(graph.getStatements(null, RDF.TYPE, RepositoryConfigSchema.REPOSITORY))
+						.orElseThrow(() -> new RepositoryException(
+								"could not find instance of Repository class in config")));
 		final RepositoryConfig repConfig = RepositoryConfig.create(graph, res);
 		repConfig.validate();
 		manager.addRepositoryConfig(repConfig);
@@ -132,7 +136,7 @@ public class CreateServlet extends TransformationServlet {
 
 	static ConfigTemplate getConfigTemplate(final String type) throws IOException {
 		try (InputStream ttlInput = RepositoryConfig.class.getResourceAsStream(type + ".ttl")) {
-			final String template = IOUtil.readString(new InputStreamReader(ttlInput, "UTF-8"));
+			final String template = IOUtil.readString(new InputStreamReader(ttlInput, StandardCharsets.UTF_8));
 			return new ConfigTemplate(template);
 		}
 	}

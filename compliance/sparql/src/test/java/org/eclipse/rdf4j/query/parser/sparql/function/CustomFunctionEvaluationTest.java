@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.parser.sparql.function;
 
@@ -17,8 +20,8 @@ import org.eclipse.rdf4j.repository.RepositoryConnection;
 import org.eclipse.rdf4j.repository.sail.SailRepository;
 import org.eclipse.rdf4j.rio.RDFFormat;
 import org.eclipse.rdf4j.sail.memory.MemoryStore;
-import org.junit.Before;
-import org.junit.Test;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
 
 /**
  * Integration tests for evaluation of custom functions in SPARQL
@@ -29,7 +32,7 @@ public class CustomFunctionEvaluationTest {
 
 	private SailRepository rep;
 
-	@Before
+	@BeforeEach
 	public void setUp() {
 		rep = new SailRepository(new MemoryStore());
 	}
@@ -42,9 +45,11 @@ public class CustomFunctionEvaluationTest {
 		try (RepositoryConnection conn = rep.getConnection()) {
 			conn.add(new StringReader(data), "", RDFFormat.TURTLE);
 
-			TupleQueryResult result = conn.prepareTupleQuery(query).evaluate();
-			BindingSet bs = result.next();
-			assertThat(bs.getValue("result").stringValue()).isEqualTo("related to ex:s2, ex:s3");
+			try (TupleQueryResult result = conn.prepareTupleQuery(query).evaluate()) {
+				BindingSet bs = result.next();
+				assertThat(bs.getValue("result").stringValue()).isEqualTo("related to ex:s2, ex:s3");
+
+			}
 		}
 
 	}

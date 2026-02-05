@@ -1,3 +1,13 @@
+/*******************************************************************************
+ * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
+ * All rights reserved. This program and the accompanying materials
+ * are made available under the terms of the Eclipse Distribution License v1.0
+ * which accompanies this distribution, and is available at
+ * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
+ *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.concurrent;
 
 import java.util.Arrays;
@@ -11,7 +21,7 @@ import org.junit.jupiter.api.Test;
 
 public class TaskWrapperIntegrationTest extends SPARQLBaseTest {
 
-	private TestTaskWrapper taskWrapper = new TestTaskWrapper();
+	private final TestTaskWrapper taskWrapper = new TestTaskWrapper();
 
 	@Override
 	protected void initFedXConfig() {
@@ -26,7 +36,7 @@ public class TaskWrapperIntegrationTest extends SPARQLBaseTest {
 	@Test
 	public void testTaskWrapper() throws Exception {
 		prepareTest(Arrays.asList("/tests/basic/data01endpoint1.ttl", "/tests/basic/data01endpoint2.ttl"));
-		execute("/tests/basic/query01.rq", "/tests/basic/query01.srx", false);
+		execute("/tests/basic/query01.rq", "/tests/basic/query01.srx", false, true);
 		Assertions.assertTrue(taskWrapper.taskCount.get() > 0);
 	}
 
@@ -35,7 +45,7 @@ public class TaskWrapperIntegrationTest extends SPARQLBaseTest {
 		/* test union query (2 relevant endpoint) */
 		prepareTest(Arrays.asList("/tests/medium/data1.ttl", "/tests/medium/data2.ttl", "/tests/medium/data3.ttl",
 				"/tests/medium/data4.ttl"));
-		execute("/tests/medium/query04.rq", "/tests/medium/query04.srx", false);
+		execute("/tests/medium/query04.rq", "/tests/medium/query04.srx", false, true);
 		Assertions.assertTrue(taskWrapper.taskCount.get() > 0);
 	}
 

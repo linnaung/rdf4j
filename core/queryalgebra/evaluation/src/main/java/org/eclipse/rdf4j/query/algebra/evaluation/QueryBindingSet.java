@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.query.algebra.evaluation;
 
@@ -17,16 +20,16 @@ import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.query.AbstractBindingSet;
 import org.eclipse.rdf4j.query.Binding;
 import org.eclipse.rdf4j.query.BindingSet;
+import org.eclipse.rdf4j.query.MutableBindingSet;
 import org.eclipse.rdf4j.query.impl.MapBindingSet;
 import org.eclipse.rdf4j.query.impl.SimpleBinding;
-import org.eclipse.rdf4j.util.iterators.ConvertingIterator;
 
 /**
  * An implementation of the {@link BindingSet} interface that is used to evalate query object models. This
  * implementations differs from {@link MapBindingSet} in that it maps variable names to Value objects and that the
  * Binding objects are created lazily.
  */
-public class QueryBindingSet extends AbstractBindingSet {
+public class QueryBindingSet extends AbstractBindingSet implements MutableBindingSet {
 
 	private static final long serialVersionUID = -2010715346095527301L;
 
@@ -62,6 +65,7 @@ public class QueryBindingSet extends AbstractBindingSet {
 	 *
 	 * @param binding The binding to add this this BindingSet.
 	 */
+	@Override
 	public void addBinding(Binding binding) {
 		addBinding(binding.getName(), binding.getValue());
 	}
@@ -72,6 +76,7 @@ public class QueryBindingSet extends AbstractBindingSet {
 	 * @param name  The binding's name, must not be bound in this binding set already.
 	 * @param value The binding's value.
 	 */
+	@Override
 	public void addBinding(String name, Value value) {
 		assert !bindings.containsKey(name) : "variable already bound: " + name;
 		setBinding(name, value);
@@ -125,18 +130,7 @@ public class QueryBindingSet extends AbstractBindingSet {
 
 	@Override
 	public Iterator<Binding> iterator() {
-		Iterator<Map.Entry<String, Value>> entries = bindings.entrySet()
-				.stream()
-				.filter(entry -> entry.getValue() != null)
-				.iterator();
-
-		return new ConvertingIterator<Map.Entry<String, Value>, Binding>(entries) {
-
-			@Override
-			protected Binding convert(Map.Entry<String, Value> entry) {
-				return new SimpleBinding(entry.getKey(), entry.getValue());
-			}
-		};
+		return new BindingIterator(bindings.entrySet().iterator());
 	}
 
 	@Override
@@ -150,6 +144,39 @@ public class QueryBindingSet extends AbstractBindingSet {
 			return bindings.equals(((QueryBindingSet) other).bindings);
 		} else {
 			return super.equals(other);
+		}
+	}
+
+	private static class BindingIterator implements Iterator<Binding> {
+
+		private final Iterator<Map.Entry<String, Value>> iterator;
+		SimpleBinding next;
+
+		public BindingIterator(Iterator<Map.Entry<String, Value>> iterator) {
+			this.iterator = iterator;
+		}
+
+		private void calculateNext() {
+			while (next == null && iterator.hasNext()) {
+				Map.Entry<String, Value> next1 = iterator.next();
+				if (next1.getValue() != null) {
+					next = new SimpleBinding(next1.getKey(), next1.getValue());
+				}
+			}
+		}
+
+		@Override
+		public boolean hasNext() {
+			calculateNext();
+			return next != null;
+		}
+
+		@Override
+		public Binding next() {
+			calculateNext();
+			var temp = next;
+			next = null;
+			return temp;
 		}
 	}
 }

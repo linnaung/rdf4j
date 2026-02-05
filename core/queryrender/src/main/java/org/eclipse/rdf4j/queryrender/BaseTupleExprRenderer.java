@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.queryrender;
 
@@ -116,7 +119,7 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	 * Render the ParsedQuery as a query string
 	 *
 	 * @param theQuery the parsed query to render
-	 * @return the query object rendered in the serql syntax
+	 * @return the query object rendered in the query language syntax
 	 * @throws Exception if there is an error while rendering
 	 */
 	public String render(ParsedQuery theQuery) throws Exception {
@@ -127,7 +130,7 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	 * Render the TupleExpr as a query or query fragment depending on what kind of TupleExpr it is
 	 *
 	 * @param theExpr the expression to render
-	 * @return the TupleExpr rendered in the serql syntax
+	 * @return the TupleExpr rendered in the query language syntax
 	 * @throws Exception if there is an error while rendering
 	 */
 	public abstract String render(TupleExpr theExpr) throws Exception;
@@ -147,23 +150,22 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	 *
 	 * @param theList the elem list to render
 	 * @return the elem list for a construct projection as a statement pattern
-	 * @throws Exception if there is an exception while rendering
 	 */
-	public StatementPattern toStatementPattern(ProjectionElemList theList) throws Exception {
+	public StatementPattern toStatementPattern(ProjectionElemList theList) {
 		ProjectionElem aSubj = theList.getElements().get(0);
 		ProjectionElem aPred = theList.getElements().get(1);
 		ProjectionElem aObj = theList.getElements().get(2);
 
 		return new StatementPattern(
-				mExtensions.containsKey(aSubj.getSourceName())
-						? new Var(scrubVarName(aSubj.getSourceName()), asValue(mExtensions.get(aSubj.getSourceName())))
-						: new Var(scrubVarName(aSubj.getSourceName())),
-				mExtensions.containsKey(aPred.getSourceName())
-						? new Var(scrubVarName(aPred.getSourceName()), asValue(mExtensions.get(aPred.getSourceName())))
-						: new Var(scrubVarName(aPred.getSourceName())),
-				mExtensions.containsKey(aObj.getSourceName())
-						? new Var(scrubVarName(aObj.getSourceName()), asValue(mExtensions.get(aObj.getSourceName())))
-						: new Var(scrubVarName(aObj.getSourceName())));
+				mExtensions.containsKey(aSubj.getName())
+						? Var.of(scrubVarName(aSubj.getName()), asValue(mExtensions.get(aSubj.getName())))
+						: Var.of(scrubVarName(aSubj.getName())),
+				mExtensions.containsKey(aPred.getName())
+						? Var.of(scrubVarName(aPred.getName()), asValue(mExtensions.get(aPred.getName())))
+						: Var.of(scrubVarName(aPred.getName())),
+				mExtensions.containsKey(aObj.getName())
+						? Var.of(scrubVarName(aObj.getName()), asValue(mExtensions.get(aObj.getName())))
+						: Var.of(scrubVarName(aObj.getName())));
 	}
 
 	/**
@@ -173,7 +175,7 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	 * @return the name scrubbed of any illegal characters
 	 */
 	public static String scrubVarName(String theName) {
-		return theName.replaceAll("-", "");
+		return theName.replace("-", "");
 	}
 
 	/**
@@ -181,9 +183,8 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	 *
 	 * @param theValue the ValueExpr to convert
 	 * @return the expression as a Value, or null if it cannot be converted
-	 * @throws Exception if there is an error converting to a Value
 	 */
-	private Value asValue(ValueExpr theValue) throws Exception {
+	private Value asValue(ValueExpr theValue) {
 		if (theValue instanceof ValueConstant) {
 			return ((ValueConstant) theValue).getValue();
 		} else if (theValue instanceof Var) {
@@ -224,13 +225,13 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	 */
 	public static boolean isSPOElemList(ProjectionElemList theList) {
 		return theList.getElements().size() == 3
-				&& theList.getElements().get(0).getTargetName().equalsIgnoreCase("subject")
-				&& theList.getElements().get(1).getTargetName().equalsIgnoreCase("predicate")
-				&& theList.getElements().get(2).getTargetName().equalsIgnoreCase("object");
+				&& theList.getElements().get(0).getProjectionAlias().get().equalsIgnoreCase("subject")
+				&& theList.getElements().get(1).getProjectionAlias().get().equalsIgnoreCase("predicate")
+				&& theList.getElements().get(2).getProjectionAlias().get().equalsIgnoreCase("object");
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(final StatementPattern theStatementPattern) throws Exception {
@@ -238,7 +239,7 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(final Slice theSlice) throws Exception {
@@ -254,7 +255,7 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(final ExtensionElem theExtensionElem) throws Exception {
@@ -262,7 +263,7 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(final ProjectionElemList theProjectionElemList) throws Exception {
@@ -274,15 +275,15 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
-	public void meet(final OrderElem theOrderElem) throws Exception {
+	public void meet(final OrderElem theOrderElem) {
 		mOrdering.add(theOrderElem);
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(final Distinct theDistinct) throws Exception {
@@ -292,7 +293,7 @@ public abstract class BaseTupleExprRenderer extends AbstractQueryModelVisitor<Ex
 	}
 
 	/**
-	 * @inheritDoc
+	 * {@inheritDoc}
 	 */
 	@Override
 	public void meet(final Reduced theReduced) throws Exception {

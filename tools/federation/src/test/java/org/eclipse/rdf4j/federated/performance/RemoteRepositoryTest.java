@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.performance;
 
@@ -12,6 +15,7 @@ import java.util.List;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.stream.Collectors;
 
 import org.eclipse.rdf4j.federated.util.FedXUtil;
 import org.eclipse.rdf4j.model.IRI;
@@ -82,45 +86,24 @@ public class RemoteRepositoryTest {
 		System.out.println("Done.");
 	}
 
-	private static List<IRI> retrieveInstances(RepositoryConnection conn, IRI type) throws Exception {
-
-		List<IRI> res = new ArrayList<>();
-		RepositoryResult<Statement> qres = null;
-		try {
-			qres = conn.getStatements(null, RDF.TYPE, type, false);
-			while (qres.hasNext() && res.size() < MAX_INSTANCES) {
-				Statement next = qres.next();
-				res.add((IRI) next.getObject());
-			}
-		} finally {
-			try {
-				if (qres != null) {
-					qres.close();
-				}
-			} catch (Exception ignore) {
-			}
+	private static List<IRI> retrieveInstances(RepositoryConnection conn, IRI type) {
+		try (RepositoryResult<Statement> qres = conn.getStatements(null, RDF.TYPE, type, false)) {
+			return qres
+					.stream()
+					.limit(MAX_INSTANCES)
+					.map(Statement::getObject)
+					.map(s -> (IRI) s)
+					.collect(Collectors.toList());
 		}
-		return res;
 	}
 
-	private static int runQuery(RepositoryConnection conn, IRI instance) throws Exception {
+	private static long runQuery(RepositoryConnection conn, IRI instance) {
 
 		TupleQuery query = conn.prepareTupleQuery(QueryLanguage.SPARQL,
 				"SELECT * WHERE { <" + instance.stringValue() + "> ?p ?o }");
 
-		TupleQueryResult res = null;
-		try {
-			res = query.evaluate();
-			int count = 0;
-			while (res.hasNext()) {
-				res.next();
-				count++;
-			}
-			return count;
-		} finally {
-			if (res != null) {
-				res.close();
-			}
+		try (TupleQueryResult res = query.evaluate()) {
+			return res.stream().count();
 		}
 	}
 }

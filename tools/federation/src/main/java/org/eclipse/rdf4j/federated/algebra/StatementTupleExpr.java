@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.algebra;
 
@@ -22,17 +25,17 @@ import org.eclipse.rdf4j.query.QueryEvaluationException;
  * @see ExclusiveStatement
  * @see ExclusiveGroup
  */
-public interface StatementTupleExpr extends FedXTupleExpr, QueryRef {
+public interface StatementTupleExpr extends FedXTupleExpr {
 
 	/**
 	 * @return the id of this expr
 	 */
-	public String getId();
+	String getId();
 
 	/**
 	 * @return a list of sources that are relevant for evaluation of this expression
 	 */
-	public List<StatementSource> getStatementSources();
+	List<StatementSource> getStatementSources();
 
 	/**
 	 * returns true iff this statement has free variables in the presence of the specified binding set
@@ -40,7 +43,7 @@ public interface StatementTupleExpr extends FedXTupleExpr, QueryRef {
 	 * @param binding
 	 * @return whether the statement has free vars
 	 */
-	public boolean hasFreeVarsFor(BindingSet binding);
+	boolean hasFreeVarsFor(BindingSet binding);
 
 	/**
 	 * Evaluate this expression using the provided bindings
@@ -50,7 +53,7 @@ public interface StatementTupleExpr extends FedXTupleExpr, QueryRef {
 	 *
 	 * @throws QueryEvaluationException
 	 */
-	public CloseableIteration<BindingSet, QueryEvaluationException> evaluate(BindingSet bindings)
+	CloseableIteration<BindingSet> evaluate(BindingSet bindings)
 			throws QueryEvaluationException;
 
 }

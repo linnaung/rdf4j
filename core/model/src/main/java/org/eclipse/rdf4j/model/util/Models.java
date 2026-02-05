@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.util;
 
@@ -77,7 +80,6 @@ public class Models {
 	 * @return an object value from the given model, or {@link Optional#empty()} if no such value exists.
 	 * @apiNote replaced in 3.2.0 with the more generic {@link #object(Iterable)}. This method signature kept for binary
 	 *          compatibility.
-	 *
 	 */
 	public static Optional<Value> object(Model m) {
 		return object((Iterable<Statement>) m);
@@ -138,7 +140,6 @@ public class Models {
 	 *         such value exists.
 	 * @apiNote replaced in 3.2.0 with the more generic {@link #objectLiterals(Iterable)}. This method signature kept
 	 *          for binary compatibility.
-	 *
 	 * @see Model#objects()
 	 */
 	public static Set<Literal> objectLiterals(Model m) {
@@ -698,19 +699,46 @@ public class Models {
 	}
 
 	/**
-	 * Compares two RDF models, and returns <tt>true</tt> if they consist of isomorphic graphs and the isomorphic graph
-	 * identifiers map 1:1 to each other. RDF graphs are isomorphic graphs if statements from one graphs can be mapped
-	 * 1:1 on to statements in the other graphs. In this mapping, blank nodes are not considered mapped when having an
-	 * identical internal id, but are mapped from one graph to the other by looking at the statements in which the blank
-	 * nodes occur. A Model can consist of more than one graph (denoted by context identifiers). Two models are
-	 * considered isomorphic if for each of the graphs in one model, an isomorphic graph exists in the other model, and
-	 * the context identifiers of these graphs are either identical or (in the case of blank nodes) map 1:1 on each
+	 * Compares two RDF models, and returns <var>true</var> if they consist of isomorphic graphs and the isomorphic
+	 * graph identifiers map 1:1 to each other. RDF graphs are isomorphic graphs if statements from one graphs can be
+	 * mapped 1:1 on to statements in the other graphs. In this mapping, blank nodes are not considered mapped when
+	 * having an identical internal id, but are mapped from one graph to the other by looking at the statements in which
+	 * the blank nodes occur. A Model can consist of more than one graph (denoted by context identifiers). Two models
+	 * are considered isomorphic if for each of the graphs in one model, an isomorphic graph exists in the other model,
+	 * and the context identifiers of these graphs are either identical or (in the case of blank nodes) map 1:1 on each
 	 * other.
 	 *
 	 * @see <a href="http://www.w3.org/TR/rdf11-concepts/#graph-isomorphism">RDF Concepts &amp; Abstract Syntax, section
 	 *      3.6 (Graph Comparison)</a>
 	 */
 	public static boolean isomorphic(Iterable<? extends Statement> model1, Iterable<? extends Statement> model2) {
+		if (model1 == model2) {
+			return true;
+		}
+
+		Model set1 = toModel(model1);
+		Model set2 = toModel(model2);
+
+		return GraphComparisons.isomorphic(set1, set2);
+	}
+
+	/**
+	 * Legacy implementation of {@link #isomorphic(Iterable, Iterable) isomorphic comparison}. This method is offered as
+	 * a temporary fallback for corner cases where the newly introduced isomorphism algorithm (in release 3.6.0) has
+	 * worse performance or an unexpected result.
+	 *
+	 * @apiNote This method is offered as a temporary fallback only, and will likely be removed again quite soon in a
+	 *          future minor or major release.
+	 * @implNote This uses an algorithm that has poor performance in many cases and can potentially get stuck in an
+	 *           endless loop. We <strong>strongly recommend</strong> using the new algorithm available in the
+	 *           {@link #isomorphic(Iterable, Iterable)} implementation.
+	 * @see #isomorphic(Iterable, Iterable)
+	 * @since 3.6.0
+	 * @deprecated Use {@link #isomorphic(Iterable, Iterable)} instead.
+	 */
+	@Experimental
+	@Deprecated(since = "3.6.0")
+	public static boolean legacyIsomorphic(Iterable<? extends Statement> model1, Iterable<? extends Statement> model2) {
 		if (model1 == model2) {
 			return true;
 		}
@@ -726,7 +754,7 @@ public class Models {
 	}
 
 	/**
-	 * Compares two RDF models, and returns <tt>true</tt> if the first model is a subset of the second model, using
+	 * Compares two RDF models, and returns <var>true</var> if the first model is a subset of the second model, using
 	 * graph isomorphism to map statements between models.
 	 */
 	public static boolean isSubset(Iterable<? extends Statement> model1, Iterable<? extends Statement> model2) {
@@ -738,7 +766,7 @@ public class Models {
 	}
 
 	/**
-	 * Compares two RDF models, and returns <tt>true</tt> if the first model is a subset of the second model, using
+	 * Compares two RDF models, and returns <var>true</var> if the first model is a subset of the second model, using
 	 * graph isomorphism to map statements between models.
 	 */
 	public static boolean isSubset(Set<? extends Statement> model1, Set<? extends Statement> model2) {
@@ -793,8 +821,8 @@ public class Models {
 	}
 
 	/**
-	 * Converts the supplied RDF* model to RDF reification statements. The converted statements are sent to the supplied
-	 * consumer function.
+	 * Converts the supplied RDF-star model to RDF reification statements. The converted statements are sent to the
+	 * supplied consumer function.
 	 * <p>
 	 * The supplied value factory is used to create all new statements.
 	 *
@@ -808,8 +836,8 @@ public class Models {
 	}
 
 	/**
-	 * Converts the supplied RDF* model to RDF reification statements. The converted statements are sent to the supplied
-	 * consumer function.
+	 * Converts the supplied RDF-star model to RDF reification statements. The converted statements are sent to the
+	 * supplied consumer function.
 	 *
 	 * @param model    the {@link Model} to convert.
 	 * @param consumer the {@link Consumer} function for the produced statements.
@@ -820,13 +848,13 @@ public class Models {
 	}
 
 	/**
-	 * Converts the statements in supplied RDF* model to a new RDF model using reificiation.
+	 * Converts the statements in supplied RDF-star model to a new RDF model using reificiation.
 	 * <p>
 	 * The supplied value factory is used to create all new statements.
 	 *
 	 * @param vf    the {@link ValueFactory} to use for creating statements.
 	 * @param model the {@link Model} to convert.
-	 * @return a new {@link Model} with RDF* statements converted to reified triples.
+	 * @return a new {@link Model} with RDF-star statements converted to reified triples.
 	 */
 	@Experimental
 	public static Model convertRDFStarToReification(ValueFactory vf, Model model) {
@@ -836,14 +864,14 @@ public class Models {
 	}
 
 	/**
-	 * Converts the statements in supplied RDF* model to a new RDF model using reificiation.
+	 * Converts the statements in supplied RDF-star model to a new RDF model using reificiation.
 	 * <p>
 	 * The supplied value factory is used to create all new statements.
 	 *
 	 * @param vf           the {@link ValueFactory} to use for creating statements.
 	 * @param model        the {@link Model} to convert.
 	 * @param modelFactory the {@link ModelFactory} used to create the new output {@link Model}.
-	 * @return a new {@link Model} with RDF* statements converted to reified triples.
+	 * @return a new {@link Model} with RDF-star statements converted to reified triples.
 	 */
 	@Experimental
 	public static Model convertRDFStarToReification(ValueFactory vf, Model model, ModelFactory modelFactory) {
@@ -853,10 +881,10 @@ public class Models {
 	}
 
 	/**
-	 * Converts the statements in the supplied RDF* model to a new RDF model using reification.
+	 * Converts the statements in the supplied RDF-star model to a new RDF model using reification.
 	 *
 	 * @param model the {@link Model} to convert.
-	 * @return a new {@link Model} with RDF* statements converted to reified triples.
+	 * @return a new {@link Model} with RDF-star statements converted to reified triples.
 	 */
 	@Experimental
 	public static Model convertRDFStarToReification(Model model) {
@@ -864,8 +892,8 @@ public class Models {
 	}
 
 	/**
-	 * Converts the supplied RDF reification model to RDF* statements. The converted statements are sent to the supplied
-	 * consumer function.
+	 * Converts the supplied RDF reification model to RDF-star statements. The converted statements are sent to the
+	 * supplied consumer function.
 	 * <p>
 	 * The supplied value factory is used to create all new statements.
 	 *
@@ -927,8 +955,8 @@ public class Models {
 	}
 
 	/**
-	 * Converts the supplied RDF reification model to RDF* statements. The converted statements are sent to the supplied
-	 * consumer function.
+	 * Converts the supplied RDF reification model to RDF-star statements. The converted statements are sent to the
+	 * supplied consumer function.
 	 *
 	 * @param model    the {@link Model} to convert.
 	 * @param consumer the {@link Consumer} function for the produced statements.
@@ -939,14 +967,14 @@ public class Models {
 	}
 
 	/**
-	 * Converts the statements in supplied RDF reification model to a new RDF* model.
+	 * Converts the statements in supplied RDF reification model to a new RDF-star model.
 	 * <p>
 	 * The supplied value factory is used to create all new statements.
 	 *
 	 * @param vf           the {@link ValueFactory} to use for creating statements.
 	 * @param model        the {@link Model} to convert.
 	 * @param modelFactory the {@link ModelFactory} to use for creating a new Model object for the output.
-	 * @return a new {@link Model} with reification statements converted to RDF* {@link Triple}s.
+	 * @return a new {@link Model} with reification statements converted to RDF-star {@link Triple}s.
 	 */
 	@Experimental
 	public static Model convertReificationToRDFStar(ValueFactory vf, Model model, ModelFactory modelFactory) {
@@ -956,13 +984,13 @@ public class Models {
 	}
 
 	/**
-	 * Converts the statements in supplied RDF reification model to a new RDF* model.
+	 * Converts the statements in supplied RDF reification model to a new RDF-star model.
 	 * <p>
 	 * The supplied value factory is used to create all new statements.
 	 *
 	 * @param vf    the {@link ValueFactory} to use for creating statements.
 	 * @param model the {@link Model} to convert.
-	 * @return a new {@link Model} with reification statements converted to RDF* {@link Triple}s.
+	 * @return a new {@link Model} with reification statements converted to RDF-star {@link Triple}s.
 	 */
 	@Experimental
 	public static Model convertReificationToRDFStar(ValueFactory vf, Model model) {
@@ -970,10 +998,10 @@ public class Models {
 	}
 
 	/**
-	 * Converts the supplied RDF reification model to a new RDF* model.
+	 * Converts the supplied RDF reification model to a new RDF-star model.
 	 *
 	 * @param model the {@link Model} to convert.
-	 * @return a new {@link Model} with reification statements converted to RDF* {@link Triple}s.
+	 * @return a new {@link Model} with reification statements converted to RDF-star {@link Triple}s.
 	 */
 	@Experimental
 	public static Model convertReificationToRDFStar(Model model) {

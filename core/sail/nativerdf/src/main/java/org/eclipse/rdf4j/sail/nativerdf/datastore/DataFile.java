@@ -1,11 +1,16 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.nativerdf.datastore;
+
+import static org.eclipse.rdf4j.sail.nativerdf.NativeStore.SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES;
 
 import java.io.Closeable;
 import java.io.File;
@@ -13,8 +18,12 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.NoSuchElementException;
+import java.util.concurrent.TimeUnit;
 
+import org.eclipse.rdf4j.common.annotation.InternalUseOnly;
 import org.eclipse.rdf4j.common.io.NioFile;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Class supplying access to a data file. A data file stores data sequentially. Each entry starts with the entry's
@@ -23,6 +32,8 @@ import org.eclipse.rdf4j.common.io.NioFile;
  * @author Arjohn Kampman
  */
 public class DataFile implements Closeable {
+
+	private static final Logger logger = LoggerFactory.getLogger(DataFile.class);
 
 	/*-----------*
 	 * Constants *
@@ -40,6 +51,12 @@ public class DataFile implements Closeable {
 	private static final byte FILE_FORMAT_VERSION = 1;
 
 	private static final long HEADER_LENGTH = MAGIC_NUMBER.length + 1;
+
+	// Guard parameters
+	private static final int FALLBACK_LARGE_READ_THRESHOLD = 128 * 1024 * 1024; // 128MB fallback
+	public static final String LARGE_READ_THRESHOLD_PROPERTY = "org.eclipse.rdf4j.sail.nativerdf.datastore.DataFile.largeReadThresholdBytes";
+	public static final int LARGE_READ_THRESHOLD = getConfiguredLargeReadThreshold();
+	private static final int SOFT_FAIL_CAP_BYTES = 32 * 1024 * 1024; // 32MB
 
 	/*-----------*
 	 * Variables *
@@ -109,12 +126,36 @@ public class DataFile implements Closeable {
 	}
 
 	/**
+	 * Returns the current file size (after flushing any pending writes).
+	 */
+	public long getFileSize() throws IOException {
+		flush();
+		return nioFileSize;
+	}
+
+	/**
+	 * Attempts to recover data bytes between two known entry offsets when the length field at {@code startOffset} is
+	 * corrupt (e.g., zero). This returns up to {@code endOffset - startOffset - 4} bytes starting after the length
+	 * field, capped to a reasonable maximum to avoid large allocations.
+	 */
+	public byte[] tryRecoverBetweenOffsets(long startOffset, long endOffset) throws IOException {
+		flush();
+		if (endOffset <= startOffset + 4) {
+			return new byte[0];
+		}
+		long available = endOffset - (startOffset + 4);
+		int cap = 32 * 1024 * 1024; // 32MB cap for recovery
+		int toRead = (int) Math.min(Math.max(available, 0), cap);
+		return nioFile.readBytes(startOffset + 4L, toRead);
+	}
+
+	/**
 	 * Stores the specified data and returns the byte-offset at which it has been stored.
 	 *
-	 * @param data The data to store, must not be <tt>null</tt>.
+	 * @param data The data to store, must not be <var>null</var>.
 	 * @return The byte-offset in the file at which the data was stored.
 	 */
-	public long storeData(byte[] data) throws IOException {
+	synchronized public long storeData(byte[] data) throws IOException {
 		assert data != null : "data must not be null";
 
 		long offset = nioFileSize;
@@ -164,7 +205,7 @@ public class DataFile implements Closeable {
 
 	}
 
-	private int remainingBufferCapacity() {
+	synchronized private int remainingBufferCapacity() {
 		return buffer.capacity() - buffer.position();
 	}
 
@@ -177,7 +218,7 @@ public class DataFile implements Closeable {
 	 *
 	 * @param offset An offset in the data file, must be larger than 0.
 	 * @return The data that was found on the specified offset.
-	 * @exception IOException If an I/O error occurred.
+	 * @throws IOException If an I/O error occurred.
 	 */
 	public byte[] getData(long offset) throws IOException {
 		assert offset > 0 : "offset must be larger than 0, is: " + offset;
@@ -194,31 +235,148 @@ public class DataFile implements Closeable {
 				(data[2] << 8) & 0x0000ff00 |
 				(data[3]) & 0x000000ff;
 
-		// We have either managed to read enough data and can return the required subset of the data, or we have read
-		// too little so we need to execute another read to get the correct data.
-		if (dataLength <= data.length - 4) {
+		// Validate and possibly reduce the length before allocating a large array
+		dataLength = guardedDataLength(dataLength);
 
-			// adjust the approximate average with 1 part actual length and 99 parts previous average up to a sensible
-			// max of 200
-			dataLengthApproximateAverage = (int) (Math.min(200,
-					((dataLengthApproximateAverage / 100.0) * 99) + (dataLength / 100.0)));
+		try {
 
-			return Arrays.copyOfRange(data, 4, dataLength + 4);
+			// We have either managed to read enough data and can return the required subset of the data, or we have
+			// read
+			// too little so we need to execute another read to get the correct data.
+			if (dataLength <= data.length - 4) {
 
-		} else {
+				// adjust the approximate average with 1 part actual length and 99 parts previous average up to a
+				// sensible
+				// max of 200
+				dataLengthApproximateAverage = (int) Math.max(0, Math.min(200,
+						((dataLengthApproximateAverage / 100.0) * 99) + (dataLength / 100.0)));
 
-			// adjust the approximate average, but favour the actual dataLength since dataLength predictions misses are
-			// costly
-			dataLengthApproximateAverage = Math.min(200, (dataLengthApproximateAverage + dataLength) / 2);
+				int i = dataLength + 4;
+				if (i < 0 || i > data.length) {
+					throw new IOException("Corrupt data record at offset " + offset + ". Data length: " + dataLength);
+				}
 
-			// we didn't read enough data so we need to execute a new read
-			data = new byte[dataLength];
-			buf = ByteBuffer.wrap(data);
-			nioFile.read(buf, offset + 4L);
+				return Arrays.copyOfRange(data, 4, i);
 
-			return data;
+			} else {
+
+				// adjust the approximate average, but favour the actual dataLength since dataLength predictions misses
+				// are costly
+				dataLengthApproximateAverage = Math.max(0,
+						Math.min(200, (dataLengthApproximateAverage + dataLength) / 2));
+
+				// we didn't read enough data so we need to execute a new read
+				data = new byte[dataLength];
+				buf = ByteBuffer.wrap(data);
+				nioFile.read(buf, offset + 4L);
+
+				return data;
+			}
+		} catch (OutOfMemoryError e) {
+			if (dataLength > LARGE_READ_THRESHOLD) {
+				logger.error(
+						"Trying to read large amounts of data may be a sign of data corruption. Consider setting the system property org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes to true");
+			}
+			throw e;
 		}
 
+	}
+
+	/**
+	 * For very large reads, ensure there appears to be sufficient free heap to allocate the requested record. If soft
+	 * fail mode is enabled and insufficient memory is observed, returns a reduced cap to allow recovery; otherwise
+	 * throws an IOException with guidance for remediation.
+	 */
+	private int guardedDataLength(int requested) throws IOException {
+		if (requested <= 0) {
+			return requested;
+		}
+
+		// Soft-fail corruption cap remains in effect for oversized claims
+		if (requested > LARGE_READ_THRESHOLD && SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+			logger.error(
+					"Data length is {}MB which is larger than {}MB. This is likely data corruption. Truncating length to {} MB.",
+					requested / (1024 * 1024), LARGE_READ_THRESHOLD / (1024 * 1024),
+					SOFT_FAIL_CAP_BYTES / (1024 * 1024));
+			return SOFT_FAIL_CAP_BYTES;
+		}
+
+		if (requested <= LARGE_READ_THRESHOLD) {
+			return requested;
+		}
+
+		Runtime rt = Runtime.getRuntime();
+		for (int i = 0; i < 6; i++) { // initial check + up to 5 GC attempts
+			long free = getFreeMemory(rt);
+			if (free >= requested) {
+				return requested;
+			}
+			if (i < 5) {
+				System.gc();
+				try {
+					TimeUnit.MILLISECONDS.sleep(1);
+				} catch (InterruptedException ie) {
+					Thread.currentThread().interrupt();
+					break;
+				}
+			}
+		}
+
+		long free = getFreeMemory(rt);
+		if (SOFT_FAIL_ON_CORRUPT_DATA_AND_REPAIR_INDEXES) {
+			logger.error(
+					"Attempt to read {} MB but only {} MB free heap available. Truncating to {} MB due to soft-fail mode.",
+					requested / (1024 * 1024), free / (1024 * 1024), SOFT_FAIL_CAP_BYTES / (1024 * 1024));
+			return SOFT_FAIL_CAP_BYTES;
+		}
+		throw new IOException("Attempt to read " + (requested / (1024 * 1024)) + " MB but only "
+				+ (free / (1024 * 1024))
+				+ " MB free heap available. This may indicate corrupted data length. Consider enabling soft-fail mode via system property 'org.eclipse.rdf4j.sail.nativerdf.softFailOnCorruptDataAndRepairIndexes'=true to attempt recovery.");
+	}
+
+	@InternalUseOnly
+	public long getFreeMemory(Runtime rt) {
+		// this method is overridden in tests to simulate low-heap conditions
+		long allocated = rt.totalMemory() - rt.freeMemory();
+		return (rt.maxMemory() - allocated);
+	}
+
+	private static int getConfiguredLargeReadThreshold() {
+		int defaultThreshold = defaultLargeReadThreshold();
+		String configured = System.getProperty(LARGE_READ_THRESHOLD_PROPERTY);
+		if (configured == null || configured.isBlank()) {
+			logger.debug(
+					"Using default large read threshold of {} MB. To configure, set system property {} to a positive integer value in bytes.",
+					defaultThreshold / (1024 * 1024), LARGE_READ_THRESHOLD_PROPERTY);
+			return defaultThreshold;
+		}
+		try {
+			int parsed = Integer.parseInt(configured.trim());
+			if (parsed <= 0) {
+				logger.warn(
+						"Ignoring non-positive value {} for system property {}. Falling back to {} MB.",
+						configured, LARGE_READ_THRESHOLD_PROPERTY, defaultThreshold / (1024 * 1024));
+				return defaultThreshold;
+			}
+			return parsed;
+		} catch (NumberFormatException e) {
+			logger.warn(
+					"Ignoring non-numeric value {} for system property {}. Falling back to {} MB.",
+					configured, LARGE_READ_THRESHOLD_PROPERTY, defaultThreshold / (1024 * 1024));
+			return defaultThreshold;
+		}
+	}
+
+	private static int defaultLargeReadThreshold() {
+		long maxMemory = Runtime.getRuntime().maxMemory();
+		if (maxMemory <= 0) {
+			return FALLBACK_LARGE_READ_THRESHOLD;
+		}
+		long threshold = maxMemory / 16L;
+		if (threshold <= 0) {
+			return FALLBACK_LARGE_READ_THRESHOLD;
+		}
+		return Math.toIntExact(Math.min(threshold, Integer.MAX_VALUE));
 	}
 
 	/**
@@ -226,7 +384,7 @@ public class DataFile implements Closeable {
 	 *
 	 * @throws IOException If an I/O error occurred.
 	 */
-	public void clear() throws IOException {
+	synchronized public void clear() throws IOException {
 		nioFile.truncate(HEADER_LENGTH);
 		nioFileSize = HEADER_LENGTH;
 		buffer.clear();
@@ -235,7 +393,7 @@ public class DataFile implements Closeable {
 	/**
 	 * Syncs any unstored data to the hash file.
 	 */
-	public void sync() throws IOException {
+	synchronized public void sync() throws IOException {
 		flush();
 
 		if (forceSync) {
@@ -243,7 +401,7 @@ public class DataFile implements Closeable {
 		}
 	}
 
-	public void sync(boolean force) throws IOException {
+	synchronized public void sync(boolean force) throws IOException {
 		flush();
 
 		nioFile.force(force);
@@ -255,9 +413,9 @@ public class DataFile implements Closeable {
 	 * @throws IOException
 	 */
 	@Override
-	public void close() throws IOException {
+	synchronized public void close() throws IOException {
 		flush();
-
+		nioFile.force(true);
 		nioFile.close();
 	}
 
@@ -283,7 +441,7 @@ public class DataFile implements Closeable {
 
 		private long position = HEADER_LENGTH;
 
-		public boolean hasNext() throws IOException {
+		public boolean hasNext() {
 			return position < nioFileSize;
 		}
 

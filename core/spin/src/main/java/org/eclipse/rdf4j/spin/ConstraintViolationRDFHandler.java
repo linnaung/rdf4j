@@ -1,23 +1,26 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.spin;
 
+import org.eclipse.rdf4j.model.IRI;
 import org.eclipse.rdf4j.model.Literal;
 import org.eclipse.rdf4j.model.Resource;
 import org.eclipse.rdf4j.model.Statement;
-import org.eclipse.rdf4j.model.URI;
 import org.eclipse.rdf4j.model.Value;
 import org.eclipse.rdf4j.model.vocabulary.RDFS;
 import org.eclipse.rdf4j.model.vocabulary.SPIN;
 import org.eclipse.rdf4j.rio.RDFHandlerException;
-import org.eclipse.rdf4j.rio.helpers.RDFHandlerBase;
+import org.eclipse.rdf4j.rio.helpers.AbstractRDFHandler;
 
-public class ConstraintViolationRDFHandler extends RDFHandlerBase {
+public class ConstraintViolationRDFHandler extends AbstractRDFHandler {
 
 	private boolean hasStatements;
 
@@ -51,7 +54,7 @@ public class ConstraintViolationRDFHandler extends RDFHandlerBase {
 	@Override
 	public void handleStatement(Statement st) throws RDFHandlerException {
 		hasStatements = true;
-		URI pred = st.getPredicate();
+		IRI pred = st.getPredicate();
 		if (RDFS.LABEL.equals(pred)) {
 			Value labelValue = st.getObject();
 			label = (labelValue instanceof Literal) ? labelValue.stringValue() : null;
@@ -66,8 +69,8 @@ public class ConstraintViolationRDFHandler extends RDFHandlerBase {
 			value = (valueValue != null) ? valueValue.stringValue() : null;
 		} else if (SPIN.VIOLATION_LEVEL_PROPERTY.equals(pred)) {
 			Value levelValue = st.getObject();
-			if (levelValue instanceof URI) {
-				level = ConstraintViolationLevel.valueOf((URI) levelValue);
+			if (levelValue instanceof IRI) {
+				level = ConstraintViolationLevel.valueOf((IRI) levelValue);
 			}
 			if (level == null) {
 				throw new RDFHandlerException("Invalid value " + levelValue + " for " + SPIN.VIOLATION_LEVEL_PROPERTY

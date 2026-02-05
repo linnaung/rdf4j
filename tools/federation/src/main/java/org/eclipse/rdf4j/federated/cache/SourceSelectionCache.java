@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.cache;
 
@@ -18,7 +21,7 @@ import org.eclipse.rdf4j.federated.structures.SubQuery;
  */
 public interface SourceSelectionCache {
 
-	public static enum StatementSourceAssurance {
+	enum StatementSourceAssurance {
 		/**
 		 * The endpoint does <b>not</b> provide any information
 		 */
@@ -31,7 +34,7 @@ public interface SourceSelectionCache {
 		 * No local information available: a remote check needs to be performed to check if a data source can provide
 		 * statements
 		 */
-		POSSIBLY_HAS_STATEMENTS;
+		POSSIBLY_HAS_STATEMENTS
 	}
 
 	/**
@@ -49,7 +52,7 @@ public interface SourceSelectionCache {
 	 * @param endpoint
 	 * @return the {@link StatementSourceAssurance}
 	 */
-	public StatementSourceAssurance getAssurance(SubQuery subQuery, Endpoint endpoint);
+	StatementSourceAssurance getAssurance(SubQuery subQuery, Endpoint endpoint);
 
 	/**
 	 * Update the information for a given {@link SubQuery} and {@link Endpoint}.
@@ -62,5 +65,11 @@ public interface SourceSelectionCache {
 	 * @param endpoint
 	 * @param hasStatements
 	 */
-	public void updateInformation(SubQuery subQuery, Endpoint endpoint, boolean hasStatements);
+	void updateInformation(SubQuery subQuery, Endpoint endpoint, boolean hasStatements);
+
+	/**
+	 * Invalidate the underlying cache
+	 */
+	void invalidate();
+
 }

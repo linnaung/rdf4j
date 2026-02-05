@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.model.impl;
 
@@ -494,9 +497,9 @@ public class TreeModel extends AbstractModel implements SortedSet<Statement> {
 
 	private class ModelIterator implements Iterator<Statement> {
 
-		private Iterator<Statement> iter;
+		private final Iterator<Statement> iter;
 
-		private TreeSet<Statement> owner;
+		private final TreeSet<Statement> owner;
 
 		private Statement last;
 
@@ -537,7 +540,7 @@ public class TreeModel extends AbstractModel implements SortedSet<Statement> {
 		}
 	}
 
-	static class TreeStatement extends ContextStatement {
+	static class TreeStatement extends GenericStatement<Resource, IRI, Value> {
 
 		private static final long serialVersionUID = -7720419322256724495L;
 

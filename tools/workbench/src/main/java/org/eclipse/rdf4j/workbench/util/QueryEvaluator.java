@@ -1,20 +1,22 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.workbench.util;
 
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
 import javax.servlet.http.HttpServletResponse;
 
-import org.eclipse.rdf4j.RDF4JException;
+import org.eclipse.rdf4j.common.exception.RDF4JException;
 import org.eclipse.rdf4j.common.iteration.Iterations;
 import org.eclipse.rdf4j.model.Statement;
 import org.eclipse.rdf4j.query.BindingSet;
@@ -124,7 +126,7 @@ public final class QueryEvaluator {
 		builder.transform(xslPath, "tuple.xsl");
 		builder.start();
 		builder.variables(names);
-		builder.link(Arrays.asList(INFO));
+		builder.link(List.of(INFO));
 		final List<Object> values = new ArrayList<>(names.length);
 		if (paged && writeCookie) {
 			// Only in this case do we have paged results, but were given the full
@@ -162,7 +164,7 @@ public final class QueryEvaluator {
 		try (TupleQueryResult result = query.evaluate()) {
 			final String[] names = result.getBindingNames().toArray(new String[0]);
 			builder.variables(names);
-			builder.link(Arrays.asList(INFO));
+			builder.link(List.of(INFO));
 			final List<Object> values = new ArrayList<>();
 			while (result.hasNext()) {
 				final BindingSet set = result.next();
@@ -194,7 +196,7 @@ public final class QueryEvaluator {
 		builder.transform(xslPath, "graph.xsl");
 		builder.start();
 		builder.variables("subject", "predicate", "object");
-		builder.link(Arrays.asList(INFO));
+		builder.link(List.of(INFO));
 		if (paged && writeCookie) {
 			// Only in this case do we have paged results, but were given the full
 			// query. Just-in-case parameter massaging below to avoid array index
@@ -218,7 +220,7 @@ public final class QueryEvaluator {
 	private void evaluateBooleanQuery(final TupleResultBuilder builder, final BooleanQuery query)
 			throws QueryEvaluationException, QueryResultHandlerException {
 		final boolean result = query.evaluate();
-		builder.link(Arrays.asList(INFO));
+		builder.link(List.of(INFO));
 		builder.bool(result);
 	}
 

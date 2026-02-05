@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2020 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.rio.hdt;
 
@@ -16,14 +19,14 @@ import org.eclipse.rdf4j.common.io.UncloseableInputStream;
 
 /**
  * HDT Global Part.
- *
+ * <p>
  * This part starts with <code>$HDT</code>, followed by a byte indicating the type of the part, the NULL-terminated URI
  * string for the format, and optionally one or more <code>key=value;</code> properties.
- *
+ * <p>
  * These properties may include a base URI, and the name of the software that produced the HDT file.
- *
+ * <p>
  * Then a <code>NULL</code> byte, followed by the 16-bit CRC (<code>$HDT</code> and <code>NULL</code> included)
- *
+ * <p>
  * Structure:
  *
  * <pre>
@@ -35,12 +38,12 @@ import org.eclipse.rdf4j.common.io.UncloseableInputStream;
  * @author Bart Hanssens
  */
 class HDTGlobal extends HDTPart {
-	protected final static byte[] GLOBAL_FORMAT = "<http://purl.org/HDT/hdt#HDTv1>".getBytes(StandardCharsets.US_ASCII);
-	protected final static String GLOBAL_BASEURI = "BaseUri";
-	protected final static String GLOBAL_SOFTWARE = "Software";
+	final static byte[] GLOBAL_FORMAT = "<http://purl.org/HDT/hdt#HDTv1>".getBytes(StandardCharsets.US_ASCII);
+	final static String GLOBAL_BASEURI = "BaseUri";
+	final static String GLOBAL_SOFTWARE = "Software";
 
 	@Override
-	protected void parse(InputStream is) throws IOException {
+	void parse(InputStream is) throws IOException {
 		// don't close CheckedInputStream, as it will close the underlying inputstream
 		try (UncloseableInputStream uis = new UncloseableInputStream(is);
 				CheckedInputStream cis = new CheckedInputStream(uis, new CRC16())) {

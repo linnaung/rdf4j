@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2019 Eclipse RDF4J contributors.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.federated.evaluation.join;
 
@@ -33,7 +36,7 @@ public class SynchronousBoundJoin extends SynchronousJoin {
 	private static final Logger log = LoggerFactory.getLogger(SynchronousBoundJoin.class);
 
 	public SynchronousBoundJoin(FederationEvalStrategy strategy,
-			CloseableIteration<BindingSet, QueryEvaluationException> leftIter,
+			CloseableIteration<BindingSet> leftIter,
 			TupleExpr rightArg, BindingSet bindings, QueryInfo queryInfo)
 			throws QueryEvaluationException {
 		super(strategy, leftIter, rightArg, bindings, queryInfo);
@@ -59,19 +62,19 @@ public class SynchronousBoundJoin extends SynchronousJoin {
 		// first item is always sent in a non-bound way
 
 		boolean hasFreeVars = true;
-		if (!closed && leftIter.hasNext()) {
+		if (!isClosed() && leftIter.hasNext()) {
 			BindingSet b = leftIter.next();
 			totalBindings++;
 			hasFreeVars = stmt.hasFreeVarsFor(b);
 			if (!hasFreeVars) {
 				stmt = new CheckStatementPattern(stmt, queryInfo);
 			}
-			rightQueue.put(strategy.evaluate(stmt, b));
+			addResult(strategy.evaluate(stmt, b));
 		}
 
 		int nBindings;
-		List<BindingSet> bindings = null;
-		while (!closed && leftIter.hasNext()) {
+		List<BindingSet> bindings;
+		while (!isClosed() && leftIter.hasNext()) {
 
 			/*
 			 * XXX idea:
@@ -91,13 +94,14 @@ public class SynchronousBoundJoin extends SynchronousJoin {
 			bindings = new ArrayList<>(nBindings);
 
 			int count = 0;
-			while (count < nBindings && leftIter.hasNext()) {
+			while (!isClosed() && count < nBindings && leftIter.hasNext()) {
 				bindings.add(leftIter.next());
 				count++;
 			}
 
 			totalBindings += count;
-
+			if (isClosed())
+				return;
 			if (hasFreeVars) {
 				addResult(strategy.evaluateBoundJoinStatementPattern(stmt, bindings));
 			} else {

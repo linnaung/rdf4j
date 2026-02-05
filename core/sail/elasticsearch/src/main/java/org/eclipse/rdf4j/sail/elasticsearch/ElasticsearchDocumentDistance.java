@@ -1,9 +1,12 @@
 /*******************************************************************************
  * Copyright (c) 2015 Eclipse RDF4J contributors, Aduna, and others.
+ *
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Distribution License v1.0
  * which accompanies this distribution, and is available at
  * http://www.eclipse.org/org/documents/edl-v10.php.
+ *
+ * SPDX-License-Identifier: BSD-3-Clause
  *******************************************************************************/
 package org.eclipse.rdf4j.sail.elasticsearch;
 
@@ -19,6 +22,11 @@ import org.locationtech.spatial4j.distance.DistanceUtils;
 
 import com.google.common.base.Function;
 
+/**
+ * @deprecated Deprecated in preparation for an Elasticsearch client upgrade; this API will change or be removed in a
+ *             future release.
+ */
+@Deprecated(since = "5.3.0", forRemoval = true)
 public class ElasticsearchDocumentDistance extends ElasticsearchDocumentResult implements DocumentDistance {
 
 	private final String geoPointField;
